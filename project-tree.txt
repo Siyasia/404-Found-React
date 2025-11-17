@@ -1,0 +1,31 @@
+[ 416]  .
+├── [ 253]  .gitignore
+├── [ 758]  eslint.config.js
+├── [ 364]  index.html
+├── [ 98K]  package-lock.json
+├── [ 645]  package.json
+├── [   0]  project-tree.txt
+├── [  96]  public
+│   └── [1.5K]  vite.svg
+├── [1.1K]  README.md
+├── [ 320]  src
+│   ├── [ 606]  App.css
+│   ├── [ 991]  App.jsx
+│   ├── [  96]  assets
+│   │   └── [4.0K]  react.svg
+│   ├── [ 128]  auth
+│   │   ├── [   0]  Login.jsx
+│   │   └── [   0]  Signup.jsx
+│   ├── [  96]  components
+│   │   └── [2.7K]  Layout.jsx
+│   ├── [1.1K]  index.css
+│   ├── [ 229]  main.jsx
+│   └── [ 224]  pages
+│       ├── [   0]  About.jsx
+│       ├── [ 861]  BreakHabit.jsx
+│       ├── [ 757]  BuildHabit.jsx
+│       ├── [   0]  Features.jsx
+│       └── [   0]  Home.jsx
+└── [ 161]  vite.config.js
+
+7 directories, 22 files
