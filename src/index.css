@@ -1,68 +1,339 @@
+/* ===========================
+   Next Steps – Global Styles
+   =========================== */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --blue-deep: #2c59bb;   /* header / footer */
+  --blue-bg:   #1B3E56;   /* page background */
+  --blue-700:  #204B6E;   /* primary buttons */
+  --blue-800:  #173A53;
+  --text:      #F5F7FA;
+  --muted:     #D0D7E2;
+  --white:     #ffffff;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+* {
+  box-sizing: border-box;
 }
-a:hover {
-  color: #535bf2;
+
+html,
+body {
+  height: 100%;
 }
 
 body {
   margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--blue-bg);
+  color: var(--text);
   display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  flex-direction: column;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Basic typography */
+
+h1, h2, h3 {
+  margin: 0 0 .5rem;
+  font-weight: 700;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+p {
+  margin: .25rem 0;
+  line-height: 1.6;
+}
+
+.sub {
+  color: var(--muted);
+}
+
+/* Allow using <p class="sub hero"> */
+.sub.hero {
+  font-size: 1.05rem;
+}
+
+/* Links */
+
+a {
+  color: inherit;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ===========================
+   Layout & Header
+   =========================== */
+
+.site-header {
+  background: var(--blue-deep);
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.header-inner {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Brand */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  text-decoration: none;
+  color: var(--white);
+  font-weight: 700;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+
+.brand-text {
+  letter-spacing: .2px;
+}
+
+/* Nav */
+
+.nav {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.nav-link {
+  color: var(--muted);
+  text-decoration: none;
+  padding: .4rem .6rem;
+  border-radius: .5rem;
+  transition: background .2s, color .2s;
+  font-size: .9rem;
+}
+
+.nav-link:hover,
+.nav-link:focus {
+  color: var(--white);
+  background: rgba(255, 255, 255, .06);
+}
+
+/* React Router active nav link */
+.nav-link-active {
+  color: var(--white);
+  background: rgba(255, 255, 255, .12);
+}
+
+/* Main */
+
+.site-main {
+  flex: 1;
+  padding: 2rem 0 3rem;
+}
+
+/* ===========================
+   Hero / Cards / Sections
+   =========================== */
+
+.hero .sub {
+  color: var(--muted);
+}
+
+.hero .cta {
+  display: flex;
+  gap: .75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Cards / basic sections */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.card {
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+/* Features grid (placeholder page) */
+
+.features .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.feature {
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+/* ===========================
+   Buttons
+   =========================== */
+
+.btn {
+  border: 0;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  padding: .6rem .9rem;
+  border-radius: .6rem;
+  font-weight: 600;
+  font-size: .9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.btn-primary {
+  background: var(--blue-700);
+  color: var(--white);
 }
+
+.btn-primary:hover {
+  background: var(--blue-800);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--white);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, .06);
+}
+
+/* ===========================
+   Footer
+   =========================== */
+
+.site-footer {
+  border-top: 1px solid rgba(255, 255, 255, .06);
+  padding: 1rem 0;
+  background: var(--blue-deep);
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.footer-link {
+  color: var(--muted);
+  text-decoration: none;
+  margin-left: .75rem;
+  font-size: .85rem;
+}
+
+.footer-link:hover {
+  color: var(--white);
+}
+
+/* ===========================
+   Forms (auth-label etc.)
+   =========================== */
+
+.auth-label {
+  display: block;
+  font-size: .9rem;
+  margin: .5rem 0;
+}
+
+.auth-label input,
+.auth-label select,
+.auth-label textarea {
+  width: 100%;
+  max-width: 320px;
+  margin-top: .35rem;
+  padding: .6rem .7rem;
+  border-radius: .6rem;
+  border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(255, 255, 255, .1);
+  color: inherit;
+  font: inherit;
+}
+
+.auth-label input::placeholder {
+  color: rgba(208, 215, 226, .7);
+}
+
+.auth-label option {
+  color: black;
+}
+
+/* ===========================
+   (Optional) Modal + Whoami
+   =========================== */
+
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, .5);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+}
+
+.auth-dialog {
+  width: min(420px, 92vw);
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.auth-close {
+  float: right;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: .2rem .4rem;
+  border-radius: .4rem;
+}
+
+.auth-close:hover {
+  background: rgba(255, 255, 255, .08);
+}
+
+.auth-modal[hidden] {
+  display: none !important;
+}
+
+/* This is for when you eventually show "Welcome back, X" in the header */
+.whoami {
+  margin-right: .5rem;
+  opacity: .85;
+  font-weight: 600;
+}
+
+.whoami:empty {
+  display: none;
+}
+

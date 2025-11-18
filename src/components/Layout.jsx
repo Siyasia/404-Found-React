@@ -36,12 +36,6 @@ export default function Layout({ children }) {
             <NavLink to="/break-habit" className={navLinkClass}>
               Break a Habit
             </NavLink>
-            <NavLink to="/login" className={navLinkClass}>
-              Log In
-            </NavLink>
-            <NavLink to="/signup" className={navLinkClass}>
-              Sign Up
-            </NavLink>
           </nav>
         </div>
       </header>
