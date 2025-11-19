@@ -8,16 +8,24 @@ import About from './pages/About.jsx';
 import BuildHabit from './pages/BuildHabit.jsx';
 import BreakHabit from './pages/BreakHabit.jsx';
 
+import Login from './auth/Login.jsx';
+
 export default function App() {
   return (
     <Layout>
       <Routes>
+        {/* First screen */}
+        <Route path="/" element={<Login />} />
+
+        {/* Main app */}
         <Route path="/" element={<Home />} />
         <Route path="/features" element={<Features />} />
         <Route path="/about" element={<About />} />
         <Route path="/build-habit" element={<BuildHabit />} />
         <Route path="/break-habit" element={<BreakHabit />} />
         <Route path="*" element={<Home />} />
+
+
       </Routes>
     </Layout>
   );

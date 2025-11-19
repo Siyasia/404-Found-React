@@ -11,17 +11,12 @@ export default function Layout({ children }) {
     <>
       <header className="site-header">
         <div className="container header-inner">
-          <Link to="/" className="brand">
-            <img
-              src="/assets/images/ns-logo-128.png"
-              alt="Next Steps logo"
-              className="brand-logo"
-            />
+          <Link to="/home" className="brand">
             <span className="brand-text">Next Steps</span>
           </Link>
 
           <nav className="nav">
-            <NavLink to="/" className={navLinkClass} end>
+            <NavLink to="/home" className={navLinkClass}>
               Home
             </NavLink>
             <NavLink to="/features" className={navLinkClass}>
@@ -41,12 +36,6 @@ export default function Layout({ children }) {
       </header>
 
       <main className="site-main">{children}</main>
-
-      <footer className="site-footer">
-        <div className="container footer-inner">
-          <small>© {year} Next Steps</small>
-        </div>
-      </footer>
     </>
   );
 }
