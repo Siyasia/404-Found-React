@@ -533,21 +533,36 @@ li {
 }
 
 /* ===========================
-   Responsive
+   Responsive & Dynamic
    =========================== */
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 1.25rem;
+  }
+
   h1 {
-    font-size: 1.875rem;
+    font-size: 2rem;
   }
 
   h2 {
     font-size: 1.5rem;
   }
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.375rem;
+  }
 
   .header-inner {
     height: 64px;
     gap: 1rem;
+    padding: 0 1rem;
   }
 
   .container {
@@ -555,25 +570,130 @@ li {
   }
 
   .card {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .btn {
-    padding: 0.625rem 1rem;
-    font-size: 0.875rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+    min-width: auto;
+    flex-shrink: 0;
   }
 
   .nav {
-    display: none;
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
   }
 
   .auth-dialog {
-    width: min(90vw, 360px);
+    width: min(90vw, 380px);
     padding: 1.5rem;
   }
 
   .site-main {
     padding: 1.5rem 0;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-inner {
+    height: 60px;
+    gap: 0.5rem;
+  }
+
+  .brand-text {
+    display: none;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  h3 {
+    font-size: 1.125rem;
+  }
+
+  p, .sub {
+    font-size: 0.95rem;
+  }
+
+  .container {
+    padding: 0 0.75rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .btn {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.85rem;
+    min-width: fit-content;
+  }
+
+  .nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  .nav-link {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .nav-link-active {
+    white-space: nowrap;
+  }
+
+  .auth-dialog {
+    width: min(95vw, 320px);
+    padding: 1.25rem;
+  }
+
+  .site-main {
+    padding: 1rem 0;
+  }
+
+  .hero .cta {
+    gap: 0.75rem;
+    flex-direction: column;
+  }
+
+  .hero .cta .btn {
+    width: 100%;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .footer-link {
+    margin-left: 0;
   }
 }
 
