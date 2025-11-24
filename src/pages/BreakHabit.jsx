@@ -1,8 +1,32 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useUser } from '../UserContext.jsx';
+import { canCreateOwnTasks } from '../roles.js';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
 
 export default function BreakHabit() {
+  const { user } = useUser();
+  const canCreate = user && canCreateOwnTasks(user);
+
+  // === Guard: block children / non-creator roles ===
+  if (!canCreate) {
+    return (
+      <section className="container">
+        <h1>Break a Habit</h1>
+        <p className="sub hero">
+          This page is for users and parents to design habit break plans.
+          Child accounts can&apos;t create their own plans and will only see
+          tasks assigned by a parent.
+        </p>
+        <p>
+          Go back to the <Link to="/home">home page</Link> to see your tasks.
+        </p>
+      </section>
+    );
+  }
+
+  // === Normal Break-a-Habit wizard state ===
   const [step, setStep] = useState(1);
   const [habit, setHabit] = useState('');
   const [replacements, setReplacements] = useState([]);
@@ -17,29 +41,16 @@ export default function BreakHabit() {
       try {
         const parsed = JSON.parse(stored);
         setSavedPlan(parsed);
-      } catch (err) {
-        console.error('Failed to parse saved break plan', err);
+        setHabit(parsed.habit || '');
+        setReplacements(parsed.replacements || []);
+        setMicroSteps(parsed.microSteps || []);
+      } catch {
+        // ignore bad JSON
       }
     }
   }, []);
 
-  const startNewPlan = () => {
-    if (savedPlan) {
-      setHabit(savedPlan.habit || '');
-      setReplacements(savedPlan.replacements || []);
-      setMicroSteps(savedPlan.microSteps || []);
-    } else {
-      setHabit('');
-      setReplacements([]);
-      setMicroSteps([]);
-    }
-    setNewReplacement('');
-    setNewMicroStep('');
-    setStep(1);
-  };
-
-  const handleAddReplacement = (e) => {
-    e.preventDefault();
+  const handleAddReplacement = () => {
     const trimmed = newReplacement.trim();
     if (!trimmed) return;
     setReplacements((prev) => [...prev, trimmed]);
@@ -50,8 +61,7 @@ export default function BreakHabit() {
     setReplacements((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddMicroStep = (e) => {
-    e.preventDefault();
+  const handleAddMicroStep = () => {
     const trimmed = newMicroStep.trim();
     if (!trimmed) return;
     setMicroSteps((prev) => [...prev, trimmed]);
@@ -73,259 +83,191 @@ export default function BreakHabit() {
     setSavedPlan(plan);
   };
 
-  const progressPercent = (step / 3) * 100;
+  const totalSteps = 3;
+  const progress = (step / totalSteps) * 100;
 
   return (
     <section className="container">
       <h1>Break a Habit</h1>
       <p className="sub hero">
-        Choose a habit to beat, pick healthy replacements, and map out tiny
-        steps.
+        Choose a habit to break, decide what you&apos;ll do instead, and plan tiny steps for change.
       </p>
-
-      {savedPlan && (
-        <div
-          className="card"
-          style={{ maxWidth: '780px', marginTop: '1.25rem' }}
-        >
-          <h2>Current break-habit plan</h2>
-          <p>
-            <strong>Habit to break:</strong> {savedPlan.habit}
-          </p>
-
-          {savedPlan.replacements && savedPlan.replacements.length > 0 && (
-            <>
-              <strong>Replacement ideas:</strong>
-              <ul>
-                {savedPlan.replacements.map((r, idx) => (
-                  <li key={idx}>{r}</li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          {savedPlan.microSteps && savedPlan.microSteps.length > 0 && (
-            <>
-              <strong>Tiny steps:</strong>
-              <ol>
-                {savedPlan.microSteps.map((m, idx) => (
-                  <li key={idx}>{m}</li>
-                ))}
-              </ol>
-            </>
-          )}
-
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={startNewPlan}
-          >
-            Edit this plan
-          </button>
-        </div>
-      )}
 
       <div
         className="card"
-        style={{ maxWidth: '780px', marginTop: '1.25rem' }}
+        style={{ marginTop: '1.5rem', maxWidth: '780px' }}
       >
         {/* Progress bar */}
-        <div
-          style={{
-            height: '6px',
-            background: 'rgba(255,255,255,0.12)',
-            borderRadius: '999px',
-            overflow: 'hidden',
-            marginBottom: '1.25rem',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${progressPercent}%`,
-              background: 'linear-gradient(90deg, #f97316, #ef4444)',
-              transition: 'width 0.25s ease-out',
-            }}
-          />
+        <div className="progress" aria-hidden="true">
+          <div className="progress-bar" style={{ width: `${progress}%` }} />
         </div>
+        <p className="progress-label">
+          Step {step} of {totalSteps}
+        </p>
 
-        {/* Step 1 */}
+        {/* Step 1: Habit to break */}
         {step === 1 && (
           <>
-            <h2>Step 1 of 3 — Name the habit to break</h2>
+            <h2>Step 1: Name the habit</h2>
             <p className="sub">
-              Keep it simple and specific. One habit at a time.
+              Describe the habit you want to break as clearly as you can.
             </p>
+
             <label className="auth-label">
-              Habit
+              Habit to break
               <input
                 type="text"
-                placeholder="Example: Scrolling on phone in bed"
                 value={habit}
                 onChange={(e) => setHabit(e.target.value)}
+                placeholder="Example: Scrolling on my phone late at night"
               />
             </label>
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.5rem' }}>
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => setStep(2)}
                 disabled={!habit.trim()}
               >
-                Next
+                Next: Choose replacements
               </button>
             </div>
           </>
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: Replacements */}
         {step === 2 && (
           <>
-            <h2>Step 2 of 3 — Replacement ideas</h2>
+            <h2>Step 2: Choose replacements</h2>
             <p className="sub">
-              What could you do instead when the urge shows up?
+              What could you do instead of this habit? Aim for 2–4 realistic replacements.
             </p>
 
-            <form
-              onSubmit={handleAddReplacement}
-              style={{ marginTop: '0.75rem' }}
-            >
-              <label className="auth-label">
-                New replacement
-                <input
-                  type="text"
-                  placeholder="Example: Read a book, stretch, drink water"
-                  value={newReplacement}
-                  onChange={(e) => setNewReplacement(e.target.value)}
-                />
-              </label>
+            <div className="stacked-input">
+              <input
+                type="text"
+                value={newReplacement}
+                onChange={(e) => setNewReplacement(e.target.value)}
+                placeholder="Example: Read a book in bed"
+              />
               <button
-                type="submit"
+                type="button"
                 className="btn btn-primary"
-                style={{ marginTop: '.5rem' }}
+                onClick={handleAddReplacement}
               >
                 Add replacement
               </button>
-            </form>
+            </div>
 
             {replacements.length > 0 && (
-              <div style={{ marginTop: '1rem' }}>
-                <strong>Replacements so far:</strong>
-                <ul>
-                  {replacements.map((r, idx) => (
-                    <li
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: '.5rem',
-                        alignItems: 'center',
-                        marginTop: '.25rem',
-                      }}
+              <ul style={{ marginTop: '1rem' }}>
+                {replacements.map((item, idx) => (
+                  <li
+                    key={`${item}-${idx}`}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <span>{item}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => handleRemoveReplacement(idx)}
                     >
-                      <span>{r}</span>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => handleRemoveReplacement(idx)}
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.5rem' }}>
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
               <button
                 type="button"
-                className="btn"
+                className="btn btn-ghost"
                 onClick={() => setStep(1)}
               >
                 Back
               </button>
+
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => setStep(3)}
                 disabled={replacements.length === 0}
               >
-                Next
+                Next: Plan tiny steps
               </button>
             </div>
           </>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3: Micro-steps */}
         {step === 3 && (
           <>
-            <h2>Step 3 of 3 — Tiny steps to win</h2>
+            <h2>Step 3: Plan tiny steps</h2>
             <p className="sub">
-              Define small, concrete actions you can actually do when the habit
-              tries to show up.
+              Break this change into tiny, specific actions you can actually do.
             </p>
 
-            <form
-              onSubmit={handleAddMicroStep}
-              style={{ marginTop: '0.75rem' }}
-            >
-              <label className="auth-label">
-                New tiny step
-                <input
-                  type="text"
-                  placeholder="Example: Put phone in the kitchen at 9pm"
-                  value={newMicroStep}
-                  onChange={(e) => setNewMicroStep(e.target.value)}
-                />
-              </label>
+            <div className="stacked-input">
+              <input
+                type="text"
+                value={newMicroStep}
+                onChange={(e) => setNewMicroStep(e.target.value)}
+                placeholder="Example: Plug my phone in across the room at 9pm"
+              />
               <button
-                type="submit"
+                type="button"
                 className="btn btn-primary"
-                style={{ marginTop: '.5rem' }}
+                onClick={handleAddMicroStep}
               >
                 Add step
               </button>
-            </form>
+            </div>
 
             {microSteps.length > 0 && (
-              <div style={{ marginTop: '1rem' }}>
-                <strong>Tiny steps:</strong>
-                <ol>
-                  {microSteps.map((m, idx) => (
-                    <li
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: '.5rem',
-                        alignItems: 'center',
-                        marginTop: '.25rem',
-                      }}
+              <ol style={{ marginTop: '1rem' }}>
+                {microSteps.map((item, idx) => (
+                  <li
+                    key={`${item}-${idx}`}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <span>{item}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => handleRemoveMicroStep(idx)}
                     >
-                      <span>{m}</span>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => handleRemoveMicroStep(idx)}
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ol>
             )}
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.5rem' }}>
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
               <button
                 type="button"
-                className="btn"
+                className="btn btn-ghost"
                 onClick={() => setStep(2)}
               >
                 Back
               </button>
+
               <button
                 type="button"
                 className="btn btn-primary"
@@ -342,6 +284,40 @@ export default function BreakHabit() {
           </>
         )}
       </div>
+
+      {savedPlan && (
+        <div
+          className="card"
+          style={{ marginTop: '1.5rem', maxWidth: '780px' }}
+        >
+          <h2>Your saved plan</h2>
+          <p>
+            <strong>Habit to break:</strong> {savedPlan.habit}
+          </p>
+
+          {savedPlan.replacements?.length > 0 && (
+            <>
+              <p className="sub">Replacements:</p>
+              <ul>
+                {savedPlan.replacements.map((item, idx) => (
+                  <li key={`${item}-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {savedPlan.microSteps?.length > 0 && (
+            <>
+              <p className="sub">Tiny steps:</p>
+              <ol>
+                {savedPlan.microSteps.map((item, idx) => (
+                  <li key={`${item}-${idx}`}>{item}</li>
+                ))}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

@@ -1,44 +1,55 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useUser } from '../UserContext.jsx';
+import { canCreateOwnTasks } from '../roles.js';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
 
 export default function BuildHabit() {
+  const { user } = useUser();
+  const canCreate = user && canCreateOwnTasks(user);
+
+  // === Guard: block children / non-creator roles ===
+  if (!canCreate) {
+    return (
+      <section className="container">
+        <h1>Build a Habit</h1>
+        <p className="sub hero">
+          This page is for users and parents to design habit plans.
+          Child accounts can&apos;t create their own habits and will
+          only see tasks assigned by a parent.
+        </p>
+        <p>
+          Go back to the <Link to="/home">home page</Link> to see your tasks.
+        </p>
+      </section>
+    );
+  }
+
+  // === Normal Build-a-Habit wizard state ===
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState('');
+  const [cue, setCue] = useState('');
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
-  const [reward, setReward] = useState('');
   const [savedPlan, setSavedPlan] = useState(null);
 
-  // Load existing plan (if any)
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         setSavedPlan(parsed);
-      } catch (err) {
-        console.error('Failed to parse saved build plan', err);
+        setGoal(parsed.goal || '');
+        setCue(parsed.cue || '');
+        setSteps(parsed.steps || []);
+      } catch {
+        // ignore bad JSON
       }
     }
   }, []);
 
-  const startNewPlan = () => {
-    if (savedPlan) {
-      setGoal(savedPlan.goal || '');
-      setSteps(savedPlan.steps || []);
-      setReward(savedPlan.reward || '');
-    } else {
-      setGoal('');
-      setSteps([]);
-      setReward('');
-    }
-    setNewStep('');
-    setStep(1);
-  };
-
-  const handleAddStep = (e) => {
-    e.preventDefault();
+  const handleAddStep = () => {
     const trimmed = newStep.trim();
     if (!trimmed) return;
     setSteps((prev) => [...prev, trimmed]);
@@ -52,217 +63,182 @@ export default function BuildHabit() {
   const handleSave = () => {
     const plan = {
       goal: goal.trim(),
+      cue: cue.trim(),
       steps,
-      reward: reward.trim(),
       savedOn: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
     setSavedPlan(plan);
   };
 
-  const progressPercent = (step / 3) * 100;
+  const totalSteps = 3;
+  const progress = (step / totalSteps) * 100;
 
   return (
     <section className="container">
       <h1>Build a Habit</h1>
       <p className="sub hero">
-        Pick one goal, add tiny steps, and decide how you’ll celebrate.
+        Choose a small habit, anchor it to something you already do, and plan tiny steps that make it easy.
       </p>
-
-      {savedPlan && (
-        <div
-          className="card"
-          style={{ maxWidth: '780px', marginTop: '1.25rem' }}
-        >
-          <h2>Current habit plan</h2>
-          <p>
-            <strong>Goal:</strong> {savedPlan.goal}
-          </p>
-          {savedPlan.steps && savedPlan.steps.length > 0 && (
-            <>
-              <strong>Steps:</strong>
-              <ol>
-                {savedPlan.steps.map((s, idx) => (
-                  <li key={idx}>{s}</li>
-                ))}
-              </ol>
-            </>
-          )}
-          {savedPlan.reward && (
-            <p>
-              <strong>Reward:</strong> {savedPlan.reward}
-            </p>
-          )}
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={startNewPlan}
-          >
-            Edit this plan
-          </button>
-        </div>
-      )}
 
       <div
         className="card"
-        style={{ maxWidth: '780px', marginTop: '1.25rem' }}
+        style={{ marginTop: '1.5rem', maxWidth: '780px' }}
       >
         {/* Progress bar */}
-        <div
-          style={{
-            height: '6px',
-            background: 'rgba(255,255,255,0.12)',
-            borderRadius: '999px',
-            overflow: 'hidden',
-            marginBottom: '1.25rem',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${progressPercent}%`,
-              background: 'linear-gradient(90deg, #38bdf8, #4ade80)',
-              transition: 'width 0.25s ease-out',
-            }}
-          />
+        <div className="progress" aria-hidden="true">
+          <div className="progress-bar" style={{ width: `${progress}%` }} />
         </div>
+        <p className="progress-label">
+          Step {step} of {totalSteps}
+        </p>
 
-        {/* Step 1 */}
+        {/* Step 1: Name the habit */}
         {step === 1 && (
           <>
-            <h2>Step 1 of 3 — Name the habit</h2>
+            <h2>Step 1: Name the habit</h2>
             <p className="sub">
-              Choose one clear, specific habit to build.
+              Describe the habit you want to build in one clear sentence.
             </p>
+
             <label className="auth-label">
-              Habit / goal
+              Habit goal
               <input
                 type="text"
-                placeholder="Example: Read 10 minutes before bed"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
+                placeholder="Example: Read for 10 minutes every night"
               />
             </label>
 
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.5rem' }}>
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => setStep(2)}
                 disabled={!goal.trim()}
               >
-                Next
+                Next: Choose a cue
               </button>
             </div>
           </>
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: Choose a cue/anchor */}
         {step === 2 && (
           <>
-            <h2>Step 2 of 3 — Add tiny steps</h2>
+            <h2>Step 2: Choose a cue</h2>
             <p className="sub">
-              Break the habit into tiny, doable actions.
+              Pick something you already do every day that will remind you to start this habit.
             </p>
 
-            <form onSubmit={handleAddStep} style={{ marginTop: '0.75rem' }}>
-              <label className="auth-label">
-                New step
-                <input
-                  type="text"
-                  placeholder="Example: Put book on pillow after dinner"
-                  value={newStep}
-                  onChange={(e) => setNewStep(e.target.value)}
-                />
-              </label>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ marginTop: '.5rem' }}
-              >
-                Add step
-              </button>
-            </form>
+            <label className="auth-label">
+              Cue / anchor
+              <input
+                type="text"
+                value={cue}
+                onChange={(e) => setCue(e.target.value)}
+                placeholder="Example: After I brush my teeth..."
+              />
+            </label>
 
-            {steps.length > 0 && (
-              <div style={{ marginTop: '1rem' }}>
-                <strong>Steps so far:</strong>
-                <ol>
-                  {steps.map((s, idx) => (
-                    <li
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: '.5rem',
-                        alignItems: 'center',
-                        marginTop: '.25rem',
-                      }}
-                    >
-                      <span>{s}</span>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => handleRemoveStep(idx)}
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.5rem' }}>
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
               <button
                 type="button"
-                className="btn"
+                className="btn btn-ghost"
                 onClick={() => setStep(1)}
               >
                 Back
               </button>
+
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => setStep(3)}
-                disabled={steps.length === 0}
+                disabled={!cue.trim()}
               >
-                Next
+                Next: Plan tiny steps
               </button>
             </div>
           </>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3: Tiny steps */}
         {step === 3 && (
           <>
-            <h2>Step 3 of 3 — Choose a reward</h2>
+            <h2>Step 3: Plan tiny steps</h2>
             <p className="sub">
-              Decide how you’ll celebrate after a streak or milestone.
+              Break this habit into tiny, specific actions you can actually do every time the cue happens.
             </p>
-            <label className="auth-label">
-              Reward (optional)
+
+            <div className="stacked-input">
               <input
                 type="text"
-                placeholder="Example: Friday movie, extra screen time, etc."
-                value={reward}
-                onChange={(e) => setReward(e.target.value)}
+                value={newStep}
+                onChange={(e) => setNewStep(e.target.value)}
+                placeholder="Example: Open my book and read one page"
               />
-            </label>
-
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '.5rem' }}>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-primary"
+                onClick={handleAddStep}
+              >
+                Add step
+              </button>
+            </div>
+
+            {steps.length > 0 && (
+              <ol style={{ marginTop: '1rem' }}>
+                {steps.map((item, idx) => (
+                  <li
+                    key={`${item}-${idx}`}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <span>{item}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => handleRemoveStep(idx)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-ghost"
                 onClick={() => setStep(2)}
               >
                 Back
               </button>
+
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={handleSave}
-                disabled={!goal.trim() || steps.length === 0}
+                disabled={
+                  !goal.trim() ||
+                  !cue.trim() ||
+                  steps.length === 0
+                }
               >
                 Save plan
               </button>
@@ -270,7 +246,34 @@ export default function BuildHabit() {
           </>
         )}
       </div>
+
+      {savedPlan && (
+        <div
+          className="card"
+          style={{ marginTop: '1.5rem', maxWidth: '780px' }}
+        >
+          <h2>Your saved plan</h2>
+          <p>
+            <strong>Habit goal:</strong> {savedPlan.goal}
+          </p>
+          {savedPlan.cue && (
+            <p>
+              <strong>Cue:</strong> {savedPlan.cue}
+            </p>
+          )}
+
+          {savedPlan.steps?.length > 0 && (
+            <>
+              <p className="sub">Tiny steps:</p>
+              <ol>
+                {savedPlan.steps.map((item, idx) => (
+                  <li key={`${item}-${idx}`}>{item}</li>
+                ))}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }
-

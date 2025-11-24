@@ -1,0 +1,550 @@
+import React, { useEffect, useState } from 'react';
+import { useUser } from '../UserContext.jsx';
+import { ROLE } from '../roles.js';
+
+const CHILDREN_KEY = 'ns.children.v1';
+const TASKS_KEY = 'ns.childTasks.v1';
+
+function generateChildCode(existingChildren) {
+  const existingCodes = new Set(
+    existingChildren
+      .map((c) => c.code)
+      .filter(Boolean)
+  );
+
+  let code;
+  do {
+    code = Math.floor(100000 + Math.random() * 900000).toString();
+  } while (existingCodes.has(code));
+
+  return code;
+}
+
+export default function ParentDashboard() {
+  const { user } = useUser();
+  const isParent = user?.role === ROLE.PARENT;
+
+  const [children, setChildren] = useState([]);
+  const [tasks, setTasks] = useState([]);
+
+  const [childName, setChildName] = useState('');
+  const [childAge, setChildAge] = useState('');
+  const [childError, setChildError] = useState('');
+
+  const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskNotes, setTaskNotes] = useState('');
+  const [taskError, setTaskError] = useState('');
+
+  useEffect(() => {
+    try {
+      const storedChildren = localStorage.getItem(CHILDREN_KEY);
+      if (storedChildren) {
+        setChildren(JSON.parse(storedChildren));
+      }
+    } catch (err) {
+      console.error('Failed to load children', err);
+    }
+
+    try {
+      const storedTasks = localStorage.getItem(TASKS_KEY);
+      if (storedTasks) {
+        setTasks(JSON.parse(storedTasks));
+      }
+    } catch (err) {
+      console.error('Failed to load tasks', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!taskAssigneeId && user?.id) {
+      setTaskAssigneeId(user.id);
+    }
+  }, [user, taskAssigneeId]);
+
+  const saveChildren = (list) => {
+    setChildren(list);
+    try {
+      localStorage.setItem(CHILDREN_KEY, JSON.stringify(list));
+    } catch (err) {
+      console.error('Failed to save children', err);
+    }
+  };
+
+  const saveTasks = (list) => {
+    setTasks(list);
+    try {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(list));
+    } catch (err) {
+      console.error('Failed to save tasks', err);
+    }
+  };
+
+  const handleAddChild = (e) => {
+    e.preventDefault();
+    setChildError('');
+
+    const name = childName.trim();
+    const ageNumber = Number(childAge);
+
+    if (!name || !childAge) {
+      setChildError('Please enter a name and age for the child.');
+      return;
+    }
+
+    if (ageNumber <= 0) {
+      setChildError('Age must be a positive number.');
+      return;
+    }
+
+    const newChild = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      name,
+      age: ageNumber,
+      code: generateChildCode(children),
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...children, newChild];
+    saveChildren(updated);
+    setChildName('');
+    setChildAge('');
+  };
+
+  const handleRemoveChild = (id) => {
+    const updatedChildren = children.filter((c) => c.id !== id);
+    saveChildren(updatedChildren);
+
+    const updatedTasks = tasks.filter((t) => t.assigneeId !== id);
+    saveTasks(updatedTasks);
+  };
+
+  const handleAssignTask = (e) => {
+    e.preventDefault();
+    setTaskError('');
+
+    if (!taskAssigneeId) {
+      setTaskError('Please select who this task is for.');
+      return;
+    }
+
+    const title = taskTitle.trim();
+    const notes = taskNotes.trim();
+
+    if (!title) {
+      setTaskError('Please enter a task name.');
+      return;
+    }
+
+    const assignee =
+      children.find((c) => c.id === taskAssigneeId) ||
+      (user && user.id === taskAssigneeId ? user : null);
+
+    const newTask = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      assigneeId: taskAssigneeId,
+      assigneeName: assignee ? assignee.name : 'Unknown',
+      title,
+      notes,
+      status: 'pending',
+      needsApproval: false,
+      childCode: assignee?.code || null,
+      targetType: assignee?.code ? 'child' : 'adult',
+      targetName: assignee?.code ? null : assignee?.name || null,
+      createdAt: new Date().toISOString(),
+      createdById: user?.id,
+      createdByName: user?.name || 'Parent',
+      createdByRole: 'parent',
+    };
+
+    const updated = [...tasks, newTask];
+    saveTasks(updated);
+    setTaskTitle('');
+    setTaskNotes('');
+  };
+
+  const handleToggleTaskStatus = (taskId) => {
+    setTasks((prev) => {
+      const updated = prev.map((t) =>
+        t.id === taskId
+          ? { ...t, status: t.status === 'done' ? 'pending' : 'done' }
+          : t
+      );
+      saveTasks(updated);
+      return updated;
+    });
+  };
+
+  const providerPendingTasks = tasks.filter(
+    (t) => t.needsApproval && t.createdByRole === 'provider'
+  );
+
+  const handleApproveProviderTask = (taskId) => {
+    setTasks((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id !== taskId) return t;
+
+        const child = children.find((c) => c.code === t.childCode);
+        if (!child) {
+          alert(
+            `No child found with code ${t.childCode}. Add the child or correct the code before approving.`
+          );
+          return t;
+        }
+
+        return {
+          ...t,
+          assigneeId: child.id,
+          assigneeName: child.name,
+          needsApproval: false,
+          approvedByParentId: user?.id,
+          approvedAt: new Date().toISOString(),
+        };
+      });
+
+      saveTasks(updated);
+      return updated;
+    });
+  };
+
+  const handleRejectProviderTask = (taskId) => {
+    const updated = tasks.filter((t) => t.id !== taskId);
+    saveTasks(updated);
+  };
+
+  const getAssigneeLabel = (task) => {
+    if (user && task.assigneeId === user.id) {
+      return `${task.assigneeName} (you)`;
+    }
+    return task.assigneeName || 'Unknown';
+  };
+
+  // === Tasks for children ===
+  const childIds = children.map((c) => c.id);
+  const tasksForChildren = tasks.filter(
+    (t) => t.assigneeId && childIds.includes(t.assigneeId)
+  );
+
+  if (!user) {
+    return (
+      <section className="container">
+        <h1>Parent dashboard</h1>
+        <p className="sub hero">You need to log in first.</p>
+      </section>
+    );
+  }
+
+  if (!isParent) {
+    return (
+      <section className="container">
+        <h1>Parent dashboard</h1>
+        <p className="sub hero">
+          Only parents can manage child accounts and assign tasks from this page.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="container">
+      <h1>Parent dashboard</h1>
+      <p className="sub hero">
+        Add child accounts, see their codes, assign your own tasks, and approve
+        tasks submitted by providers.
+      </p>
+
+      {/* Add child */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <h2>Add a child</h2>
+
+        <form onSubmit={handleAddChild}>
+          <label className="auth-label">
+            Child&apos;s name
+            <input
+              type="text"
+              value={childName}
+              onChange={(e) => setChildName(e.target.value)}
+              placeholder="Example: Paxton"
+            />
+          </label>
+
+          <label className="auth-label">
+            Age
+            <input
+              type="number"
+              min="1"
+              value={childAge}
+              onChange={(e) => setChildAge(e.target.value)}
+              placeholder="Example: 10"
+            />
+          </label>
+
+          {childError && (
+            <p style={{ color: '#b91c1c', fontSize: '.95rem', marginTop: '.25rem' }}>
+              {childError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ marginTop: '1rem' }}
+          >
+            Add child
+          </button>
+        </form>
+      </div>
+
+      {/* Children list */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <h2>Your children</h2>
+
+        {children.length === 0 && (
+          <p className="sub">You haven&apos;t added any child accounts yet.</p>
+        )}
+
+        {children.length > 0 && (
+          <ul style={{ marginTop: '1rem' }}>
+            {children.map((child) => (
+              <li
+                key={child.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '.5rem',
+                  marginTop: '.25rem',
+                }}
+              >
+                <span>
+                  <strong>{child.name}</strong> — {child.age} years old
+                  {child.code && (
+                    <> (Code: <code>{child.code}</code>)</>
+                  )}
+                </span>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => handleRemoveChild(child.id)}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Assign task (parent-created) */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <h2>Assign a task</h2>
+        <p className="sub">
+          Pick who the task is for. You can assign tasks to your children or to yourself.
+        </p>
+
+        <form onSubmit={handleAssignTask}>
+          <label className="auth-label">
+            Assign to
+            <select
+              value={taskAssigneeId}
+              onChange={(e) => setTaskAssigneeId(e.target.value)}
+            >
+              {user && (
+                <option value={user.id}>
+                  {user.name} (you)
+                </option>
+              )}
+              {children.map((child) => (
+                <option key={child.id} value={child.id}>
+                  {child.name} ({child.age})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="auth-label">
+            Task name
+            <input
+              type="text"
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              placeholder="Example: Read for 10 minutes"
+            />
+          </label>
+
+          <label className="auth-label">
+            Notes (optional)
+            <textarea
+              value={taskNotes}
+              onChange={(e) => setTaskNotes(e.target.value)}
+              placeholder="Example: Do this after finishing homework."
+              rows={3}
+            />
+          </label>
+
+          {taskError && (
+            <p style={{ color: '#b91c1c', fontSize: '.95rem', marginTop: '.25rem' }}>
+              {taskError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ marginTop: '1rem' }}
+          >
+            Save task
+          </button>
+        </form>
+      </div>
+
+      {/* Tasks you've created (as parent) */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <h2>Tasks you&apos;ve created</h2>
+
+        {tasks.filter((t) => t.createdByRole === 'parent').length === 0 && (
+          <p className="sub">
+            You haven&apos;t created any tasks yet. Use the form above to create one,
+            or approve tasks from providers below.
+          </p>
+        )}
+
+        {tasks.filter((t) => t.createdByRole === 'parent').length > 0 && (
+          <ul style={{ marginTop: '1rem' }}>
+            {tasks
+              .filter((t) => t.createdByRole === 'parent')
+              .slice()
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+              .map((task) => (
+                <li
+                  key={task.id}
+                  style={{
+                    marginTop: '.35rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '.75rem',
+                  }}
+                >
+                  <span>
+                    <strong>{task.title}</strong> for{' '}
+                    <span>{getAssigneeLabel(task)}</span>
+                    {task.notes && <> — {task.notes}</>}
+                    {task.status === 'done' && ' ✅'}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleToggleTaskStatus(task.id)}
+                  >
+                    {task.status === 'done' ? 'Mark not done' : 'Mark done'}
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Tasks for your children (status view / control) */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <h2>Tasks for your children</h2>
+
+        {tasksForChildren.length === 0 ? (
+          <p className="sub">
+            None of your children have tasks yet, or they haven't been assigned any.
+          </p>
+        ) : (
+          <ul style={{ marginTop: '1rem' }}>
+            {tasksForChildren
+              .slice()
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+              .map((task) => {
+                const child = children.find((c) => c.id === task.assigneeId);
+                const childName = child ? child.name : 'Unknown child';
+                return (
+                  <li
+                    key={task.id}
+                    style={{
+                      marginTop: '.35rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '.75rem',
+                    }}
+                  >
+                    <span>
+                      <strong>{task.title}</strong> for{' '}
+                      <span>{childName}</span>
+                      {task.notes && <> — {task.notes}</>}
+                      {' · '}
+                      <em>{task.status === 'done' ? 'Completed' : 'Pending'}</em>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => handleToggleTaskStatus(task.id)}
+                    >
+                      {task.status === 'done' ? 'Mark not done' : 'Mark done'}
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
+        )}
+      </div>
+
+      {/* Provider tasks awaiting approval */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <h2>Provider tasks waiting for your approval</h2>
+
+        {providerPendingTasks.length === 0 && (
+          <p className="sub">
+            There are no provider-submitted tasks waiting for approval.
+          </p>
+        )}
+
+        {providerPendingTasks.length > 0 && (
+          <ul style={{ marginTop: '1rem' }}>
+            {providerPendingTasks.map((task) => (
+              <li
+                key={task.id}
+                style={{
+                  marginTop: '.35rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '.75rem',
+                }}
+              >
+                <span>
+                  <strong>{task.title}</strong>{' '}
+                  <span style={{ opacity: 0.8 }}>
+                    (Child code: {task.childCode}, from {task.createdByName})
+                  </span>
+                  {task.notes && <> — {task.notes}</>}
+                </span>
+                <span style={{ display: 'flex', gap: '.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => handleApproveProviderTask(task.id)}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleRejectProviderTask(task.id)}
+                  >
+                    Reject
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
