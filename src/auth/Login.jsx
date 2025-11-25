@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 
 export default function Login() {
+
   const navigate = useNavigate();
   const { setUser } = useUser();
 
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [age, setAge] = useState('');
   const [role, setRole] = useState('');
   const [childCode, setChildCode] = useState('');
@@ -16,8 +19,6 @@ export default function Login() {
     event.preventDefault();
     setError('');
 
-    const trimmedName = name.trim();
-    const numericAge = Number(age);
     const trimmedCode = childCode.trim();
 
     // ==== CHILD LOGIN FLOW (uses code instead of name/age) ====
@@ -55,24 +56,19 @@ export default function Login() {
     }
 
     // ==== NON-CHILD ROLES (user, parent, provider) ====
-    if (!trimmedName || !age || !role) {
-      setError('Please fill in your name, age, and role to continue.');
-      return;
-    }
-
-    if ((role === 'user' || role === 'parent') && numericAge < 15) {
-      setError(
-        'Users and parents must be at least 15 years old. Please adjust the age or choose a different role.'
-      );
+    if (!role || !email || !password) {
+      setError('Please fill in all fields. If you don\'t have an account, please sign up first.');
       return;
     }
 
     const newUser = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`, // <-- NEW
-      name: trimmedName,
-      age: numericAge,
-      role,
-      createdAt: new Date().toISOString(),
+        id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`, // <-- NEW
+        password,
+        email,
+        name: 'default',
+        age: '50',  // default age for non-child users
+        role,
+        createdAt: new Date().toISOString(),
     };
 
     setUser(newUser);
@@ -82,7 +78,7 @@ export default function Login() {
   return (
     <section className="container" style={{ maxWidth: '520px', paddingTop: '3rem' }}>
       <div className="card" style={{ padding: '2.5rem 2rem' }}>
-        <h1>Welcome to Next Steps</h1>
+        <h1>Welcome back to Next Steps</h1>
         <p className="sub hero" style={{ marginTop: '0.5rem' }}>
           Choose how you&apos;re using this device and we&apos;ll set things up for you.
         </p>
@@ -99,7 +95,7 @@ export default function Login() {
               }}
             >
               <option value="">Select a role</option>
-              <option value="user">User (15+)</option>
+              <option value="user">User (14+)</option>
               <option value="child">Child</option>
               <option value="parent">Parent</option>
               <option value="provider">Provider</option>
@@ -110,24 +106,21 @@ export default function Login() {
           {role !== 'child' && (
             <>
               <label className="auth-label">
-                Name
+                Email
                 <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                  autoComplete="name"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
                 />
               </label>
-
               <label className="auth-label">
-                Age
+                Password
                 <input
-                  type="number"
-                  min="1"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="How old are you?"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                 />
               </label>
             </>
@@ -159,6 +152,14 @@ export default function Login() {
           >
             Continue
           </button>
+        <br></br>
+        <hr></hr>
+        <br></br>
+
+        <div className="container signin">
+            <p>Don't have an account? <a href="/signup">Sign Up</a>.</p>
+        </div>
+
         </form>
       </div>
     </section>
