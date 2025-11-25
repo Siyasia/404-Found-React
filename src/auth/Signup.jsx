@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import './Signup.css'
 
 export default function Signup() {
 
@@ -188,3 +187,4 @@ export default function Signup() {
 </section>
   );
 }
+
