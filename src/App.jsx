@@ -11,6 +11,7 @@ import ParentDashboard from './pages/ParentDashboard.jsx';
 import ProviderDashboard from './pages/ProviderDashboard.jsx';
 
 import Login from './auth/Login.jsx';
+import Signup from './auth/Signup.jsx';
 
 export default function App() {
   return (
@@ -27,6 +28,8 @@ export default function App() {
         <Route path="/break-habit" element={<BreakHabit />} />
         <Route path="/parent" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
         <Route path="*" element={<Home />} />
 
       </Routes>
