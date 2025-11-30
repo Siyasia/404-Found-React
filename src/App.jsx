@@ -9,6 +9,7 @@ import BuildHabit from './pages/BuildHabit.jsx';
 import BreakHabit from './pages/BreakHabit.jsx';
 import ParentDashboard from './pages/ParentDashboard.jsx';
 import ProviderDashboard from './pages/ProviderDashboard.jsx';
+import Profile from './pages/Profile.jsx';
 
 import Login from './auth/Login.jsx';
 import Signup from './auth/Signup.jsx';
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/provider" element={<ProviderDashboard />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Home />} />
 
       </Routes>
