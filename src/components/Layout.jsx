@@ -16,6 +16,10 @@ export default function Layout({ children }) {
     navigate('/');       // back to login
   };
 
+  const handleProfile = () => {
+    navigate('/profile');
+  }
+
   const roleLabel = user ? ROLE_LABEL[user.role] || user.role : null;
 
   return (
@@ -44,6 +48,14 @@ export default function Layout({ children }) {
                 Welcome, {user.name}
                 {roleLabel ? ` (${roleLabel})` : ''}
               </span>
+              <button
+                type="button"
+                className ="btn btn-ghost"
+                onClick={handleProfile}
+                style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
+                >
+                Profile
+              </button>
               <button
                 type="button"
                 className="btn btn-ghost"
