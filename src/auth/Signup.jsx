@@ -21,41 +21,6 @@ export default function Signup() {
 
         const trimmedName = name.trim();
         const numericAge = Number(age);
-        const trimmedCode = childCode.trim();
-        
-        // ==== CHILD LOGIN FLOW (uses code instead of name/age) ====
-        if (role === 'child') {
-            if (!trimmedCode) {
-                setError('Please enter your child code.');
-                return;
-            }
-
-            let children = [];
-            try {
-                const raw = localStorage.getItem('ns.children.v1');
-                if (raw) {
-                children = JSON.parse(raw) || [];
-                }
-            } catch {
-                children = [];
-            }
-
-            const child = children.find((c) => c.code === trimmedCode);
-
-            if (!child) {
-                setError('No child account found for that code. Ask your parent to check the code.');
-                return;
-            }
-
-            const newUser = {
-                ...child,      // already has id, name, age, code
-                role: 'child',
-            };
-
-            setUser(newUser);
-            navigate('/home');
-            return;
-        };
 
         // ==== NON-CHILD ROLES (user, parent, provider) ====
         if (!trimmedName || !age || !role || !password || !email) {
