@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../roles.js';
+import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -253,6 +255,8 @@ export default function ParentDashboard() {
         tasks submitted by providers.
       </p>
 
+      {/* Embedded UI below; removed external navigation link */}
+
       {/* Add child */}
       <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
         <h2>Add a child</h2>
@@ -336,67 +340,14 @@ export default function ParentDashboard() {
         )}
       </div>
 
-      {/* Assign task (parent-created) */}
-      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
-        <h2>Assign a task</h2>
-        <p className="sub">
-          Pick who the task is for. You can assign tasks to your children or to yourself.
-        </p>
-
-        <form onSubmit={handleAssignTask}>
-          <label className="auth-label">
-            Assign to
-            <select
-              value={taskAssigneeId}
-              onChange={(e) => setTaskAssigneeId(e.target.value)}
-            >
-              {user && (
-                <option value={user.id}>
-                  {user.name} (you)
-                </option>
-              )}
-              {children.map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.name} ({child.age})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="auth-label">
-            Task name
-            <input
-              type="text"
-              value={taskTitle}
-              onChange={(e) => setTaskTitle(e.target.value)}
-              placeholder="Example: Read for 10 minutes"
-            />
-          </label>
-
-          <label className="auth-label">
-            Notes (optional)
-            <textarea
-              value={taskNotes}
-              onChange={(e) => setTaskNotes(e.target.value)}
-              placeholder="Example: Do this after finishing homework."
-              rows={3}
-            />
-          </label>
-
-          {taskError && (
-            <p style={{ color: '#b91c1c', fontSize: '.95rem', marginTop: '.25rem' }}>
-              {taskError}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ marginTop: '1rem' }}
-          >
-            Save task
-          </button>
-        </form>
+      {/* Embedded assign task / habit UI (replaces the old assign card) */}
+      <div style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+        <ParentHabitAssignment
+          embed
+          parentChildren={children}
+          parentTasks={tasks}
+          onTasksChange={saveTasks}
+        />
       </div>
 
       {/* Tasks you've created (as parent) */}
