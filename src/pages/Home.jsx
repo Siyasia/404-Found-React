@@ -190,31 +190,117 @@ export default function Home() {
               Here are the tasks assigned to you. Check them off as you finish them.
             </p>
             <ul>
-              {tasksForUser.map((task) => (
-                <li
-                  key={task.id}
-                  style={{
-                    marginTop: '.35rem',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '.75rem',
-                  }}
-                >
-                  <span>
-                    <strong>{task.title}</strong>
-                    {task.notes && <> — {task.notes}</>}
-                    {task.status === 'done' && ' ✅'}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => handleToggleMyTaskStatus(task.id)}
+              {tasksForUser.map((task) => {
+                const type = task.taskType || 'simple';
+                const badgeStyles = {
+                  base: {
+                    display: 'inline-block',
+                    fontSize: '.75rem',
+                    padding: '.1rem .4rem',
+                    borderRadius: '6px',
+                    marginLeft: '.5rem',
+                  },
+                  simple: { background: '#e5e7eb', color: '#111827' },
+                  'build-habit': { background: '#d1fae5', color: '#065f46' },
+                  'break-habit': { background: '#fee2e2', color: '#991b1b' },
+                };
+
+                const renderBadge = () => {
+                  let label = 'Simple Task';
+                  if (type === 'build-habit') label = 'Build Habit';
+                  if (type === 'break-habit') label = 'Break Habit';
+                  const tone = badgeStyles[type] || badgeStyles.simple;
+                  return (
+                    <span style={{ ...badgeStyles.base, ...tone }}>{label}</span>
+                  );
+                };
+
+                const renderDetails = () => {
+                  if (type === 'build-habit') {
+                    const steps = Array.isArray(task.steps) ? task.steps : [];
+                    return (
+                      <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
+                        {task.cue && (
+                          <div>
+                            <strong>Cue:</strong> <em>{task.cue}</em>
+                          </div>
+                        )}
+                        {steps.length > 0 && (
+                          <div style={{ marginTop: '.15rem' }}>
+                            <strong>Steps:</strong>
+                            <ol style={{ marginLeft: '1.25rem', marginTop: '.15rem' }}>
+                              {steps.map((s, idx) => (
+                                <li key={idx}>{s}</li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+                        {task.frequency && (
+                          <div style={{ marginTop: '.15rem' }}>
+                            <strong>Frequency:</strong> {task.frequency}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (type === 'break-habit') {
+                    const reps = Array.isArray(task.replacements) ? task.replacements : [];
+                    return (
+                      <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
+                        {task.habitToBreak && (
+                          <div>
+                            <strong>Habit to break:</strong> {task.habitToBreak}
+                          </div>
+                        )}
+                        {reps.length > 0 && (
+                          <div style={{ marginTop: '.15rem' }}>
+                            <strong>Replacements:</strong>{' '}
+                            <ul style={{ marginLeft: '1.25rem', marginTop: '.15rem', listStyle: 'disc' }}>
+                              {reps.map((r, idx) => (
+                                <li key={idx}>{r}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {task.frequency && (
+                          <div style={{ marginTop: '.15rem' }}>
+                            <strong>Frequency:</strong> {task.frequency}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                };
+
+                return (
+                  <li
+                    key={task.id}
+                    style={{
+                      marginTop: '.35rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '.75rem',
+                    }}
                   >
-                    {task.status === 'done' ? 'Mark not done' : 'Mark done'}
-                  </button>
-                </li>
-              ))}
+                    <span>
+                      <strong>{task.title}</strong>
+                      {renderBadge()}
+                      {task.notes && <> — {task.notes}</>}
+                      {task.status === 'done' && ' ✅'}
+                      {renderDetails()}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => handleToggleMyTaskStatus(task.id)}
+                    >
+                      {task.status === 'done' ? 'Mark not done' : 'Mark done'}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

@@ -22,8 +22,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Build habit fields
-  const [cue, setCue] = useState('');
+  // Build habit fields (steps-only)
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
 
@@ -86,7 +85,6 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     setTaskType('');
     setTitle('');
     setNotes('');
-    setCue('');
     setSteps([]);
     setNewStep('');
     setHabitToBreak('');
@@ -141,10 +139,6 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     }
 
     if (taskType === 'build-habit') {
-      if (!cue.trim()) {
-        setError('Please enter a cue (when to do this habit).');
-        return;
-      }
       if (steps.length === 0) {
         setError('Please add at least one step for this habit.');
         return;
@@ -171,8 +165,8 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       title: title.trim(),
       notes: notes.trim(),
       taskType,
-      ...(taskType === 'build-habit' && { cue: cue.trim(), steps }),
-      ...(taskType === 'break-habit' && { habitToBreak: habitToBreak.trim(), replacements }),
+      ...(taskType === 'build-habit' && { steps }),
+      ...(taskType === 'break-habit' && { habitToBreak: (habitToBreak.trim() || title.trim()), replacements }),
       ...(taskType !== 'simple' && { frequency, streak: 0, completedDates: [] }),
       status: 'pending',
       createdAt: new Date().toISOString(),
@@ -244,40 +238,48 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
             </div>
 
             <label style={{ display: 'block', marginBottom: '1rem' }}>
-              <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>{taskType === 'simple' ? 'Task name' : 'Habit goal'}</span>
+              <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
+                {taskType === 'simple' ? 'Task name' : (taskType === 'break-habit' ? 'Habit to break' : 'Habit name')}
+              </span>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
             </label>
 
             {taskType === 'build-habit' && (
-              <>
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                  <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Cue</span>
-                  <input type="text" value={cue} onChange={(e) => setCue(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
-                </label>
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <input type="text" value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddStep()} placeholder="Add a step…" style={{ flex: 1, padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
-                    <button type="button" onClick={handleAddStep} style={{ padding: '0.75rem 1.25rem', background: '#6366f1', color: 'white', border: 'none', borderRadius: '0.5rem' }}>Add</button>
-                  </div>
-                  {steps.length > 0 && (<ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>{steps.map((s, i) => (<li key={i} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{s}</span><button type="button" onClick={() => handleRemoveStep(i)} style={{ background: '#fee', color: '#b91c1c', border: '1px solid #fcc', borderRadius: '0.25rem' }}>Remove</button></li>))}</ol>)}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input type="text" value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddStep()} placeholder="Add a step…" style={{ flex: 1, padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
+                  <button type="button" onClick={handleAddStep} style={{ padding: '0.75rem 1.25rem', background: '#6366f1', color: 'white', border: 'none', borderRadius: '0.5rem' }}>Add</button>
                 </div>
-              </>
+                {steps.length > 0 && (
+                  <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+                    {steps.map((s, i) => (
+                      <li key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{s}</span>
+                        <button type="button" onClick={() => handleRemoveStep(i)} style={{ background: '#fee', color: '#b91c1c', border: '1px solid #fcc', borderRadius: '0.25rem' }}>Remove</button>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
             )}
 
             {taskType === 'break-habit' && (
-              <>
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                  <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Habit to break</span>
-                  <input type="text" value={habitToBreak} onChange={(e) => setHabitToBreak(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
-                </label>
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <input type="text" value={newReplacement} onChange={(e) => setNewReplacement(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddReplacement()} placeholder="Replacement activity…" style={{ flex: 1, padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
-                    <button type="button" onClick={handleAddReplacement} style={{ padding: '0.75rem 1.25rem', background: '#6366f1', color: 'white', border: 'none', borderRadius: '0.5rem' }}>Add</button>
-                  </div>
-                  {replacements.length > 0 && (<ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>{replacements.map((r, i) => (<li key={i} style={{ display: 'flex', justifyContent: 'space-between' }}><span>{r}</span><button type="button" onClick={() => handleRemoveReplacement(i)} style={{ background: '#fee', color: '#b91c1c', border: '1px solid #fcc', borderRadius: '0.25rem' }}>Remove</button></li>))}</ul>)}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input type="text" value={newReplacement} onChange={(e) => setNewReplacement(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddReplacement()} placeholder="Replacement activity…" style={{ flex: 1, padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
+                  <button type="button" onClick={handleAddReplacement} style={{ padding: '0.75rem 1.25rem', background: '#6366f1', color: 'white', border: 'none', borderRadius: '0.5rem' }}>Add</button>
                 </div>
-              </>
+                {replacements.length > 0 && (
+                  <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+                    {replacements.map((r, i) => (
+                      <li key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{r}</span>
+                        <button type="button" onClick={() => handleRemoveReplacement(i)} style={{ background: '#fee', color: '#b91c1c', border: '1px solid #fcc', borderRadius: '0.25rem' }}>Remove</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
 
             {taskType !== 'simple' && (
