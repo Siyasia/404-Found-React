@@ -3,8 +3,8 @@
 
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import App from '../../src/App.jsx';
-import { UserProvider } from '../UserContext.jsx';
+import App from '../src/App.jsx';
+import { UserProvider } from '../src/UserContext.jsx';
 
 // Provide minimal context so Layout can destructure user/setUser safely.
 it('renders navigation links without a logged in user', () => {

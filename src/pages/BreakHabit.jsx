@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import { canCreateOwnTasks } from '../roles.js';
+import { canCreateOwnTasks } from '../Roles/roles.js';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
 

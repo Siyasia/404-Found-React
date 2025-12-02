@@ -2,7 +2,7 @@
 // independent (user) login, and basic login validation for missing fields or bad child code.
 
 import { screen, fireEvent } from '@testing-library/react';
-import { renderApp, seedChildren, clearStorage } from '../test-utils.jsx';
+import { renderApp, seedChildren, clearStorage } from '../../src/test-utils.jsx';
 
 beforeEach(() => {
   clearStorage();

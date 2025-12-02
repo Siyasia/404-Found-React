@@ -6,7 +6,7 @@ import {
   canAssignTasksToChildren,
   canCreateProviderTasks,
   canAcceptProviderTasks,
-} from '../roles.js';
+} from '../Roles/roles.js';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';

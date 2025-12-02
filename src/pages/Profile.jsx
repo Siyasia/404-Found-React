@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
-import { ROLE } from '../roles.js';
+import { ROLE } from '../Roles/roles.js';
 
 export default function Profile() {
     const { user } = useUser();

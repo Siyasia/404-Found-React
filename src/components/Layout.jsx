@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import { ROLE_LABEL, canCreateOwnTasks } from '../roles.js';
+import { ROLE_LABEL, canCreateOwnTasks } from '../Roles/roles.js';
 
 export default function Layout({ children }) {
   const { user, setUser } = useUser();

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
-import { ROLE } from '../roles.js';
+import { ROLE } from '../Roles/roles.js';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import { ROLE } from '../roles.js';
+import { ROLE } from '../Roles/roles.js';
 import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 
 const CHILDREN_KEY = 'ns.children.v1';
