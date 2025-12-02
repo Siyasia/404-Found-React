@@ -397,8 +397,8 @@ export default function ParentDashboard() {
         )}
       </div>
 
-      {/* Tasks for your children (status view / control) */}
-      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
+      {/* Tasks for your children (grouped by type, side-by-side) */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
         <h2>Tasks for your children</h2>
 
         {tasksForChildren.length === 0 ? (
@@ -406,125 +406,126 @@ export default function ParentDashboard() {
             None of your children have tasks yet, or they haven't been assigned any.
           </p>
         ) : (
-          <ul style={{ marginTop: '1rem' }}>
-            {tasksForChildren
-              .slice()
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-              .map((task) => {
-                const child = children.find((c) => c.id === task.assigneeId);
-                const childName = child ? child.name : 'Unknown child';
-                const type = task.taskType || 'simple';
-                const badgeStyles = {
-                  base: {
-                    display: 'inline-block',
-                    fontSize: '.75rem',
-                    padding: '.1rem .4rem',
-                    borderRadius: '6px',
-                    marginLeft: '.5rem',
-                  },
-                  simple: { background: '#e5e7eb', color: '#111827' },
-                  'build-habit': { background: '#d1fae5', color: '#065f46' },
-                  'break-habit': { background: '#fee2e2', color: '#991b1b' },
-                };
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            {/* Simple tasks */}
+            <div className="card" style={{ flex: '1 1 300px' }}>
+              <h3>Simple Tasks</h3>
+              <ul style={{ marginTop: '1rem' }}>
+                {tasksForChildren
+                  .filter((t) => (t.taskType || 'simple') === 'simple')
+                  .slice()
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((task) => {
+                    const child = children.find((c) => c.id === task.assigneeId);
+                    const childName = child ? child.name : 'Unknown child';
+                    return (
+                      <li key={task.id} style={{
+                        marginTop: '.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.75rem',
+                      }}>
+                        <span>
+                          <strong>{task.title}</strong> for <span>{childName}</span>
+                          {task.notes && <> — {task.notes}</>}
+                          {' · '}<em>{task.status === 'done' ? 'Completed' : 'Pending'}</em>
+                        </span>
+                        <button type="button" className="btn btn-ghost" onClick={() => handleToggleTaskStatus(task.id)}>
+                          {task.status === 'done' ? 'Mark not done' : 'Mark done'}
+                        </button>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
 
-                const renderBadge = () => {
-                  let label = 'Simple Task';
-                  if (type === 'build-habit') label = 'Build Habit';
-                  if (type === 'break-habit') label = 'Break Habit';
-                  const tone = badgeStyles[type] || badgeStyles.simple;
-                  return (
-                    <span style={{ ...badgeStyles.base, ...tone }}>{label}</span>
-                  );
-                };
-
-                const renderDetails = () => {
-                  if (type === 'build-habit') {
+            {/* Build habits */}
+            <div className="card" style={{ flex: '1 1 300px' }}>
+              <h3>Build Habits</h3>
+              <ul style={{ marginTop: '1rem' }}>
+                {tasksForChildren
+                  .filter((t) => (t.taskType || 'simple') === 'build-habit')
+                  .slice()
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((task) => {
+                    const child = children.find((c) => c.id === task.assigneeId);
+                    const childName = child ? child.name : 'Unknown child';
                     const steps = Array.isArray(task.steps) ? task.steps : [];
                     return (
-                      <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
-                        {task.cue && (
-                          <div>
-                            <strong>Cue:</strong> <em>{task.cue}</em>
+                      <li key={task.id} style={{
+                        marginTop: '.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '.75rem',
+                      }}>
+                        <span>
+                          <strong>{task.title}</strong> for <span>{childName}</span>
+                          {task.notes && <> — {task.notes}</>}
+                          {' · '}<em>{task.status === 'done' ? 'Completed' : 'Pending'}</em>
+                          <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
+                            {steps.length > 0 && (
+                              <div>
+                                <strong>Steps:</strong>
+                                <ol style={{ marginLeft: '1.25rem', marginTop: '.15rem' }}>
+                                  {steps.map((s, idx) => (<li key={idx}>{s}</li>))}
+                                </ol>
+                              </div>
+                            )}
+                            {task.frequency && (
+                              <div style={{ marginTop: '.15rem' }}>
+                                <strong>Frequency:</strong> {task.frequency}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {steps.length > 0 && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Steps:</strong>
-                            <ol style={{ marginLeft: '1.25rem', marginTop: '.15rem' }}>
-                              {steps.map((s, idx) => (
-                                <li key={idx}>{s}</li>
-                              ))}
-                            </ol>
-                          </div>
-                        )}
-                        {task.frequency && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Frequency:</strong> {task.frequency}
-                          </div>
-                        )}
-                      </div>
+                        </span>
+                        <button type="button" className="btn btn-ghost" onClick={() => handleToggleTaskStatus(task.id)}>
+                          {task.status === 'done' ? 'Mark not done' : 'Mark done'}
+                        </button>
+                      </li>
                     );
-                  }
-                  if (type === 'break-habit') {
+                  })}
+              </ul>
+            </div>
+
+            {/* Break habits */}
+            <div className="card" style={{ flex: '1 1 300px' }}>
+              <h3>Break Habits</h3>
+              <ul style={{ marginTop: '1rem' }}>
+                {tasksForChildren
+                  .filter((t) => (t.taskType || 'simple') === 'break-habit')
+                  .slice()
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((task) => {
+                    const child = children.find((c) => c.id === task.assigneeId);
+                    const childName = child ? child.name : 'Unknown child';
                     const reps = Array.isArray(task.replacements) ? task.replacements : [];
                     return (
-                      <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
-                        {task.habitToBreak && (
-                          <div>
-                            <strong>Habit to break:</strong> {task.habitToBreak}
+                      <li key={task.id} style={{
+                        marginTop: '.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '.75rem',
+                      }}>
+                        <span>
+                          <strong>{task.habitToBreak || task.title}</strong> for <span>{childName}</span>
+                          {task.notes && <> — {task.notes}</>}
+                          {' · '}<em>{task.status === 'done' ? 'Completed' : 'Pending'}</em>
+                          <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
+                            {reps.length > 0 && (
+                              <div>
+                                <strong>Replacements:</strong>{' '}
+                                <ul style={{ marginLeft: '1.25rem', marginTop: '.15rem', listStyle: 'disc' }}>
+                                  {reps.map((r, idx) => (<li key={idx}>{r}</li>))}
+                                </ul>
+                              </div>
+                            )}
+                            {task.frequency && (
+                              <div style={{ marginTop: '.15rem' }}>
+                                <strong>Frequency:</strong> {task.frequency}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {reps.length > 0 && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Replacements:</strong>{' '}
-                            <ul style={{ marginLeft: '1.25rem', marginTop: '.15rem', listStyle: 'disc' }}>
-                              {reps.map((r, idx) => (
-                                <li key={idx}>{r}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {task.frequency && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Frequency:</strong> {task.frequency}
-                          </div>
-                        )}
-                      </div>
+                        </span>
+                        <button type="button" className="btn btn-ghost" onClick={() => handleToggleTaskStatus(task.id)}>
+                          {task.status === 'done' ? 'Mark not done' : 'Mark done'}
+                        </button>
+                      </li>
                     );
-                  }
-                  return null;
-                };
-                return (
-                  <li
-                    key={task.id}
-                    style={{
-                      marginTop: '.35rem',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '.75rem',
-                    }}
-                  >
-                    <span>
-                      <strong>{task.title}</strong>
-                      {renderBadge()} for{' '}
-                      <span>{childName}</span>
-                      {task.notes && <> — {task.notes}</>}
-                      {' · '}
-                      <em>{task.status === 'done' ? 'Completed' : 'Pending'}</em>
-                      {renderDetails()}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => handleToggleTaskStatus(task.id)}
-                    >
-                      {task.status === 'done' ? 'Mark not done' : 'Mark done'}
-                    </button>
-                  </li>
-                );
-              })}
-          </ul>
+                  })}
+              </ul>
+            </div>
+          </div>
         )}
       </div>
 

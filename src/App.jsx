@@ -7,7 +7,7 @@ import Features from './pages/Features.jsx';
 import About from './pages/About.jsx';
 import BuildHabit from './pages/BuildHabit.jsx';
 import BreakHabit from './pages/BreakHabit.jsx';
-import ParentDashboard from './pages/ParentDashboard.jsx';
+import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './pages/ProviderDashboard.jsx';
 import Profile from './pages/Profile.jsx';
 

@@ -100,16 +100,79 @@ export default function Home() {
     });
   };
 
+  // Dashboard header helpers
+  // Dashboard header helpers
+  const hour = new Date().getHours();
+  let greetingPart = 'morning';
+  if (hour >= 12 && hour < 17) greetingPart = 'afternoon';
+  if (hour >= 17) greetingPart = 'evening';
+
+  const getCounts = (arr) => {
+    const total = arr.length;
+    const done = arr.filter((t) => t.status === 'done').length;
+    const pending = total - done;
+    return { total, done, pending };
+  };
+
+  const simpleTasks = tasksForUser.filter((t) => (t.taskType || 'simple') === 'simple');
+  const buildTasks = tasksForUser.filter((t) => (t.taskType || 'simple') === 'build-habit');
+  const breakTasks = tasksForUser.filter((t) => (t.taskType || 'simple') === 'break-habit');
+
+  const simpleCounts = getCounts(simpleTasks);
+  const buildCounts = getCounts(buildTasks);
+  const breakCounts = getCounts(breakTasks);
+
+  // Tabs state for tasks section
+  const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'build' | 'break'
+
+  const friendlyFrequency = (freq) => {
+    if (!freq) return 'No schedule set';
+    if (freq === 'daily') return 'Every day';
+    if (freq === 'weekdays') return 'Weekdays';
+    if (freq === 'weekends') return 'Weekends';
+    return freq;
+  };
+
+  const daysAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const created = new Date(dateStr);
+    if (Number.isNaN(created.getTime())) return '';
+    const now = new Date();
+    const diffMs = now.getTime() - created.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return 'Added today';
+    if (diffDays === 1) return 'Added 1 day ago';
+    return `Added ${diffDays} days ago`;
+  };
+
   return (
     <section className="container">
-      <h1>Next Steps</h1>
-      <p className="sub hero">
-        This is a placeholder home page. For now, only <strong>Build a Habit</strong> and{' '}
-        <strong>Break a Habit</strong> are implemented, plus simple tasks assigned to each user.
-      </p>
+      <h1 style={{ marginBottom: '.25rem' }}>Good {greetingPart}, {user?.name || 'there'}</h1>
+      <p className="sub hero">Here's what's on your plate today.</p>
+
+      {/* Summary strip */}
+      <div style={{ marginTop: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+            <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Tasks today</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{simpleCounts.total}</div>
+            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{simpleCounts.pending} pending · {simpleCounts.done} done</div>
+          </div>
+          <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+            <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Habits to build</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{buildCounts.total}</div>
+            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{buildCounts.pending} pending · {buildCounts.done} done</div>
+          </div>
+          <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+            <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Habits to break</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{breakCounts.total}</div>
+            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{breakCounts.pending} pending · {breakCounts.done} done</div>
+          </div>
+        </div>
+      </div>
 
       {/* Role-based overview card */}
-      {user && (
+      {user && (canCreate || showParentActions || showProviderActions || showParentApproval) && (
         <div
           className="card"
           style={{ marginTop: '1.5rem', maxWidth: '780px' }}
@@ -117,9 +180,6 @@ export default function Home() {
           {canCreate && (
             <>
               <h2>Your habits</h2>
-              <p className="sub">
-                Create and manage your own habits and plans from this device.
-              </p>
             </>
           )}
 
@@ -128,9 +188,6 @@ export default function Home() {
               <h2 style={{ marginTop: canCreate ? '1.5rem' : 0 }}>
                 Parent tools
               </h2>
-              <p className="sub">
-                Assign tasks to child accounts and track their progress.
-              </p>
               <Link
                 to="/parent"
                 className="btn btn-ghost"
@@ -146,9 +203,6 @@ export default function Home() {
               <h2 style={{ marginTop: (canCreate || showParentActions) ? '1.5rem' : 0 }}>
                 Provider tools
               </h2>
-              <p className="sub">
-                Create tasks for children (by code) or adults (by name).
-              </p>
               <Link
                 to="/provider"
                 className="btn btn-ghost"
@@ -164,223 +218,259 @@ export default function Home() {
               <h2 style={{ marginTop: (canCreate || showParentActions || showProviderActions) ? '1.5rem' : 0 }}>
                 Tasks waiting for your approval
               </h2>
-              <p className="sub">
-                When providers submit tasks for your children, they will show up in your parent dashboard
-                for review and approval.
-              </p>
             </>
           )}
         </div>
       )}
 
-      {/* Tasks for the current user */}
-      <div
-        className="card"
-        style={{ marginTop: '1.5rem', maxWidth: '780px' }}
-      >
+      {/* Tasks for the current user (tabbed, list-style) */}
+      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
         <h2>Your tasks for today</h2>
 
         {(!tasksForUser || tasksForUser.length === 0) ? (
-          <p className="sub">
-            You don&apos;t have any tasks assigned to you yet.
-          </p>
+          <div className="sub" style={{ marginTop: '.5rem' }}>
+            You don&apos;t have any tasks assigned yet.
+            <div style={{ marginTop: '.25rem' }}>
+              If you&apos;re a parent, you can add tasks in the <Link to="/parent">Parent dashboard</Link>.
+            </div>
+            <div style={{ marginTop: '.25rem' }}>
+              You can also start a <Link to="/build-habit">Build habit</Link> or <Link to="/break-habit">Break habit</Link> plan below.
+            </div>
+          </div>
         ) : (
           <>
-            <p className="sub">
-              Here are the tasks assigned to you. Check them off as you finish them.
-            </p>
-            <ul>
-              {tasksForUser.map((task) => {
-                const type = task.taskType || 'simple';
-                const badgeStyles = {
-                  base: {
-                    display: 'inline-block',
-                    fontSize: '.75rem',
-                    padding: '.1rem .4rem',
-                    borderRadius: '6px',
-                    marginLeft: '.5rem',
-                  },
-                  simple: { background: '#e5e7eb', color: '#111827' },
-                  'build-habit': { background: '#d1fae5', color: '#065f46' },
-                  'break-habit': { background: '#fee2e2', color: '#991b1b' },
-                };
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '.5rem', marginTop: '.75rem' }}>
+              {[
+                { key: 'simple', label: 'Simple tasks', count: simpleCounts.total },
+                { key: 'build', label: 'Build habits', count: buildCounts.total },
+                { key: 'break', label: 'Break habits', count: breakCounts.total },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className="btn"
+                  style={{
+                    padding: '.5rem .75rem',
+                    borderRadius: '999px',
+                    border: activeTab === tab.key ? '1px solid #4f46e5' : '1px solid #e5e7eb',
+                    background: activeTab === tab.key ? '#eef2ff' : 'white',
+                    color: '#111827',
+                  }}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </div>
 
-                const renderBadge = () => {
-                  let label = 'Simple Task';
-                  if (type === 'build-habit') label = 'Build Habit';
-                  if (type === 'break-habit') label = 'Break Habit';
-                  const tone = badgeStyles[type] || badgeStyles.simple;
-                  return (
-                    <span style={{ ...badgeStyles.base, ...tone }}>{label}</span>
-                  );
-                };
+            {/* List by active tab */}
+            <div style={{ marginTop: '.75rem' }}>
+              {activeTab === 'simple' && (
+                <ul>
+                  {simpleTasks
+                    .slice()
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .map((task) => (
+                      <li key={task.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        gap: '.75rem', padding: '.5rem .25rem', borderBottom: '1px solid #f3f4f6'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600 }}>{task.title}</div>
+                          <div style={{ fontSize: '.85rem', color: '#6b7280' }}>
+                            {task.notes || '-'}
+                            <span style={{ marginLeft: '.5rem', opacity: 0.8 }}>{daysAgo(task.createdAt)}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <span style={{
+                            display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
+                            background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a'
+                          }}>
+                            {task.status === 'done' ? 'Done' : 'Pending'}
+                          </span>
+                        </div>
+                        <div>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={task.status === 'done'}
+                              onChange={() => handleToggleMyTaskStatus(task.id)}
+                            />
+                            <span style={{ fontSize: '.9rem' }}>Mark done</span>
+                          </label>
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              )}
 
-                const renderDetails = () => {
-                  if (type === 'build-habit') {
-                    const steps = Array.isArray(task.steps) ? task.steps : [];
-                    return (
-                      <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
-                        {task.cue && (
+              {activeTab === 'build' && (
+                <ul>
+                  {buildTasks
+                    .slice()
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .map((task) => {
+                      const steps = Array.isArray(task.steps) ? task.steps : [];
+                      return (
+                        <li key={task.id} style={{
+                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                          gap: '.75rem', padding: '.5rem .25rem', borderBottom: '1px solid #f3f4f6'
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600 }}>{task.title}</div>
+                            {task.notes && <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{task.notes}</div>}
+                            <div style={{ fontSize: '.8rem', color: '#6b7280', marginTop: '.15rem' }}>{daysAgo(task.createdAt)}</div>
+                            {steps.length > 0 && (
+                              <div style={{ marginTop: '.35rem' }}>
+                                <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Steps</div>
+                                <ol style={{ margin: '.25rem 0 0 1rem', maxHeight: '8rem', overflow: 'auto' }}>
+                                  {steps.map((s, idx) => (<li key={idx} style={{ margin: '.1rem 0' }}>{s}</li>))}
+                                </ol>
+                              </div>
+                            )}
+                            <div style={{ fontSize: '.85rem', color: '#6b7280', marginTop: '.35rem' }}>
+                              Schedule: {friendlyFrequency(task.frequency)}
+                            </div>
+                          </div>
                           <div>
-                            <strong>Cue:</strong> <em>{task.cue}</em>
+                            <span style={{
+                              display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
+                              background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a'
+                            }}>
+                              {task.status === 'done' ? 'Done' : 'Pending'}
+                            </span>
                           </div>
-                        )}
-                        {steps.length > 0 && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Steps:</strong>
-                            <ol style={{ marginLeft: '1.25rem', marginTop: '.15rem' }}>
-                              {steps.map((s, idx) => (
-                                <li key={idx}>{s}</li>
-                              ))}
-                            </ol>
-                          </div>
-                        )}
-                        {task.frequency && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Frequency:</strong> {task.frequency}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  if (type === 'break-habit') {
-                    const reps = Array.isArray(task.replacements) ? task.replacements : [];
-                    return (
-                      <div style={{ fontSize: '.9rem', marginTop: '.25rem', opacity: 0.85 }}>
-                        {task.habitToBreak && (
                           <div>
-                            <strong>Habit to break:</strong> {task.habitToBreak}
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={task.status === 'done'}
+                                onChange={() => handleToggleMyTaskStatus(task.id)}
+                              />
+                              <span style={{ fontSize: '.9rem' }}>Mark done</span>
+                            </label>
                           </div>
-                        )}
-                        {reps.length > 0 && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Replacements:</strong>{' '}
-                            <ul style={{ marginLeft: '1.25rem', marginTop: '.15rem', listStyle: 'disc' }}>
-                              {reps.map((r, idx) => (
-                                <li key={idx}>{r}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {task.frequency && (
-                          <div style={{ marginTop: '.15rem' }}>
-                            <strong>Frequency:</strong> {task.frequency}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  return null;
-                };
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
 
-                return (
-                  <li
-                    key={task.id}
-                    style={{
-                      marginTop: '.35rem',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '.75rem',
-                    }}
-                  >
-                    <span>
-                      <strong>{task.title}</strong>
-                      {renderBadge()}
-                      {task.notes && <> — {task.notes}</>}
-                      {task.status === 'done' && ' ✅'}
-                      {renderDetails()}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => handleToggleMyTaskStatus(task.id)}
-                    >
-                      {task.status === 'done' ? 'Mark not done' : 'Mark done'}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+              {activeTab === 'break' && (
+                <ul>
+                  {breakTasks
+                    .slice()
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .map((task) => {
+                      const reps = Array.isArray(task.replacements) ? task.replacements : [];
+                      return (
+                        <li key={task.id} style={{
+                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                          gap: '.75rem', padding: '.5rem .25rem', borderBottom: '1px solid #f3f4f6'
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600 }}>{task.habitToBreak || task.title}</div>
+                            {task.notes && <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{task.notes}</div>}
+                            <div style={{ fontSize: '.8rem', color: '#6b7280', marginTop: '.15rem' }}>{daysAgo(task.createdAt)}</div>
+                            {reps.length > 0 && (
+                              <div style={{ marginTop: '.35rem' }}>
+                                <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Try instead</div>
+                                <ul style={{ margin: '.25rem 0 0 1rem', maxHeight: '8rem', overflow: 'auto', listStyle: 'disc' }}>
+                                  {reps.map((r, idx) => (<li key={idx} style={{ margin: '.1rem 0' }}>{r}</li>))}
+                                </ul>
+                              </div>
+                            )}
+                            <div style={{ fontSize: '.85rem', color: '#6b7280', marginTop: '.35rem' }}>
+                              Schedule: {friendlyFrequency(task.frequency)}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{
+                              display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
+                              background: task.status === 'done' ? '#d1fae5' : '#fee2e2', color: task.status === 'done' ? '#065f46' : '#991b1b'
+                            }}>
+                              {task.status === 'done' ? 'Done' : 'Pending'}
+                            </span>
+                          </div>
+                          <div>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={task.status === 'done'}
+                                onChange={() => handleToggleMyTaskStatus(task.id)}
+                              />
+                              <span style={{ fontSize: '.9rem' }}>Mark done</span>
+                            </label>
+                          </div>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
+            </div>
           </>
         )}
       </div>
 
-      {/* Habits (only for roles that can create their own plans) */}
+      {/* My plans (two tiles) */}
       {canCreate && (
-        <div
-          className="card"
-          style={{ marginTop: '1.5rem', maxWidth: '780px' }}
-        >
+        <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
           <h2>Your habit plans</h2>
-
-          {!hasAnyPlan && (
-            <>
-              <p className="sub">
-                You don&apos;t have any saved plans yet. Start by creating one:
-              </p>
-              <ul>
-                <li>
-                  <Link to="/build-habit">Build a Habit</Link> – create a new habit with tiny steps
-                </li>
-                <li>
-                  <Link to="/break-habit">Break a Habit</Link> – choose a habit to beat and replacements
-                </li>
-              </ul>
-            </>
-          )}
-
-          {hasAnyPlan && (
-            <>
-              {buildPlan && (
-                <div style={{ marginTop: '1rem' }}>
-                  <h3>Build a Habit</h3>
-                  <p>
-                    <strong>Habit:</strong> {buildPlan.goal || 'No goal set'}
-                  </p>
-
-                  {buildStepsPreview.length > 0 && (
-                    <>
-                      <p className="sub">First few steps:</p>
-                      <ol>
-                        {buildStepsPreview.map((s, idx) => (
-                          <li key={idx}>{s}</li>
-                        ))}
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem', flexWrap: 'wrap' }}>
+            {/* Build plan tile */}
+            <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Build a habit</h3>
+              {buildPlan ? (
+                <>
+                  <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{buildPlan.goal || 'No goal set'}</div>
+                  {buildStepsPreview.length > 0 ? (
+                    <div style={{ marginTop: '.35rem' }}>
+                      <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>First steps</div>
+                      <ol style={{ margin: '.25rem 0 0 1rem' }}>
+                        {buildStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
                       </ol>
-                    </>
+                    </div>
+                  ) : (
+                    <div className="sub" style={{ marginTop: '.35rem' }}>No steps added yet.</div>
                   )}
-
-                  <Link to="/build-habit" className="btn btn-ghost" style={{ marginTop: '.5rem' }}>
-                    View / edit habit plan
-                  </Link>
-                </div>
+                  <Link to="/build-habit" className="btn btn-ghost" style={{ marginTop: '.5rem' }}>View / edit plan</Link>
+                </>
+              ) : (
+                <>
+                  <div className="sub" style={{ marginTop: '.35rem' }}>No build-habit plan yet.</div>
+                  <Link to="/build-habit" className="btn" style={{ marginTop: '.5rem' }}>Create build-habit plan</Link>
+                </>
               )}
+            </div>
 
-              {breakPlan && (
-                <div style={{ marginTop: '1.5rem' }}>
-                  <h3>Break a Habit</h3>
-                  <p>
-                    <strong>Habit to break:</strong> {breakPlan.habit || 'No habit set'}
-                  </p>
-
-                  {breakStepsPreview.length > 0 && (
-                    <>
-                      <p className="sub">Try these actions:</p>
-                      <ol>
-                        {breakStepsPreview.map((s, idx) => (
-                          <li key={idx}>{s}</li>
-                        ))}
+            {/* Break plan tile */}
+            <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Break a habit</h3>
+              {breakPlan ? (
+                <>
+                  <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{breakPlan.habit || 'No habit set'}</div>
+                  {breakStepsPreview.length > 0 ? (
+                    <div style={{ marginTop: '.35rem' }}>
+                      <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Try instead</div>
+                      <ol style={{ margin: '.25rem 0 0 1rem' }}>
+                        {breakStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
                       </ol>
-                    </>
+                    </div>
+                  ) : (
+                    <div className="sub" style={{ marginTop: '.35rem' }}>No replacements added yet.</div>
                   )}
-
-                  <Link to="/break-habit" className="btn btn-ghost" style={{ marginTop: '.5rem' }}>
-                    View / edit break plan
-                  </Link>
-                </div>
+                  <Link to="/break-habit" className="btn btn-ghost" style={{ marginTop: '.5rem' }}>View / edit plan</Link>
+                </>
+              ) : (
+                <>
+                  <div className="sub" style={{ marginTop: '.35rem' }}>No break-habit plan yet.</div>
+                  <Link to="/break-habit" className="btn" style={{ marginTop: '.5rem' }}>Create break-habit plan</Link>
+                </>
               )}
-            </>
-          )}
+            </div>
+          </div>
         </div>
       )}
     </section>
