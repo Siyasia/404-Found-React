@@ -1,16 +1,34 @@
-# React + Vite
+# Next Steps (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Simple habit/task app with role‑based views:
+- Child: sees tasks, can toggle status, chooses a theme (pink/blue)
+- Parent: manage children, assign tasks, approve provider tasks
+- Provider: create tasks for parents/users
+- User (14+): manage own habit build/break plans
 
-Currently, two official plugins are available:
+## Getting Started
+```bash
+npm install
+npm run dev      # start local dev server
+npm run test     # run vitest tests
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Main Scripts
+- `dev` – Vite dev server
+- `build` – Production build
+- `test` – Vitest (React Testing Library)
 
-## React Compiler
+## Testing
+Helpers in `tests/test-utils.jsx`. Core flows covered:
+- App navigation links render
+- Auth (login flows + validation)
+- Parent dashboard (add child, assign, toggle)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Run in watch mode: `npm run test`.
 
-## Expanding the ESLint configuration
+## Future Improvements (Optional)
+- Replace localStorage with API
+- Add accessibility audits
+- More child themes or dynamic palette
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+

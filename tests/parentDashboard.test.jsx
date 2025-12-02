@@ -2,7 +2,7 @@
 // simple task, toggling task status) ensuring localStorage + UI state sync.
 
 import { screen, fireEvent } from '@testing-library/react';
-import { renderApp, seedUser, seedChildren, clearStorage } from '../../src/test-utils.jsx';
+import { renderApp, seedUser, seedChildren, clearStorage } from './test-utils.jsx';
 
 beforeEach(() => {
   clearStorage();
