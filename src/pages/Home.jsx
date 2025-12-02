@@ -101,7 +101,6 @@ export default function Home() {
   };
 
   // Dashboard header helpers
-  // Dashboard header helpers
   const hour = new Date().getHours();
   let greetingPart = 'morning';
   if (hour >= 12 && hour < 17) greetingPart = 'afternoon';
