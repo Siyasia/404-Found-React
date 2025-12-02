@@ -7,12 +7,26 @@ const UserContext = createContext(null);
 export function UserProvider({ children }) {
   const [user, setUserState] = useState(null);
 
+  // Apply a simple theme class to the <body>
+  const applyTheme = (theme) => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    body.classList.remove('theme-blue', 'theme-pink');
+    if (theme === 'blue') body.classList.add('theme-blue');
+    if (theme === 'pink') body.classList.add('theme-pink');
+  };
+
   // Load user once on startup
   useEffect(() => {
     try {
       const saved = localStorage.getItem(CURRENT_USER_KEY);
       if (saved) {
-        setUserState(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        setUserState(parsed);
+        // Re-apply theme on startup
+        if (parsed && parsed.theme) {
+          applyTheme(parsed.theme);
+        }
       }
     } catch (err) {
       console.error('Failed to load user from localStorage', err);
@@ -24,8 +38,11 @@ export function UserProvider({ children }) {
     try {
       if (newUser) {
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
+        // Apply theme only if provided
+        applyTheme(newUser.theme);
       } else {
         localStorage.removeItem(CURRENT_USER_KEY);
+        applyTheme(undefined);
       }
     } catch (err) {
       console.error('Failed to save user to localStorage', err);

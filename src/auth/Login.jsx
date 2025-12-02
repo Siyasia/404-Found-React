@@ -15,6 +15,8 @@ export default function Login() {
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
 
+  // Profile selection UI removed; always show manual login form
+
   const handleSubmit = (event) => {
     event.preventDefault();
     setError('');
@@ -62,105 +64,93 @@ export default function Login() {
     }
 
     const newUser = {
-        id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`, // <-- NEW
-        password,
-        email,
-        name: 'default',
-        age: '50',  // default age for non-child users
-        role,
-        createdAt: new Date().toISOString(),
+      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
+      password,
+      email,
+      name: name || 'default',
+      age: age || '50',
+      role,
+      createdAt: new Date().toISOString(),
     };
 
     setUser(newUser);
     navigate('/home');
   };
 
+  // Removed profile cards and helpers
+
   return (
-    <section className="container" style={{ maxWidth: '520px', paddingTop: '3rem' }}>
-      <div className="card" style={{ padding: '2.5rem 2rem' }}>
-        <h1>Welcome back to Next Steps</h1>
-        <p className="sub hero" style={{ marginTop: '0.5rem' }}>
-          Choose how you&apos;re using this device and we&apos;ll set things up for you.
-        </p>
-
-        <form onSubmit={handleSubmit}>
-          {/* Role selection first so the form can adapt */}
-          <label className="auth-label">
-            Role
-            <select
-              value={role}
-              onChange={(e) => {
-                setRole(e.target.value);
-                setError('');
-              }}
-            >
-              <option value="">Select a role</option>
-              <option value="user">User (14+)</option>
-              <option value="child">Child</option>
-              <option value="parent">Parent</option>
-              <option value="provider">Provider</option>
-            </select>
-          </label>
-
-          {/* Name + age for non-child roles */}
-          {role !== 'child' && (
-            <>
-              <label className="auth-label">
-                Email
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                />
-              </label>
-              <label className="auth-label">
-                Password
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                />
-              </label>
-            </>
-          )}
-
-          {/* Child code for child role */}
-          {role === 'child' && (
+    <section className="container" style={{ maxWidth: '960px', paddingTop: '3rem', textAlign: 'center' }}>
+      <div className="card" style={{ padding: '2.25rem 2rem', maxWidth: '520px', margin: '0 auto', textAlign: 'left' }}>
+          <h1 style={{ marginBottom: '.75rem' }}>Welcome back to Next Steps</h1>
+          <p className="sub" style={{ marginTop: 0 }}>
+            Choose your role and sign in. Use child code for kid accounts.
+          </p>
+          <form onSubmit={handleSubmit} style={{ marginTop: '.75rem' }}>
             <label className="auth-label">
-              Child code
-              <input
-                type="text"
-                value={childCode}
-                onChange={(e) => setChildCode(e.target.value)}
-                placeholder="Enter the code your parent gave you"
-              />
+              Role
+              <select
+                value={role}
+                onChange={(e) => {
+                  setRole(e.target.value);
+                  setError('');
+                }}
+              >
+                <option value="">Select a role</option>
+                <option value="user">User (14+)</option>
+                <option value="child">Child</option>
+                <option value="parent">Parent</option>
+                <option value="provider">Provider</option>
+              </select>
             </label>
-          )}
 
-          {error && (
-            <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.95rem' }}>
-              {error}
-            </p>
-          )}
+            {role !== 'child' && (
+              <>
+                <label className="auth-label">
+                  Email
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                  />
+                </label>
+                <label className="auth-label">
+                  Password
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                  />
+                </label>
+              </>
+            )}
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ marginTop: '1.5rem', width: '100%' }}
-          >
-            Continue
-          </button>
-        <br></br>
-        <hr></hr>
-        <br></br>
+            {role === 'child' && (
+              <label className="auth-label">
+                Child code
+                <input
+                  type="text"
+                  value={childCode}
+                  onChange={(e) => setChildCode(e.target.value)}
+                  placeholder="Enter the code your parent gave you"
+                />
+              </label>
+            )}
 
-        <div className="container signin">
-            <p>Don't have an account? <a href="/signup">Sign Up</a>.</p>
-        </div>
+            {error && (
+              <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.9rem' }}>{error}</p>
+            )}
 
-        </form>
+            <button type="submit" className="btn btn-primary" style={{ marginTop: '1.25rem', width: '100%' }}>
+              Continue
+            </button>
+
+            <div style={{ marginTop: '1.25rem', fontSize: '.85rem' }}>
+              <span>Don&apos;t have an account? <a href="/signup">Sign Up</a>.</span>
+            </div>
+          </form>
       </div>
     </section>
   );

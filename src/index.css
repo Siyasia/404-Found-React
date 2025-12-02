@@ -710,3 +710,96 @@ li {
     transition: all 0.2s ease;
   }
 }
+
+/* ===========================
+   Simple Child Themes
+   =========================== */
+
+
+.theme-blue {
+  background: radial-gradient(circle at 20% 0%, #e0e7ff 0%, #eef2ff 45%, #f8fafc 100%);
+}
+
+.theme-pink {
+  background: radial-gradient(circle at 20% 0%, #fbcfe8 0%, #f9a8d4 30%, #f5d0fe 60%, #fdf2f8 100%);
+}
+
+/* Accent overrides for pink theme */
+.theme-pink .btn-primary {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+}
+
+.theme-pink .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #db2777, #be185d);
+  box-shadow: 0 6px 16px rgba(236, 72, 153, 0.45);
+}
+
+.theme-pink .nav-link-active {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+}
+
+.theme-pink .brand-logo {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+}
+
+.theme-pink .progress-bar-fill {
+  background: linear-gradient(90deg, #ec4899, #db2777);
+}
+
+.theme-pink a {
+  color: #db2777;
+}
+
+.theme-pink a:hover {
+  color: #be185d;
+}
+
+.theme-pink .auth-label input:focus,
+.theme-pink .auth-label select:focus,
+.theme-pink .auth-label textarea:focus {
+  border: 1px solid #ec4899;
+  background: #fce7f3;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+}
+
+/* Blue accents (to clearly switch from pink) */
+.theme-blue .btn-primary {
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+.theme-blue .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5, #3730a3);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.45);
+}
+
+.theme-blue .nav-link-active {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.theme-blue .brand-logo {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+.theme-blue .progress-bar-fill {
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+}
+
+.theme-blue a {
+  color: #4f46e5;
+}
+
+.theme-blue a:hover {
+  color: #4338ca;
+}
+
+.theme-blue .auth-label input:focus,
+.theme-blue .auth-label select:focus,
+.theme-blue .auth-label textarea:focus {
+  border: 1px solid #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}

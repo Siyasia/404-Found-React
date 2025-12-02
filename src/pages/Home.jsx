@@ -7,13 +7,14 @@ import {
   canCreateProviderTasks,
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
+import ThemeModal from '../Child/ThemeModal.jsx';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
 
 export default function Home() {
-  const { user } = useUser();
+  const { user, setUser } = useUser();
 
   const canCreate = user && canCreateOwnTasks(user);
   const showParentActions = user && canAssignTasksToChildren(user);
@@ -23,6 +24,8 @@ export default function Home() {
   const [buildPlan, setBuildPlan] = useState(null);
   const [breakPlan, setBreakPlan] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [themeChoice, setThemeChoice] = useState(user?.theme || 'pink');
 
   useEffect(() => {
     const storedBuild = localStorage.getItem(BUILD_KEY);
@@ -52,6 +55,11 @@ export default function Home() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    // keep local selection in sync if user changes (navigation, reload)
+    setThemeChoice(user?.theme || 'pink');
+  }, [user]);
 
   const hasAnyPlan = !!buildPlan || !!breakPlan;
 
@@ -144,9 +152,56 @@ export default function Home() {
     return `Added ${diffDays} days ago`;
   };
 
+  const saveChildTheme = () => {
+    const newTheme = themeChoice || 'pink';
+    if (!user) return;
+    // Update current user context (applies body class via UserContext)
+    setUser({ ...user, theme: newTheme });
+
+    // Persist to children list so code-login picks it up later
+    try {
+      const raw = localStorage.getItem('ns.children.v1');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr)) {
+        const updated = arr.map((c) => {
+          if ((user.id && c.id === user.id) || (user.code && c.code === user.code)) {
+            return { ...c, theme: newTheme };
+          }
+          return c;
+        });
+        localStorage.setItem('ns.children.v1', JSON.stringify(updated));
+      }
+    } catch {
+      // ignore persistence errors for demo
+    }
+
+    setThemeOpen(false);
+  };
+
   return (
     <section className="container">
-      <h1 style={{ marginBottom: '.25rem' }}>Good {greetingPart}, {user?.name || 'there'}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+        <h1 style={{ marginBottom: '.25rem' }}>Good {greetingPart}, {user?.name || 'there'}</h1>
+        {user?.role === 'child' && (
+          <button
+            type="button"
+            aria-label="Theme settings"
+            onClick={() => setThemeOpen(true)}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontSize: '1.15rem',
+              opacity: .35,
+              padding: '.25rem .35rem',
+              borderRadius: '.5rem'
+            }}
+            title="Settings"
+          >
+            🎨
+          </button>
+        )}
+      </div>
       <p className="sub hero">Here's what's on your plate today.</p>
 
       {/* Summary strip */}
@@ -472,6 +527,13 @@ export default function Home() {
           </div>
         </div>
       )}
+      <ThemeModal
+        open={themeOpen}
+        theme={themeChoice}
+        onSelect={setThemeChoice}
+        onClose={() => setThemeOpen(false)}
+        onSave={saveChildTheme}
+      />
     </section>
   );
 }
