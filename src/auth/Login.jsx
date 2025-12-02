@@ -9,6 +9,7 @@ export default function Login() {
 
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [age, setAge] = useState('');
   const [role, setRole] = useState('');
@@ -117,12 +118,32 @@ export default function Login() {
                 </label>
                 <label className="auth-label">
                   Password
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                  />
+                  <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      aria-describedby="login-password-visibility-toggle"
+                    />
+                    <button
+                      type="button"
+                      id="login-password-visibility-toggle"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="icon-button"
+                      style={{
+                        border: '1px solid #ccc',
+                        background: 'white',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showPassword ? ' Hide' : ' Show'}
+                    </button>
+                  </div>
                 </label>
               </>
             )}

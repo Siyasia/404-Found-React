@@ -9,6 +9,7 @@ export default function Signup() {
 
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [age, setAge] = useState('');
     const [role, setRole] = useState('');
@@ -115,12 +116,32 @@ export default function Signup() {
 
             <label className="auth-label">
                 Password
-                <input 
-                    type="password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="enter password"
-                />
+                   <div className="password-input-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                       <input
+                           id="signup-password"
+                           type={showPassword ? "text" : "password"}
+                           value={password}
+                           onChange={(e) => setPassword(e.target.value)}
+                           placeholder="Create a password"
+                           aria-describedby="signup-password-visibility-toggle"
+                       />
+                       <button
+                           type="button"
+                           id="signup-password-visibility-toggle"
+                           aria-label={showPassword ? "Hide password" : "Show password"}
+                           onClick={() => setShowPassword((v) => !v)}
+                           className="icon-button"
+                           style={{
+                               border: "1px solid #ccc",
+                               background: "white",
+                               padding: "6px 10px",
+                               borderRadius: "6px",
+                               cursor: "pointer",
+                           }}
+                       >
+                           {showPassword ? " Hide" : " Show"}
+                       </button>
+                   </div>
             </label>
             <div className="passwordRequirement" id="passwordRequirement">
                 Your password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.
