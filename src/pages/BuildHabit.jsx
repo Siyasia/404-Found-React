@@ -102,12 +102,14 @@ export default function BuildHabit() {
             </p>
 
             <label className="auth-label">
-              Habit goal
+              Habit goal <span aria-hidden="true" className="required-asterisk">*</span>
               <input
                 type="text"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 placeholder="Example: Read for 10 minutes every night"
+                required
+                aria-required="true"
               />
             </label>
 
@@ -133,12 +135,14 @@ export default function BuildHabit() {
             </p>
 
             <label className="auth-label">
-              Cue / anchor
+              Cue / anchor <span aria-hidden="true" className="required-asterisk">*</span>
               <input
                 type="text"
                 value={cue}
                 onChange={(e) => setCue(e.target.value)}
                 placeholder="Example: After I brush my teeth..."
+                required
+                aria-required="true"
               />
             </label>
 

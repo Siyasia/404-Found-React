@@ -114,12 +114,14 @@ export default function BreakHabit() {
             </p>
 
             <label className="auth-label">
-              Habit to break
+              Habit to break <span aria-hidden="true" className="required-asterisk">*</span>
               <input
                 type="text"
                 value={habit}
                 onChange={(e) => setHabit(e.target.value)}
                 placeholder="Example: Scrolling on my phone late at night"
+                required
+                aria-required="true"
               />
             </label>
 

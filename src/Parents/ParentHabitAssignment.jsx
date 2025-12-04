@@ -211,8 +211,8 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
         </h2>
 
         <label style={{ display: 'block', marginBottom: '1rem' }}>
-          <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Assign to</span>
-          <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }}>
+          <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Assign to <span aria-hidden="true" className="required-asterisk">*</span></span>
+          <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true">
             {user?.id && (
               <option value={user.id}>{user.name} (you)</option>
             )}
@@ -228,8 +228,8 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
         </label>
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Type</label>
-              <select value={taskType} onChange={(e) => setTaskType(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }}>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Type <span aria-hidden="true" className="required-asterisk">*</span></label>
+              <select value={taskType} onChange={(e) => setTaskType(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true">
                 <option value="">Choose…</option>
                 <option value="simple">Simple task</option>
                 <option value="build-habit">Build habit</option>
@@ -241,7 +241,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
               <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
                 {taskType === 'simple' ? 'Task name' : (taskType === 'break-habit' ? 'Habit to break' : 'Habit name')}
               </span>
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} />
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true" />
             </label>
 
             {taskType === 'build-habit' && (
@@ -284,8 +284,8 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
             {taskType !== 'simple' && (
               <label style={{ display: 'block', marginBottom: '1rem' }}>
-                <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Frequency</span>
-                <select value={frequency} onChange={(e) => setFrequency(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }}>
+                <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Frequency <span aria-hidden="true" className="required-asterisk">*</span></span>
+                <select value={frequency} onChange={(e) => setFrequency(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true">
                   <option value="daily">Daily</option>
                   <option value="weekdays">Weekdays only</option>
                   <option value="weekends">Weekends only</option>

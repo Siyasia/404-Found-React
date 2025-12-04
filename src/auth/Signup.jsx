@@ -68,13 +68,15 @@ export default function Signup() {
 
             {/* gather role choice*/}
             <label className="auth-label">
-                Role
+                Role <span aria-hidden="true" className="required-asterisk">*</span>
                 <select 
                     value={role}
                     onChange={(e) => {
                         setRole(e.target.value);
                         setError('');
                     }}
+                    required
+                    aria-required="true"
                 >
                     <option value="">Select a role…</option>
                     <option value="parent">Parent</option>
@@ -84,38 +86,44 @@ export default function Signup() {
             </label>
             {/* gather name */}
             <label className="auth-label">
-                Name
+                Name <span aria-hidden="true" className="required-asterisk">*</span>
                 <input 
                     type="text" 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="enter name of user"
+                    required
+                    aria-required="true"
                 />
             </label>
             {/* gather email */}
             <label className="auth-label">
-                Email
+                Email <span aria-hidden="true" className="required-asterisk">*</span>
                 <input 
                     type="email" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="enter email address"
+                    required
+                    aria-required="true"
                 />
             </label>
             {/* gather age */}
             <label className="auth-label">
-                Age
+                Age <span aria-hidden="true" className="required-asterisk">*</span>
                 <input 
                     type="number" 
                     min="1"
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
                     placeholder="enter age of user"
+                    required
+                    aria-required="true"
                 />
             </label>
 
             <label className="auth-label">
-                Password
+                Password <span aria-hidden="true" className="required-asterisk">*</span>
                    <div className="password-input-wrapper" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                        <input
                            id="signup-password"
@@ -124,6 +132,8 @@ export default function Signup() {
                            onChange={(e) => setPassword(e.target.value)}
                            placeholder="Create a password"
                            aria-describedby="signup-password-visibility-toggle"
+                           required
+                           aria-required="true"
                        />
                        <button
                            type="button"

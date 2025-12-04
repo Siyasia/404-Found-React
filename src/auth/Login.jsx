@@ -89,13 +89,15 @@ export default function Login() {
           </p>
           <form onSubmit={handleSubmit} style={{ marginTop: '.75rem' }}>
             <label className="auth-label">
-              Role
+              Role <span aria-hidden="true" className="required-asterisk">*</span>
               <select
                 value={role}
                 onChange={(e) => {
                   setRole(e.target.value);
                   setError('');
                 }}
+                required
+                aria-required="true"
               >
                 <option value="">Select a role</option>
                 <option value="user">User (14+)</option>
@@ -108,16 +110,18 @@ export default function Login() {
             {role !== 'child' && (
               <>
                 <label className="auth-label">
-                  Email
+                  Email <span aria-hidden="true" className="required-asterisk">*</span>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
+                    required
+                    aria-required="true"
                   />
                 </label>
-                <label className="auth-label">
-                  Password
+                 <label className="auth-label">
+                  Password <span aria-hidden="true" className="required-asterisk">*</span>
                   <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="login-password"
@@ -126,6 +130,8 @@ export default function Login() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
                       aria-describedby="login-password-visibility-toggle"
+                      required
+                      aria-required="true"
                     />
                     <button
                       type="button"

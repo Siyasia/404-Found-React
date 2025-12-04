@@ -358,6 +358,11 @@ input:focus-visible {
   color: var(--text-dark);
 }
 
+.required-asterisk {
+  color: #b91c1c; /* red-700 */
+  margin-left: 0.25rem;
+}
+
 .auth-label input,
 .auth-label select,
 .auth-label textarea {

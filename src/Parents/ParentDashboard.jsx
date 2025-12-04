@@ -263,23 +263,27 @@ export default function ParentDashboard() {
 
         <form onSubmit={handleAddChild}>
           <label className="auth-label">
-            Child&apos;s name
+            Child&apos;s name <span aria-hidden="true" className="required-asterisk">*</span>
             <input
               type="text"
               value={childName}
               onChange={(e) => setChildName(e.target.value)}
               placeholder="Example: Paxton"
+              required
+              aria-required="true"
             />
           </label>
 
           <label className="auth-label">
-            Age
+            Age <span aria-hidden="true" className="required-asterisk">*</span>
             <input
               type="number"
               min="1"
               value={childAge}
               onChange={(e) => setChildAge(e.target.value)}
               placeholder="Example: 10"
+              required
+              aria-required="true"
             />
           </label>
 
