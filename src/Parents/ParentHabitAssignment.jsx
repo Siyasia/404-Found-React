@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import Toast from '../components/Toast.jsx';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -34,6 +35,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
   // Recurrence
   const [frequency, setFrequency] = useState('daily');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Load children + tasks from localStorage on mount unless parent passed them in
   useEffect(() => {
@@ -175,8 +177,25 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       createdByRole: 'parent',
     };
 
+    console.log('[ParentHabitAssignment] Assign submit', { taskType, assigneeName });
     saveTasks([...tasks, newTask]);
     resetForm();
+    setSuccess(`Assigned ${taskType || 'task'} to ${assigneeName}.`);
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleToggleTaskStatus = (taskId) => {
+    console.log('[ParentHabitAssignment] Toggle status', taskId);
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, status: t.status === 'done' ? 'pending' : 'done' } : t
+    );
+    saveTasks(updated);
+    setTasks(updated);
+    const changed = updated.find((t) => t.id === taskId);
+    if (changed) {
+      setSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
+      setTimeout(() => setSuccess(''), 2500);
+    }
   };
 
   if (!user) {
@@ -201,6 +220,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1rem' }}>
       <h1 style={{ marginBottom: '0.5rem' }}>Parent Dashboard — Assign tasks</h1>
 
+      <Toast message={success} type="success" onClose={() => setSuccess('')} />
       <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '1rem', padding: '2rem', marginBottom: '2rem' }}>
         <h2 style={{ marginBottom: '1rem' }}>
           Assign to: {isAssigningToParent
@@ -299,6 +319,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
             </label>
 
             {error && <p style={{ color: '#b91c1c', marginBottom: '1rem' }}>{error}</p>}
+            {success && <p style={{ color: '#16a34a', marginBottom: '1rem' }}>{success}</p>}
 
         <button type="button" onClick={handleSubmit} style={{ width: '100%', padding: '1rem', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: 'white', border: 'none', borderRadius: '0.75rem' }}>Assign</button>
       </div>
@@ -313,8 +334,16 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
                   <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>{t.taskType}</span>
                   <h3 style={{ margin: '0.25rem 0' }}>{t.title}</h3>
                   <p style={{ margin: 0, fontSize: '0.9rem', color: '#6b7280' }}>For: {t.assigneeName}</p>
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: t.status === 'done' ? '#14532d' : '#6b7280' }}>
+                    Status: {t.status === 'done' ? 'Done ✅' : 'Pending'}
+                  </p>
                 </div>
                 {t.notes && <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', fontStyle: 'italic', color: '#6b7280' }}>Note: {t.notes}</p>}
+                <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => handleToggleTaskStatus(t.id)}>
+                    {t.status === 'done' ? 'Mark not done' : 'Mark done'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

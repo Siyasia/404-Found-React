@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
+import Toast from '../components/Toast.jsx';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
 
@@ -33,6 +34,7 @@ export default function BuildHabit() {
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
   const [savedPlan, setSavedPlan] = useState(null);
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -67,8 +69,11 @@ export default function BuildHabit() {
       steps,
       savedOn: new Date().toISOString(),
     };
+    console.log('[BuildHabit] Save plan', plan);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
     setSavedPlan(plan);
+    setSuccess('Habit plan saved successfully.');
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   const totalSteps = 3;
@@ -81,10 +86,12 @@ export default function BuildHabit() {
         Choose a small habit, anchor it to something you already do, and plan tiny steps that make it easy.
       </p>
 
+      <Toast message={success} type="success" onClose={() => setSuccess('')} />
       <div
         className="card"
         style={{ marginTop: '1.5rem', maxWidth: '780px' }}
       >
+        {/* content */}
         {/* Progress bar */}
         <div className="progress" aria-hidden="true">
           <div className="progress-bar" style={{ width: `${progress}%` }} />

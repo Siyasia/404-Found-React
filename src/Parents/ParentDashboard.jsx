@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import ParentHabitAssignment from './ParentHabitAssignment.jsx';
+import Toast from '../components/Toast.jsx';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -32,11 +33,13 @@ export default function ParentDashboard() {
   const [childName, setChildName] = useState('');
   const [childAge, setChildAge] = useState('');
   const [childError, setChildError] = useState('');
+  const [childSuccess, setChildSuccess] = useState('');
 
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskNotes, setTaskNotes] = useState('');
   const [taskError, setTaskError] = useState('');
+  const [taskSuccess, setTaskSuccess] = useState('');
 
   useEffect(() => {
     try {
@@ -107,10 +110,13 @@ export default function ParentDashboard() {
       createdAt: new Date().toISOString(),
     };
 
+    console.log('[ParentDashboard] Add child submit');
     const updated = [...children, newChild];
     saveChildren(updated);
     setChildName('');
     setChildAge('');
+    setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
+    setTimeout(() => setChildSuccess(''), 3000);
   };
 
   const handleRemoveChild = (id) => {
@@ -166,6 +172,7 @@ export default function ParentDashboard() {
   };
 
   const handleToggleTaskStatus = (taskId) => {
+    console.log('[ParentDashboard] Toggle status', taskId);
     setTasks((prev) => {
       const updated = prev.map((t) =>
         t.id === taskId
@@ -173,6 +180,11 @@ export default function ParentDashboard() {
           : t
       );
       saveTasks(updated);
+      const changed = updated.find((t) => t.id === taskId);
+      if (changed) {
+        setTaskSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
+        setTimeout(() => setTaskSuccess(''), 2500);
+      }
       return updated;
     });
   };
@@ -249,6 +261,8 @@ export default function ParentDashboard() {
 
   return (
     <section className="container">
+      <Toast message={childSuccess} type="success" onClose={() => setChildSuccess('')} />
+      <Toast message={taskSuccess} type="success" onClose={() => setTaskSuccess('')} />
       <h1>Parent dashboard</h1>
       <p className="sub hero">
         Add child accounts, see their codes, assign your own tasks, and approve
@@ -290,6 +304,11 @@ export default function ParentDashboard() {
           {childError && (
             <p style={{ color: '#b91c1c', fontSize: '.95rem', marginTop: '.25rem' }}>
               {childError}
+            </p>
+          )}
+          {childSuccess && (
+            <p style={{ color: '#16a34a', fontSize: '.95rem', marginTop: '.25rem' }}>
+              {childSuccess}
             </p>
           )}
 

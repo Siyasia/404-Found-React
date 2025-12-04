@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
+import Toast from '../components/Toast.jsx';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
 
@@ -34,6 +35,7 @@ export default function BreakHabit() {
   const [microSteps, setMicroSteps] = useState([]);
   const [newMicroStep, setNewMicroStep] = useState('');
   const [savedPlan, setSavedPlan] = useState(null);
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -79,8 +81,11 @@ export default function BreakHabit() {
       microSteps,
       savedOn: new Date().toISOString(),
     };
+    console.log('[BreakHabit] Save plan', plan);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
     setSavedPlan(plan);
+    setSuccess('Break habit plan saved successfully.');
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   const totalSteps = 3;
@@ -93,10 +98,12 @@ export default function BreakHabit() {
         Choose a habit to break, decide what you&apos;ll do instead, and plan tiny steps for change.
       </p>
 
+      <Toast message={success} type="success" onClose={() => setSuccess('')} />
       <div
         className="card"
         style={{ marginTop: '1.5rem', maxWidth: '780px' }}
       >
+        {/* content */}
         {/* Progress bar */}
         <div className="progress" aria-hidden="true">
           <div className="progress-bar" style={{ width: `${progress}%` }} />
