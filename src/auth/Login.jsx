@@ -12,7 +12,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [age, setAge] = useState('');
-  const [role, setRole] = useState('');
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
 
@@ -24,21 +23,14 @@ export default function Login() {
 
     const trimmedCode = childCode.trim();
 
-    // ==== CHILD LOGIN FLOW (uses code instead of name/age) ====
-    if (role === 'child') {
-      if (!trimmedCode) {
-        setError('Please enter your child code.');
-        return;
-      }
-
+  // ==== CHILD LOGIN FLOW (uses code) ====
+    if (trimmedCode) {
       let children = [];
       try {
         const raw = localStorage.getItem('ns.children.v1');
-        if (raw) {
-          children = JSON.parse(raw) || [];
-        }
+        if (raw) children = JSON.parse(raw) || [];
       } catch {
-        children = [];
+      children = [];
       }
 
       const child = children.find((c) => c.code === trimmedCode);
@@ -48,35 +40,33 @@ export default function Login() {
         return;
       }
 
-      const newUser = {
-        ...child,      // already has id, name, age, code
-        role: 'child',
-      };
-
-      setUser(newUser);
+      setUser({ ...child, role: 'child' });
       navigate('/home');
       return;
     }
 
-    // ==== NON-CHILD ROLES (user, parent, provider) ====
-    if (!role || !email || !password) {
-      setError('Please fill in all fields. If you don\'t have an account, please sign up first.');
+    // ==== ADULT LOGIN FLOW (email + password) ====
+    if (!email || !password) {
+      setError('Please enter email + password, or enter a child code.');
       return;
     }
 
+    // NOTE: since you said auth isn’t “real” yet, we’ll keep this permissive.
+    // If you later want real local auth, we’ll look up accounts in localStorage.
     const newUser = {
       id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-      password,
       email,
-      name: name || 'default',
-      age: age || '50',
-      role,
+      password,
+      name: (email.split('@')[0] || 'User'),
+      age: '50',
+      role: 'user',
       createdAt: new Date().toISOString(),
     };
 
     setUser(newUser);
     navigate('/home');
   };
+
 
   // Removed profile cards and helpers
 
@@ -88,83 +78,56 @@ export default function Login() {
             Choose your role and sign in. Use child code for kid accounts.
           </p>
           <form onSubmit={handleSubmit} style={{ marginTop: '.75rem' }}>
+
             <label className="auth-label">
-              Role <span aria-hidden="true" className="required-asterisk">*</span>
-              <select
-                value={role}
-                onChange={(e) => {
-                  setRole(e.target.value);
-                  setError('');
-                }}
-                required
-                aria-required="true"
-              >
-                <option value="">Select a role</option>
-                <option value="user">User (14+)</option>
-                <option value="child">Child</option>
-                <option value="parent">Parent</option>
-                <option value="provider">Provider</option>
-              </select>
+              Email <span aria-hidden="true" className="required-asterisk">*</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+              />
             </label>
 
-            {role !== 'child' && (
-              <>
-                <label className="auth-label">
-                  Email <span aria-hidden="true" className="required-asterisk">*</span>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    required
-                    aria-required="true"
-                  />
-                </label>
-                 <label className="auth-label">
-                  Password <span aria-hidden="true" className="required-asterisk">*</span>
-                  <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      aria-describedby="login-password-visibility-toggle"
-                      required
-                      aria-required="true"
-                    />
-                    <button
-                      type="button"
-                      id="login-password-visibility-toggle"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="icon-button"
-                      style={{
-                        border: '1px solid #ccc',
-                        background: 'white',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {showPassword ? ' Hide' : ' Show'}
-                    </button>
-                  </div>
-                </label>
-              </>
-            )}
-
-            {role === 'child' && (
-              <label className="auth-label">
-                Child code
+            <label className="auth-label">
+              Password <span aria-hidden="true" className="required-asterisk">*</span>
+              <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
-                  type="text"
-                  value={childCode}
-                  onChange={(e) => setChildCode(e.target.value)}
-                  placeholder="Enter the code your parent gave you"
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  aria-describedby="login-password-visibility-toggle"
                 />
-              </label>
-            )}
+                <button
+                  type="button"
+                  id="login-password-visibility-toggle"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="icon-button"
+                  style={{
+                    border: '1px solid #ccc',
+                    background: 'white',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {showPassword ? ' Hide' : ' Show'}
+                </button>
+              </div>
+            </label>
+
+            <label className="auth-label">
+              Child code sign on
+              <input
+                type="text"
+                value={childCode}
+                onChange={(e) => setChildCode(e.target.value)}
+                placeholder="Enter the code your parent gave you"
+              />
+            </label>
 
             {error && (
               <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.9rem' }}>{error}</p>
@@ -177,6 +140,7 @@ export default function Login() {
             <div style={{ marginTop: '1.25rem', fontSize: '.85rem' }}>
               <span>Don&apos;t have an account? <a href="/signup">Sign Up</a>.</span>
             </div>
+
           </form>
       </div>
     </section>
