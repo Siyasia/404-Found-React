@@ -12,8 +12,19 @@ import ThemeModal from '../Child/ThemeModal.jsx';
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
+const FORMED_KEY = 'ns.habitsFormed.v1';
 
 export default function Home() {
+  /*
+  ----------------------------------------------------------------------------------------------------------------------------------
+  Code for utilizing TTS
+  ----------------------------------------------------------------------------------------------------------------------------------
+  */
+  const supportsTTS =
+    typeof window !== 'undefined' &&
+    'speechSynthesis' in window &&
+    typeof SpeechSynthesisUtterance !== 'undefined';
+
   const { user, setUser } = useUser();
 
   const canCreate = user && canCreateOwnTasks(user);
@@ -24,9 +35,80 @@ export default function Home() {
   const [buildPlan, setBuildPlan] = useState(null);
   const [breakPlan, setBreakPlan] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [formedHabits, setFormedHabits] = useState([]);
+
   const [themeOpen, setThemeOpen] = useState(false);
   const [themeChoice, setThemeChoice] = useState(user?.theme || 'pink');
 
+  // Tasks assigned to the logged-in user:
+  //  - Direct: assigneeId === user.id
+  //  - Adult provider tasks by name: targetType === 'adult', no approval, targetName matches user.name
+  const tasksForUser =
+    user && user.id
+      ? tasks.filter((t) => {
+          if (t.assigneeId === user.id) return true;
+
+          if (
+            !t.assigneeId &&
+            !t.needsApproval &&
+            t.targetType === 'adult' &&
+            t.targetName &&
+            user.name &&
+            t.targetName.toLowerCase() === user.name.toLowerCase()
+          ) {
+            return true;
+          }
+
+          return false;
+        })
+      : [];
+
+  const buildTaskSummaryText = (name, userTasks) => {
+    const safeName = name?.trim() || 'there';
+    const count = Array.isArray(userTasks) ? userTasks.length : 0;
+
+    if (count === 0) {
+      return `Hey there, ${safeName}. You currently have 0 tasks assigned to you.`;
+    }
+
+    const mostRecent = [...userTasks]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, 3)
+      .map((t) => {
+        const title = (t.title || 'Untitled task').trim();
+        const who = (t.createdByName || 'someone').trim();
+        return `${title}, assigned by ${who}`;
+      });
+
+    const recentLine =
+      mostRecent.length === 1
+        ? `Looks like the most recent is ${mostRecent[0]}.`
+        : `Looks like the most recent are ${mostRecent.join('. ')}.`;
+
+    return `Hey there, ${safeName}. You currently have ${count} task${count === 1 ? '' : 's'} assigned to you. ${recentLine}`;
+  };
+
+  const speakTaskSummary = () => {
+    if (!supportsTTS) {
+      alert('Text-to-speech is not supported in this browser.');
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const text = buildTaskSummaryText(user?.name, tasksForUser);
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  /*
+  ----------------------------------------------------------------------------------------------------------------------------------
+  Local storage loads
+  ----------------------------------------------------------------------------------------------------------------------------------
+  */
   useEffect(() => {
     const storedBuild = localStorage.getItem(BUILD_KEY);
     if (storedBuild) {
@@ -54,43 +136,26 @@ export default function Home() {
         setTasks([]);
       }
     }
+
+    const storedFormed = localStorage.getItem(FORMED_KEY);
+    if (storedFormed) {
+      try {
+        setFormedHabits(JSON.parse(storedFormed) || []);
+      } catch {
+        setFormedHabits([]);
+      }
+    }
   }, []);
 
   useEffect(() => {
-    // keep local selection in sync if user changes (navigation, reload)
     setThemeChoice(user?.theme || 'pink');
   }, [user]);
-
-  const hasAnyPlan = !!buildPlan || !!breakPlan;
 
   const buildStepsPreview = buildPlan?.steps?.slice(0, 3) || [];
   const breakStepsPreview =
     breakPlan?.microSteps?.slice(0, 3) ||
     breakPlan?.replacements?.slice(0, 3) ||
     [];
-
-  // Tasks assigned to the logged-in user:
-  //  - Direct: assigneeId === user.id
-  //  - Adult provider tasks by name: targetType === 'adult', no approval, targetName matches user.name
-  const tasksForUser =
-    user && user.id
-      ? tasks.filter((t) => {
-          if (t.assigneeId === user.id) return true;
-
-          if (
-            !t.assigneeId &&
-            !t.needsApproval &&
-            t.targetType === 'adult' &&
-            t.targetName &&
-            user.name &&
-            t.targetName.toLowerCase() === user.name.toLowerCase()
-          ) {
-            return true;
-          }
-
-          return false;
-        })
-      : [];
 
   const handleToggleMyTaskStatus = (taskId) => {
     setTasks((prev) => {
@@ -108,7 +173,77 @@ export default function Home() {
     });
   };
 
-  // Dashboard header helpers
+  /*
+  ----------------------------------------------------------------------------------------------------------------------------------
+  Habits formed helpers (complete + delete)
+  ----------------------------------------------------------------------------------------------------------------------------------
+  */
+  const saveFormedHabits = (updated) => {
+    setFormedHabits(updated);
+    try {
+      localStorage.setItem(FORMED_KEY, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  const deleteBuildPlan = () => {
+    setBuildPlan(null);
+    try {
+      localStorage.removeItem(BUILD_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  const deleteBreakPlan = () => {
+    setBreakPlan(null);
+    try {
+      localStorage.removeItem(BREAK_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  const completeBuildPlan = () => {
+    if (!buildPlan) return;
+
+    const entry = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `formed-${Date.now()}`,
+      userId: user?.id || null,
+      type: 'build',
+      title: buildPlan.goal || 'Build habit plan',
+      details: buildPlan,
+      completedAt: new Date().toISOString(),
+    };
+
+    const updated = [entry, ...(Array.isArray(formedHabits) ? formedHabits : [])];
+    saveFormedHabits(updated);
+    deleteBuildPlan();
+  };
+
+  const completeBreakPlan = () => {
+    if (!breakPlan) return;
+
+    const entry = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `formed-${Date.now()}`,
+      userId: user?.id || null,
+      type: 'break',
+      title: breakPlan.habit || 'Break habit plan',
+      details: breakPlan,
+      completedAt: new Date().toISOString(),
+    };
+
+    const updated = [entry, ...(Array.isArray(formedHabits) ? formedHabits : [])];
+    saveFormedHabits(updated);
+    deleteBreakPlan();
+  };
+
+  /*
+  ----------------------------------------------------------------------------------------------------------------------------------
+  Dashboard header helpers
+  ----------------------------------------------------------------------------------------------------------------------------------
+  */
   const hour = new Date().getHours();
   let greetingPart = 'morning';
   if (hour >= 12 && hour < 17) greetingPart = 'afternoon';
@@ -129,7 +264,6 @@ export default function Home() {
   const buildCounts = getCounts(buildTasks);
   const breakCounts = getCounts(breakTasks);
 
-  // Tabs state for tasks section
   const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'build' | 'break'
 
   const friendlyFrequency = (freq) => {
@@ -155,10 +289,9 @@ export default function Home() {
   const saveChildTheme = () => {
     const newTheme = themeChoice || 'pink';
     if (!user) return;
-    // Update current user context (applies body class via UserContext)
+
     setUser({ ...user, theme: newTheme });
 
-    // Persist to children list so code-login picks it up later
     try {
       const raw = localStorage.getItem('ns.children.v1');
       const arr = raw ? JSON.parse(raw) : [];
@@ -172,11 +305,15 @@ export default function Home() {
         localStorage.setItem('ns.children.v1', JSON.stringify(updated));
       }
     } catch {
-      // ignore persistence errors for demo
+      // ignore
     }
 
     setThemeOpen(false);
   };
+
+  const formedForUser = (Array.isArray(formedHabits) ? formedHabits : []).filter(
+    (h) => !h.userId || h.userId === user?.id
+  );
 
   return (
     <section className="container">
@@ -227,10 +364,7 @@ export default function Home() {
 
       {/* Role-based overview card */}
       {user && (canCreate || showParentActions || showProviderActions || showParentApproval) && (
-        <div
-          className="card"
-          style={{ marginTop: '1.5rem', maxWidth: '780px' }}
-        >
+        <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
           {canCreate && (
             <>
               <h2>Your habits</h2>
@@ -239,14 +373,8 @@ export default function Home() {
 
           {showParentActions && (
             <>
-              <h2 style={{ marginTop: canCreate ? '1.5rem' : 0 }}>
-                Parent tools
-              </h2>
-              <Link
-                to="/parent"
-                className="btn btn-ghost"
-                style={{ marginTop: '.75rem' }}
-              >
+              <h2 style={{ marginTop: canCreate ? '1.5rem' : 0 }}>Parent tools</h2>
+              <Link to="/parent" className="btn btn-ghost" style={{ marginTop: '.75rem' }}>
                 Open parent dashboard
               </Link>
             </>
@@ -254,14 +382,8 @@ export default function Home() {
 
           {showProviderActions && (
             <>
-              <h2 style={{ marginTop: (canCreate || showParentActions) ? '1.5rem' : 0 }}>
-                Provider tools
-              </h2>
-              <Link
-                to="/provider"
-                className="btn btn-ghost"
-                style={{ marginTop: '.75rem' }}
-              >
+              <h2 style={{ marginTop: (canCreate || showParentActions) ? '1.5rem' : 0 }}>Provider tools</h2>
+              <Link to="/provider" className="btn btn-ghost" style={{ marginTop: '.75rem' }}>
                 Open provider dashboard
               </Link>
             </>
@@ -277,9 +399,34 @@ export default function Home() {
         </div>
       )}
 
-      {/* Tasks for the current user (tabbed, list-style) */}
+      {/* Tasks for the current user */}
       <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
         <h2>Your tasks for today</h2>
+
+        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', margin: '.5rem 0 1rem' }}>
+          <button
+            type="button"
+            onClick={speakTaskSummary}
+            disabled={!supportsTTS}
+            aria-label="Read a summary of my assigned tasks"
+            style={{
+              padding: '.6rem .9rem',
+              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              background: 'white',
+              cursor: supportsTTS ? 'pointer' : 'not-allowed',
+              fontWeight: 600,
+            }}
+          >
+            🔊 Read task summary
+          </button>
+
+          {!supportsTTS && (
+            <span style={{ fontSize: '.85rem', color: '#6b7280' }}>
+              TTS not supported in this browser
+            </span>
+          )}
+        </div>
 
         {(!tasksForUser || tasksForUser.length === 0) ? (
           <div className="sub" style={{ marginTop: '.5rem' }}>
@@ -340,7 +487,8 @@ export default function Home() {
                         <div>
                           <span style={{
                             display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
-                            background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a'
+                            background: task.status === 'done' ? '#d1fae5' : '#dbeafe',
+                            color: task.status === 'done' ? '#065f46' : '#1e3a8a'
                           }}>
                             {task.status === 'done' ? 'Done' : 'Pending'}
                           </span>
@@ -391,7 +539,8 @@ export default function Home() {
                           <div>
                             <span style={{
                               display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
-                              background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a'
+                              background: task.status === 'done' ? '#d1fae5' : '#dbeafe',
+                              color: task.status === 'done' ? '#065f46' : '#1e3a8a'
                             }}>
                               {task.status === 'done' ? 'Done' : 'Pending'}
                             </span>
@@ -443,7 +592,8 @@ export default function Home() {
                           <div>
                             <span style={{
                               display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
-                              background: task.status === 'done' ? '#d1fae5' : '#fee2e2', color: task.status === 'done' ? '#065f46' : '#991b1b'
+                              background: task.status === 'done' ? '#d1fae5' : '#fee2e2',
+                              color: task.status === 'done' ? '#065f46' : '#991b1b'
                             }}>
                               {task.status === 'done' ? 'Done' : 'Pending'}
                             </span>
@@ -468,65 +618,128 @@ export default function Home() {
         )}
       </div>
 
-      {/* My plans (two tiles) */}
+      {/* My plans */}
       {canCreate && (
-        <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
-          <h2>Your habit plans</h2>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem', flexWrap: 'wrap' }}>
-            {/* Build plan tile */}
-            <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Build a habit</h3>
-              {buildPlan ? (
-                <>
-                  <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{buildPlan.goal || 'No goal set'}</div>
-                  {buildStepsPreview.length > 0 ? (
-                    <div style={{ marginTop: '.35rem' }}>
-                      <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>First steps</div>
-                      <ol style={{ margin: '.25rem 0 0 1rem' }}>
-                        {buildStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
-                      </ol>
-                    </div>
-                  ) : (
-                    <div className="sub" style={{ marginTop: '.35rem' }}>No steps added yet.</div>
-                  )}
-                  <Link to="/build-habit" className="btn btn-ghost" style={{ marginTop: '.5rem' }}>View / edit plan</Link>
-                </>
-              ) : (
-                <>
-                  <div className="sub" style={{ marginTop: '.35rem' }}>No build-habit plan yet.</div>
-                  <Link to="/build-habit" className="btn" style={{ marginTop: '.5rem' }}>Create build-habit plan</Link>
-                </>
-              )}
-            </div>
+        <>
+          <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
+            <h2>Your habit plans</h2>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem', flexWrap: 'wrap' }}>
+              {/* Build plan tile */}
+              <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+                <h3 style={{ margin: 0 }}>Build a habit</h3>
+                {buildPlan ? (
+                  <>
+                    <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{buildPlan.goal || 'No goal set'}</div>
 
-            {/* Break plan tile */}
-            <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Break a habit</h3>
-              {breakPlan ? (
-                <>
-                  <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{breakPlan.habit || 'No habit set'}</div>
-                  {breakStepsPreview.length > 0 ? (
-                    <div style={{ marginTop: '.35rem' }}>
-                      <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Try instead</div>
-                      <ol style={{ margin: '.25rem 0 0 1rem' }}>
-                        {breakStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
-                      </ol>
+                    {buildStepsPreview.length > 0 ? (
+                      <div style={{ marginTop: '.35rem' }}>
+                        <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>First steps</div>
+                        <ol style={{ margin: '.25rem 0 0 1rem' }}>
+                          {buildStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
+                        </ol>
+                      </div>
+                    ) : (
+                      <div className="sub" style={{ marginTop: '.35rem' }}>No steps added yet.</div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
+                      <Link to="/build-habit" className="btn btn-ghost">View / edit plan</Link>
+
+                      <button type="button" className="btn" onClick={completeBuildPlan}>
+                        Mark complete
+                      </button>
+
+                      <button type="button" className="btn btn-ghost" onClick={deleteBuildPlan}>
+                        Delete
+                      </button>
                     </div>
-                  ) : (
-                    <div className="sub" style={{ marginTop: '.35rem' }}>No replacements added yet.</div>
-                  )}
-                  <Link to="/break-habit" className="btn btn-ghost" style={{ marginTop: '.5rem' }}>View / edit plan</Link>
-                </>
-              ) : (
-                <>
-                  <div className="sub" style={{ marginTop: '.35rem' }}>No break-habit plan yet.</div>
-                  <Link to="/break-habit" className="btn" style={{ marginTop: '.5rem' }}>Create break-habit plan</Link>
-                </>
-              )}
+                  </>
+                ) : (
+                  <>
+                    <div className="sub" style={{ marginTop: '.35rem' }}>No build-habit plan yet.</div>
+                    <Link to="/build-habit" className="btn" style={{ marginTop: '.5rem' }}>Create build-habit plan</Link>
+                  </>
+                )}
+              </div>
+
+              {/* Break plan tile */}
+              <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
+                <h3 style={{ margin: 0 }}>Break a habit</h3>
+                {breakPlan ? (
+                  <>
+                    <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{breakPlan.habit || 'No habit set'}</div>
+
+                    {breakStepsPreview.length > 0 ? (
+                      <div style={{ marginTop: '.35rem' }}>
+                        <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Try instead</div>
+                        <ol style={{ margin: '.25rem 0 0 1rem' }}>
+                          {breakStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
+                        </ol>
+                      </div>
+                    ) : (
+                      <div className="sub" style={{ marginTop: '.35rem' }}>No replacements added yet.</div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
+                      <Link to="/break-habit" className="btn btn-ghost">View / edit plan</Link>
+
+                      <button type="button" className="btn" onClick={completeBreakPlan}>
+                        Mark complete
+                      </button>
+
+                      <button type="button" className="btn btn-ghost" onClick={deleteBreakPlan}>
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="sub" style={{ marginTop: '.35rem' }}>No break-habit plan yet.</div>
+                    <Link to="/break-habit" className="btn" style={{ marginTop: '.5rem' }}>Create break-habit plan</Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Habits formed */}
+          <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
+            <h2>Habits formed</h2>
+
+            {formedForUser.length === 0 ? (
+              <div className="sub" style={{ marginTop: '.5rem' }}>
+                Nothing here yet. Mark a plan complete to add it.
+              </div>
+            ) : (
+              <ul style={{ marginTop: '.75rem', paddingLeft: 0, listStyle: 'none', display: 'grid', gap: '.75rem' }}>
+                {formedForUser.map((h) => (
+                  <li
+                    key={h.id}
+                    style={{
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '.75rem',
+                      padding: '1rem',
+                      background: 'white'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'baseline' }}>
+                      <div style={{ fontWeight: 700 }}>{h.title}</div>
+                      <span style={{ fontSize: '.8rem', color: '#6b7280' }}>
+                        {h.completedAt ? new Date(h.completedAt).toLocaleDateString() : ''}
+                      </span>
+                    </div>
+
+                    <div style={{ marginTop: '.35rem', fontSize: '.85rem', color: '#6b7280' }}>
+                      Type: {h.type === 'build' ? 'Build a habit' : 'Break a habit'}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
+
       <ThemeModal
         open={themeOpen}
         theme={themeChoice}
