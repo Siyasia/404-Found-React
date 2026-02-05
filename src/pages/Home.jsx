@@ -8,6 +8,7 @@ import {
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
 import ThemeModal from '../Child/ThemeModal.jsx';
+import { Task, FormedHabit } from '../models';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
@@ -131,7 +132,8 @@ export default function Home() {
     const storedTasks = localStorage.getItem(TASKS_KEY);
     if (storedTasks) {
       try {
-        setTasks(JSON.parse(storedTasks));
+        const parsed = JSON.parse(storedTasks);
+        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
       } catch {
         setTasks([]);
       }
@@ -140,7 +142,8 @@ export default function Home() {
     const storedFormed = localStorage.getItem(FORMED_KEY);
     if (storedFormed) {
       try {
-        setFormedHabits(JSON.parse(storedFormed) || []);
+        const parsed = JSON.parse(storedFormed) || [];
+        setFormedHabits(Array.isArray(parsed) ? parsed.map(FormedHabit.from) : []);
       } catch {
         setFormedHabits([]);
       }
@@ -153,19 +156,21 @@ export default function Home() {
 
   const buildStepsPreview = buildPlan?.steps?.slice(0, 3) || [];
   const breakStepsPreview =
-    breakPlan?.microSteps?.slice(0, 3) ||
+    breakPlan?.steps?.slice(0, 3) ||
     breakPlan?.replacements?.slice(0, 3) ||
     [];
 
   const handleToggleMyTaskStatus = (taskId) => {
     setTasks((prev) => {
-      const updated = prev.map((t) =>
-        t.id === taskId
-          ? { ...t, status: t.status === 'done' ? 'pending' : 'done' }
-          : t
-      );
+      const updated = prev.map((t) => {
+        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
+        if (!obj) return Task.from(obj);
+        if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
+        return Task.from(obj);
+      });
       try {
-        localStorage.setItem(TASKS_KEY, JSON.stringify(updated));
+        const serial = updated.map((u) => (u && typeof u.toJSON === 'function' ? u.toJSON() : u));
+        localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
       } catch {
         // ignore
       }
@@ -181,7 +186,8 @@ export default function Home() {
   const saveFormedHabits = (updated) => {
     setFormedHabits(updated);
     try {
-      localStorage.setItem(FORMED_KEY, JSON.stringify(updated));
+      const serial = (updated || []).map((h) => (h && typeof h.toJSON === 'function' ? h.toJSON() : h));
+      localStorage.setItem(FORMED_KEY, JSON.stringify(serial));
     } catch {
       // ignore
     }
@@ -207,15 +213,14 @@ export default function Home() {
 
   const completeBuildPlan = () => {
     if (!buildPlan) return;
-
-    const entry = {
+    const entry = new FormedHabit({
       id: crypto.randomUUID ? crypto.randomUUID() : `formed-${Date.now()}`,
       userId: user?.id || null,
       type: 'build',
       title: buildPlan.goal || 'Build habit plan',
       details: buildPlan,
       completedAt: new Date().toISOString(),
-    };
+    });
 
     const updated = [entry, ...(Array.isArray(formedHabits) ? formedHabits : [])];
     saveFormedHabits(updated);
@@ -224,15 +229,14 @@ export default function Home() {
 
   const completeBreakPlan = () => {
     if (!breakPlan) return;
-
-    const entry = {
+    const entry = new FormedHabit({
       id: crypto.randomUUID ? crypto.randomUUID() : `formed-${Date.now()}`,
       userId: user?.id || null,
       type: 'break',
       title: breakPlan.habit || 'Break habit plan',
       details: breakPlan,
       completedAt: new Date().toISOString(),
-    };
+    });
 
     const updated = [entry, ...(Array.isArray(formedHabits) ? formedHabits : [])];
     saveFormedHabits(updated);

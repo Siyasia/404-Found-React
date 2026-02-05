@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
+import { BreakHabit as BreakHabitModel } from '../models';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
 
@@ -75,14 +76,20 @@ export default function BreakHabit() {
   };
 
   const handleSave = () => {
-    const plan = {
+    const plan = new BreakHabitModel({
+      id: crypto.randomUUID ? crypto.randomUUID() : null,
+      account_id: user?.id ?? null,
       habit: habit.trim(),
       replacements,
       microSteps,
       savedOn: new Date().toISOString(),
-    };
-    console.log('[BreakHabit] Save plan', plan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+    });
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(plan.toJSON()));
+    } catch {
+      // ignore
+    }
     setSavedPlan(plan);
     setSuccess('Break habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);

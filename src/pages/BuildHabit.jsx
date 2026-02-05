@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
+import { BuildHabit as BuildHabitModel } from '../models';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
 
@@ -63,14 +64,16 @@ export default function BuildHabit() {
   };
 
   const handleSave = () => {
-    const plan = {
+    const plan = new BuildHabitModel({
+      id: crypto.randomUUID ? crypto.randomUUID() : null,
+      account_id: user?.id ?? null,
       goal: goal.trim(),
       cue: cue.trim(),
       steps,
       savedOn: new Date().toISOString(),
-    };
+    });
     console.log('[BuildHabit] Save plan', plan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan.toJSON()));
     setSavedPlan(plan);
     setSuccess('Habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);
