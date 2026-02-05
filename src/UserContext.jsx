@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { User } from './models';
 
 const CURRENT_USER_KEY = 'ns.currentUser.v1';
 
@@ -22,10 +23,11 @@ export function UserProvider({ children }) {
       const saved = localStorage.getItem(CURRENT_USER_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        setUserState(parsed);
+        const instance = User.from(parsed);
+        setUserState(instance);
         // Re-apply theme on startup
-        if (parsed && parsed.theme) {
-          applyTheme(parsed.theme);
+        if (instance && instance.theme) {
+          applyTheme(instance.theme);
         }
       }
     } catch (err) {
@@ -34,12 +36,13 @@ export function UserProvider({ children }) {
   }, []);
 
   const setUser = (newUser) => {
-    setUserState(newUser);
+    const instance = newUser ? User.from(newUser) : null;
+    setUserState(instance);
     try {
-      if (newUser) {
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
+      if (instance) {
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(instance.toJSON()));
         // Apply theme only if provided
-        applyTheme(newUser.theme);
+        applyTheme(instance.theme);
       } else {
         localStorage.removeItem(CURRENT_USER_KEY);
         applyTheme(undefined);
