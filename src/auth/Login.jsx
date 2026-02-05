@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
+import { login, loginChild } from '../lib/api/login.js';
 
 export default function Login() {
 
@@ -17,7 +18,7 @@ export default function Login() {
 
   // Profile selection UI removed; always show manual login form
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
@@ -25,24 +26,32 @@ export default function Login() {
 
   // ==== CHILD LOGIN FLOW (uses code) ====
     if (trimmedCode) {
-      let children = [];
-      try {
-        const raw = localStorage.getItem('ns.children.v1');
-        if (raw) children = JSON.parse(raw) || [];
-      } catch {
-      children = [];
-      }
 
-      const child = children.find((c) => c.code === trimmedCode);
+      response = await loginChild(trimmedCode);
 
-      if (!child) {
+      if (response.success === false) {
         setError('No child account found for that code. Ask your parent to check the code.');
         return;
       }
 
-      setUser({ ...child, role: 'child' });
-      navigate('/home');
-      return;
+      // let children = [];
+      // try {
+      //   const raw = localStorage.getItem('ns.children.v1');
+      //   if (raw) children = JSON.parse(raw) || [];
+      // } catch {
+      // children = [];
+      // }
+
+      // const child = children.find((c) => c.code === trimmedCode);
+
+      // if (!child) {
+      //   setError('No child account found for that code. Ask your parent to check the code.');
+      //   return;
+      // }
+
+      // setUser({ ...child, role: 'child' });
+      // navigate('/home');
+      // return;
     }
 
     // ==== ADULT LOGIN FLOW (email + password) ====
@@ -51,19 +60,24 @@ export default function Login() {
       return;
     }
 
-    // NOTE: since you said auth isn’t “real” yet, we’ll keep this permissive.
-    // If you later want real local auth, we’ll look up accounts in localStorage.
-    const newUser = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-      email,
-      password,
-      name: (email.split('@')[0] || 'User'),
-      age: '50',
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    };
+    response = await loginAdult(email, password);
 
-    setUser(newUser);
+    if (response.success === false) {
+      setError('Invalid email or password. Please try again.');
+      return;
+    }
+
+    // const newUser = {
+    //   id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
+    //   email,
+    //   password,
+    //   name: (email.split('@')[0] || 'User'),
+    //   age: '50',
+    //   role: 'user',
+    //   createdAt: new Date().toISOString(),
+    // };
+
+    setUser(response.user);
     navigate('/home');
   };
 

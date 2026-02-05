@@ -15,7 +15,7 @@ export default function Signup() {
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
 
-  const handleSignUp = (event) => {
+  const handleSignUp = async (event) => {
     event.preventDefault();
     setError('');
 
@@ -75,17 +75,24 @@ export default function Signup() {
       return;
     }
 
-    const newUser = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-      password,
-      email,
-      name: trimmedName,
-      age: numericAge,
-      role,
-      createdAt: new Date().toISOString(),
-    };
+    response = await signupAdult(email, password);
 
-    setUser(newUser);
+    if (response.success === false) {
+      setError('Failed to signup. Email may be associated with another account.');
+      return;
+    }
+
+    // const newUser = {
+    //   id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
+    //   email,
+    //   password,
+    //   name: (email.split('@')[0] || 'User'),
+    //   age: '50',
+    //   role: 'user',
+    //   createdAt: new Date().toISOString(),
+    // };
+
+    setUser(response.user);
     navigate('/home');
   };
 

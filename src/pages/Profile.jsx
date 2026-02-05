@@ -5,12 +5,12 @@ import { ROLE } from '../Roles/roles.js';
 export default function Profile() {
     const { user } = useUser();
 
-    useEffect(() => {
-        const storedImage = localStorage.getItem('profileImage');
-        if (storedImage) {
-            user.profilePic = storedImage;
-        }
-    }, []);
+    // useEffect(() => {
+    //     const storedImage = localStorage.getItem('profileImage');
+    //     if (storedImage) {
+    //         user.profilePic = storedImage;
+    //     }
+    // }, []);
 
     const handleImageChange = (event) => {
         const file = event.target.files[0];
@@ -19,6 +19,7 @@ export default function Profile() {
             reader.onloadend = () => {
                 const base64String = reader.result;
                 user.profilePic = base64String;
+                // todo: update in backend
                 localStorage.setItem('profileImage', base64String);
             };
             reader.readAsDataURL(file);
