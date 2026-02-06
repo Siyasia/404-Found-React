@@ -103,8 +103,9 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     setError('');
   };
 
-  const selectedChild = children.find(c => c.id === assigneeId);
-  const isAssigningToParent = user?.id && assigneeId === user.id;
+  let selectedChild = children.find(c => c.id === assigneeId);
+  let isAssigningToParent = user?.id && assigneeId === user.id;
+  let assigneeName = isAssigningToParent ? (user?.name || 'You') : (selectedChild ? selectedChild.name : 'Unknown');
 
   const handleAddStep = () => {
     const trimmed = newStep.trim();
@@ -165,7 +166,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       }
     }
 
-    const assigneeName = isAssigningToParent ? (user?.name || 'You') : (selectedChild ? selectedChild.name : 'Unknown');
+    
 
     const newTask = new Task({
       id: generateId(),
@@ -208,6 +209,13 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     }
   };
 
+  function handleChangeUserUpdates(e) {
+    let id = parseInt(e.target.value);
+    setAssigneeId(id);
+    isAssigningToParent = user?.id && id === user.id;
+    selectedChild = children.find(c => c.id === id);
+  }
+
   if (!user) {
     return (
       <section className="container">
@@ -242,7 +250,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
         <label style={{ display: 'block', marginBottom: '1rem' }}>
           <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Assign to <span aria-hidden="true" className="required-asterisk">*</span></span>
-          <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true">
+          <select value={assigneeId} onChange={handleChangeUserUpdates} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true">
             {user?.id && (
               <option value={user.id}>{user.name} (you)</option>
             )}
