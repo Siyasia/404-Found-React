@@ -5,6 +5,7 @@
 // const created = await postJSON('/api/items', { name: 'new' })
 
 const DEFAULT_TIMEOUT = 10000 // ms
+const BASE_URL = "http://localhost:8080"
 
 function buildHeaders(customHeaders) {
 	return Object.assign({
@@ -44,12 +45,17 @@ export async function getJSON(url, { headers, timeout } = {}) {
 	const to = timeout || DEFAULT_TIMEOUT
 	const t = timeoutSignal(to)
 	try {
-		const res = await fetch(url, {
+		const res = await fetch(`${BASE_URL}${url}`, {
 			method: 'GET',
 			headers: buildHeaders(headers),
-			signal: t.signal
+			signal: t.signal,
+			credentials: "include"
 		})
-		return await parseResponse(res)
+        
+		return  {
+            status: res.status,
+            data: await parseResponse(res)
+        }
 	} catch (err) {
 		// normalize abort error message
 		if (err.name === 'AbortError') {
@@ -67,13 +73,17 @@ export async function postJSON(url, body, { headers, timeout } = {}) {
 	const to = timeout || DEFAULT_TIMEOUT
 	const t = timeoutSignal(to)
 	try {
-		const res = await fetch(url, {
+		const res = await fetch(`${BASE_URL}${url}`, {
 			method: 'POST',
 			headers: buildHeaders(headers),
 			body: body == null ? null : JSON.stringify(body),
-			signal: t.signal
+			signal: t.signal,
+			credentials: "include"
 		})
-		return await parseResponse(res)
+		return {
+            status: res.status,
+            data: await parseResponse(res)
+        }
 	} catch (err) {
 		if (err.name === 'AbortError') {
 			const e = new Error('Request timed out')

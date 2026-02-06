@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from './models';
+import { logout, userGet } from './lib/api/authentication';
 
-const CURRENT_USER_KEY = 'ns.currentUser.v1';
 
 const UserContext = createContext(null);
 
@@ -19,36 +19,41 @@ export function UserProvider({ children }) {
 
   // Load user once on startup
   useEffect(() => {
+    async function func () {
+      
+    
     try {
-      const saved = localStorage.getItem(CURRENT_USER_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const instance = User.from(parsed);
-        setUserState(instance);
+      const user = await userGet();
+      if (user) {
+        setUserState(user);
         // Re-apply theme on startup
-        if (instance && instance.theme) {
-          applyTheme(instance.theme);
+        if (user.theme) {
+          applyTheme(user.theme);
         }
       }
     } catch (err) {
-      console.error('Failed to load user from localStorage', err);
+      console.error('Failed to load user', err);
     }
+  } func();
   }, []);
 
   const setUser = (newUser) => {
-    const instance = newUser ? User.from(newUser) : null;
+    let instance;
+    if (typeof newUser !== 'User' && newUser !== null) {
+       instance = newUser ? User.from(newUser) : null;
+    }
+    instance = newUser;
     setUserState(instance);
     try {
       if (instance) {
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(instance.toJSON()));
         // Apply theme only if provided
-        applyTheme(instance.theme);
+        applyTheme(instance.theme || undefined);
       } else {
-        localStorage.removeItem(CURRENT_USER_KEY);
+        logout(); // Clear session on logout
         applyTheme(undefined);
       }
     } catch (err) {
-      console.error('Failed to save user to localStorage', err);
+      console.error('Failed to set user', err);
     }
   };
 

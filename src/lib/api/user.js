@@ -13,10 +13,6 @@ export async function userCreate(username, email, password, type) {
     return json.user_id;
 }
 
-export async function userGet(user_id) {
-    const json = await getJSON('/user/get/' + user_id);
-    return parseUserInfo(json);
-}
 export async function userUpdate(user_id, username, email, password, type) {
     const json_data = {
         "user_id": user_id,
