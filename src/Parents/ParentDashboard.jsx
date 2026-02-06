@@ -5,6 +5,9 @@ import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
 import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 import Toast from '../components/Toast.jsx';
+import { taskList } from '../lib/api/tasks.js';
+import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
+import { Child } from '../models/index.js';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -42,25 +45,29 @@ export default function ParentDashboard() {
   const [taskError, setTaskError] = useState('');
   const [taskSuccess, setTaskSuccess] = useState('');
 
-  useEffect(() => {
-    try {
-      const storedChildren = localStorage.getItem(CHILDREN_KEY);
-      if (storedChildren) {
-        setChildren(JSON.parse(storedChildren));
+  useEffect( () => {
+    async function func(){
+      try {
+        const storedChildren = await childList();
+        
+        if (storedChildren.status_code === 200) {
+          // setChildren(JSON.parse(storedChildren));
+          setChildren(storedChildren.children);
+        }
+      } catch (err) {
+        console.error('Failed to load children', err);
       }
-    } catch (err) {
-      console.error('Failed to load children', err);
-    }
 
-    try {
-      const storedTasks = localStorage.getItem(TASKS_KEY);
-      if (storedTasks) {
-        const parsed = JSON.parse(storedTasks);
-        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
+      try {
+
+        const storedTasks = await taskList();
+        if (storedTasks.status_code === 200) {
+          setTasks(storedTasks.tasks);
+        }
+      } catch (err) {
+        console.error('Failed to load tasks', err);
       }
-    } catch (err) {
-      console.error('Failed to load tasks', err);
-    }
+  } func();
   }, []);
 
   useEffect(() => {
@@ -71,11 +78,6 @@ export default function ParentDashboard() {
 
   const saveChildren = (list) => {
     setChildren(list);
-    try {
-      localStorage.setItem(CHILDREN_KEY, JSON.stringify(list));
-    } catch (err) {
-      console.error('Failed to save children', err);
-    }
   };
 
   const saveTasks = (list) => {
@@ -88,7 +90,7 @@ export default function ParentDashboard() {
     }
   };
 
-  const handleAddChild = (e) => {
+  const handleAddChild = async (e) => {
     e.preventDefault();
     setChildError('');
 
@@ -105,32 +107,43 @@ export default function ParentDashboard() {
       return;
     }
 
-    const newChild = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    const newChild = Child.from({
+      parentId: user.id,
       name,
       age: ageNumber,
       code: generateChildCode(children),
-      createdAt: new Date().toISOString(),
-    };
+      createdAt: new Date().getTime(),
+    });
 
     console.log('[ParentDashboard] Add child submit');
-    const updated = [...children, newChild];
-    saveChildren(updated);
-    setChildName('');
-    setChildAge('');
-    setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
-    setTimeout(() => setChildSuccess(''), 3000);
+    const result = await childCreate(newChild)
+    newChild.id = result.id; // Update with ID from backend
+    if (result.status_code === 200) {
+      const updated = [...children, newChild];
+      saveChildren(updated)
+      setChildName('');
+      setChildAge('');
+      setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
+      setTimeout(() => setChildSuccess(''), 3000);
+    } else {
+      setChildError('Failed to add child. Please try again.');
+    }
+    
   };
 
-  const handleRemoveChild = (id) => {
+  const handleRemoveChild = async (id) => {
     const updatedChildren = children.filter((c) => c.id !== id);
-    saveChildren(updatedChildren);
-
-    const updatedTasks = tasks.filter((t) => t.assigneeId !== id);
-    saveTasks(updatedTasks);
+    const result = await childDelete(id);
+    if (result.status_code === 200) {
+      saveChildren(updatedChildren);
+      const updatedTasks = tasks.filter((t) => t.assigneeId !== id);
+      saveTasks(updatedTasks);
+    } else {
+      alert('Failed to remove child. Please try again. Status code: ' + result.status_code);
+    }
   };
 
-  const handleAssignTask = (e) => {
+  const handleAssignTask = async (e) => {
     e.preventDefault();
     setTaskError('');
 
@@ -147,9 +160,18 @@ export default function ParentDashboard() {
       return;
     }
 
-    const assignee =
-      children.find((c) => c.id === taskAssigneeId) ||
-      (user && user.id === taskAssigneeId ? user : null);
+    let assignee;
+    if (user && user.id === taskAssigneeId) {
+        assignee = user;
+    } else {
+      let result = await childGet(taskAssigneeId)
+      if (result.status_code === 200) {
+        assignee = result.child;
+      }
+      else {
+        setTaskError('Selected assignee not found. Please refresh and try again.');
+      }
+    }
 
     const newTask = new Task({
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
@@ -356,7 +378,11 @@ export default function ParentDashboard() {
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  onClick={() => handleRemoveChild(child.id)}
+                  onClick={async () =>{
+console.log('Removed child', child.id)
+                    await handleRemoveChild(child.id)
+
+                  } }
                 >
                   Remove
                 </button>

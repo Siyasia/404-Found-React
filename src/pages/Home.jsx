@@ -9,6 +9,7 @@ import {
 } from '../Roles/roles.js';
 import ThemeModal from '../Child/ThemeModal.jsx';
 import { Task, FormedHabit } from '../models';
+import { taskList } from '../lib/api/tasks.js';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
@@ -129,26 +130,24 @@ export default function Home() {
       }
     }
 
-    const storedTasks = localStorage.getItem(TASKS_KEY);
-    if (storedTasks) {
-      try {
-        const parsed = JSON.parse(storedTasks);
-        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
-      } catch {
-        setTasks([]);
+    const storedTasks = taskList().then((response) => {
+      if (response.status === 200 && Array.isArray(response.data)) {
+        setTasks(response.data.map(Task.from));
       }
-    }
+    }).catch(() => {
+      // ignore
+    });
 
-    const storedFormed = localStorage.getItem(FORMED_KEY);
-    if (storedFormed) {
-      try {
-        const parsed = JSON.parse(storedFormed) || [];
-        setFormedHabits(Array.isArray(parsed) ? parsed.map(FormedHabit.from) : []);
-      } catch {
-        setFormedHabits([]);
+    const storedFormed = taskList().then((response) => {
+      if (response.status === 200 && Array.isArray(response.data)) {
+        setFormedHabits(response.data.map(FormedHabit.from));
       }
-    }
+    }).catch(() => {
+      // ignore
+    });
   }, []);
+    
+
 
   useEffect(() => {
     setThemeChoice(user?.theme || 'pink');
@@ -294,23 +293,10 @@ export default function Home() {
     const newTheme = themeChoice || 'pink';
     if (!user) return;
 
-    setUser({ ...user, theme: newTheme });
-
-    try {
-      const raw = localStorage.getItem('ns.children.v1');
-      const arr = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(arr)) {
-        const updated = arr.map((c) => {
-          if ((user.id && c.id === user.id) || (user.code && c.code === user.code)) {
-            return { ...c, theme: newTheme };
-          }
-          return c;
-        });
-        localStorage.setItem('ns.children.v1', JSON.stringify(updated));
-      }
-    } catch {
-      // ignore
-    }
+    applyTheme(newTheme);
+    userUpdate({ ...user, theme: newTheme }).then((updated) => {
+      setUser(updated);
+    });
 
     setThemeOpen(false);
   };

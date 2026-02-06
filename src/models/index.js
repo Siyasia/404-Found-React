@@ -157,7 +157,7 @@ export class User {
     this.age = props.age ?? null;
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
-    this.type = props.type ?? (this.role === 'child' ? 'Child' : 'Adult');
+    this.type = this.role; // i think these should be the same?
     this.theme = props.theme ?? 'pink';
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
@@ -191,6 +191,26 @@ export class User {
     };
     Object.keys(this.meta || {}).forEach((k) => { out[k] = this.meta[k]; });
     return out;
+  }
+}
+
+export class Child {
+  constructor(props = {}) {
+    this.parentId = props.parentId ?? null;
+    this.id = props.id ?? null;
+    this.name = props.name ?? '';
+    this.code = props.code ?? '';
+    this.age = props.age ?? null;
+    this.createdAt = props.createdAt ?? null;
+  }
+
+  static from(obj) {
+    if (obj instanceof Child) return obj;
+    return new Child(obj || {});
+  }
+
+  toJSON() {
+    return { parentId: this.parentId, id: this.id, name: this.name, code: this.code, age: this.age };
   }
 }
 
