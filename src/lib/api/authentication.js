@@ -51,9 +51,13 @@ export async function logout() {
 export async function userGet() {
     const info = await getJSON('/user/get');
     if (info.status === 200 && info.data) {
+ 
         const json = JSON.parse(info.data);
         console.log('Parsed user info:', json);
+        if (Object.hasOwn(json, "code")) {
+            return Child.from(json);
+        }
+        
         return User.from(json);
     }
-    return null;
 }

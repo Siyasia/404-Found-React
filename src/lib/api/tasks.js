@@ -15,10 +15,7 @@ export async function taskGet(task_id) {
 }
 
 export async function taskUpdate(task) {
-  const json_data = {
-    ...task.toJSON()
-  };
-  const info = await postJSON('/task/update/', json_data);
+  const info = await postJSON('/task/update/', task);
   return new Responses.UpdateTaskResponse(info.status, info.data);
 }
 

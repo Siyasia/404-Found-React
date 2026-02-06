@@ -82,12 +82,6 @@ export default function ParentDashboard() {
 
   const saveTasks = (list) => {
     setTasks(list);
-    try {
-      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
-      localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
-    } catch (err) {
-      console.error('Failed to save tasks', err);
-    }
   };
 
   const handleAddChild = async (e) => {
@@ -174,7 +168,6 @@ export default function ParentDashboard() {
     }
 
     const newTask = new Task({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
       assigneeId: taskAssigneeId,
       assigneeName: assignee ? assignee.name : 'Unknown',
       title,

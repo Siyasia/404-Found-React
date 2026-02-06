@@ -13,15 +13,8 @@ export async function userCreate(username, email, password, type) {
     return json.user_id;
 }
 
-export async function userUpdate(user_id, username, email, password, type) {
-    const json_data = {
-        "user_id": user_id,
-        "username": username,
-        "email": email,
-        "password": password,
-        "type": type
-    };
-    const json = await postJSON('/user/update/', json_data);
+export async function userUpdate(user) {
+    const json = await postJSON('/user/update/', user);
     return parseUserInfo(json);
 }
 

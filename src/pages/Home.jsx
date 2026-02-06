@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import {
@@ -9,7 +9,9 @@ import {
 } from '../Roles/roles.js';
 import ThemeModal from '../Child/ThemeModal.jsx';
 import { Task, FormedHabit } from '../models';
-import { taskList } from '../lib/api/tasks.js';
+import { taskList, taskUpdate } from '../lib/api/tasks.js';
+import { formedHabitList } from '../lib/api/habits.js';
+import { userUpdate } from '../lib/api/user.js';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
@@ -36,34 +38,37 @@ export default function Home() {
 
   const [buildPlan, setBuildPlan] = useState(null);
   const [breakPlan, setBreakPlan] = useState(null);
+  
   const [tasks, setTasks] = useState([]);
-  const [formedHabits, setFormedHabits] = useState([]);
+  const [simpleTasks, setSimpleTasks] = useState([]);
+  const [buildTasks, setBuildTasks] = useState([]);
+  const [breakTasks, setBreakTasks] = useState([]);
+  // this absolutely blows but whatever :D
+  const [taskCounts, setTaskCounts] = useState({"build": {total: 0, done: 0, pending: 0}, "break": {total: 0, done: 0, pending: 0}, "simple": {total: 0, done: 0, pending: 0}});
+  const [tasksLoading, setTasksLoading] = useState(true);
+
+  const [formedHabits, setFormedHabits] = useState(null);
+  const [formedLoading, setFormedLoading] = useState(true);
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [themeChoice, setThemeChoice] = useState(user?.theme || 'pink');
 
-  // Tasks assigned to the logged-in user:
-  //  - Direct: assigneeId === user.id
-  //  - Adult provider tasks by name: targetType === 'adult', no approval, targetName matches user.name
-  const tasksForUser =
-    user && user.id
-      ? tasks.filter((t) => {
-          if (t.assigneeId === user.id) return true;
-
-          if (
-            !t.assigneeId &&
-            !t.needsApproval &&
-            t.targetType === 'adult' &&
-            t.targetName &&
-            user.name &&
-            t.targetName.toLowerCase() === user.name.toLowerCase()
-          ) {
-            return true;
-          }
-
-          return false;
-        })
-      : [];
+  function updateTaskCounts() {
+    const getCounts = (arr) => {
+      const total = arr.length;
+      const done = arr.filter((t) => t.status === 'done').length;
+      const pending = total - done;
+      return { total, done, pending };
+    };
+    setSimpleTasks(tasks.filter((t) => (t.taskType || 'simple') === 'simple'));
+    setBuildTasks(tasks.filter((t) => (t.taskType || 'simple') === 'build-habit'));
+    setBreakTasks(tasks.filter((t) => (t.taskType || 'simple') === 'break-habit'));
+    setTaskCounts({
+      "simple": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'simple')),
+      "build": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'build-habit')),
+      "break": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'break-habit')),
+    });
+  };
 
   const buildTaskSummaryText = (name, userTasks) => {
     const safeName = name?.trim() || 'there';
@@ -98,7 +103,7 @@ export default function Home() {
 
     window.speechSynthesis.cancel();
 
-    const text = buildTaskSummaryText(user?.name, tasksForUser);
+    const text = buildTaskSummaryText(user?.name, tasks);
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -112,39 +117,76 @@ export default function Home() {
   ----------------------------------------------------------------------------------------------------------------------------------
   */
   useEffect(() => {
-    const storedBuild = localStorage.getItem(BUILD_KEY);
-    if (storedBuild) {
+    async function func() {
+      const storedBuild = localStorage.getItem(BUILD_KEY);
+      if (storedBuild) {
+        try {
+          setBuildPlan(JSON.parse(storedBuild));
+        } catch {
+          setBuildPlan(null);
+        }
+      }
+
+      const storedBreak = localStorage.getItem(BREAK_KEY);
+      if (storedBreak) {
+        try {
+          setBreakPlan(JSON.parse(storedBreak));
+        } catch {
+          setBreakPlan(null);
+        }
+      }
+
+      // fetch tasks + formed habits from API with robust checks and error handling
+      setTasksLoading(true);
       try {
-        setBuildPlan(JSON.parse(storedBuild));
-      } catch {
-        setBuildPlan(null);
+        const storedTasks = await taskList();
+        console.log('Fetched tasks from API:', storedTasks);
+        const okStatus = (s) => s === 200 || s === '200';
+        if (
+          storedTasks &&
+          (okStatus(storedTasks.status_code) || okStatus(storedTasks.status)) &&
+          Array.isArray(storedTasks.tasks)
+        ) {
+          // storedTasks.tasks may already contain Task instances from the response wrapper
+          setTasks(storedTasks.tasks.map((t) => Task.from(t)));
+        } else {
+          // mark as loaded but empty on error or no data
+          setTasks([]);
+        }
+      } catch (err) {
+        // network/parsing error: mark loaded but empty and log for debugging
+        console.error('Error fetching tasks:', err);
+        setTasks([]);
+      } finally {
+        setTasksLoading(false);
       }
-    }
 
-    const storedBreak = localStorage.getItem(BREAK_KEY);
-    if (storedBreak) {
+      setFormedLoading(true);
       try {
-        setBreakPlan(JSON.parse(storedBreak));
-      } catch {
-        setBreakPlan(null);
+        const storedFormed = await formedHabitList();
+        console.log('Fetched formed habits from API:', storedFormed);
+        const okStatus = (s) => s === 200 || s === '200';
+        // response wrapper for formed habits exposes `.habits` (ListHabitResponse)
+        if (
+          storedFormed &&
+          (okStatus(storedFormed.status_code) || okStatus(storedFormed.status)) &&
+          Array.isArray(storedFormed.habits)
+        ) {
+          setFormedHabits(storedFormed.habits.map((h) => FormedHabit.from(h)));
+        } else if (storedFormed && Array.isArray(storedFormed.data)) {
+          // some API helpers occasionally place results under `data`
+          setFormedHabits(storedFormed.data.map((h) => FormedHabit.from(h)));
+        } else {
+          setFormedHabits([]);
+        }
+      } catch (err) {
+        console.error('Error fetching formed habits:', err);
+        setFormedHabits([]);
+      } finally {
+        setFormedLoading(false);
       }
-    }
-
-    const storedTasks = taskList().then((response) => {
-      if (response.status === 200 && Array.isArray(response.data)) {
-        setTasks(response.data.map(Task.from));
-      }
-    }).catch(() => {
-      // ignore
-    });
-
-    const storedFormed = taskList().then((response) => {
-      if (response.status === 200 && Array.isArray(response.data)) {
-        setFormedHabits(response.data.map(FormedHabit.from));
-      }
-    }).catch(() => {
-      // ignore
-    });
+    } func();
+    
   }, []);
     
 
@@ -153,28 +195,31 @@ export default function Home() {
     setThemeChoice(user?.theme || 'pink');
   }, [user]);
 
+  // Recompute derived task lists and counts whenever the raw `tasks` array changes.
+  useEffect(() => {
+    try {
+      updateTaskCounts();
+    } catch (err) {
+      // defensive: ensure UI doesn't crash if update logic throws
+      console.error('Error updating task counts:', err);
+    }
+  }, [tasks]);
+
   const buildStepsPreview = buildPlan?.steps?.slice(0, 3) || [];
   const breakStepsPreview =
     breakPlan?.steps?.slice(0, 3) ||
     breakPlan?.replacements?.slice(0, 3) ||
     [];
 
-  const handleToggleMyTaskStatus = (taskId) => {
-    setTasks((prev) => {
-      const updated = prev.map((t) => {
-        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
-        if (!obj) return Task.from(obj);
-        if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
-        return Task.from(obj);
-      });
-      try {
-        const serial = updated.map((u) => (u && typeof u.toJSON === 'function' ? u.toJSON() : u));
-        localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
-      } catch {
-        // ignore
-      }
-      return updated;
-    });
+  const handleToggleMyTaskStatus = async (taskId) => {
+
+    let task = tasks.find((t) => t.id === taskId);
+    let updatedTask = structuredClone(task);
+    updatedTask.status = updatedTask.status === 'done' ? 'pending' : 'done';
+
+    await taskUpdate({ id: taskId, status: updatedTask.status })
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
   };
 
   /*
@@ -193,6 +238,7 @@ export default function Home() {
   };
 
   const deleteBuildPlan = () => {
+    
     setBuildPlan(null);
     try {
       localStorage.removeItem(BUILD_KEY);
@@ -252,20 +298,9 @@ export default function Home() {
   if (hour >= 12 && hour < 17) greetingPart = 'afternoon';
   if (hour >= 17) greetingPart = 'evening';
 
-  const getCounts = (arr) => {
-    const total = arr.length;
-    const done = arr.filter((t) => t.status === 'done').length;
-    const pending = total - done;
-    return { total, done, pending };
-  };
 
-  const simpleTasks = tasksForUser.filter((t) => (t.taskType || 'simple') === 'simple');
-  const buildTasks = tasksForUser.filter((t) => (t.taskType || 'simple') === 'build-habit');
-  const breakTasks = tasksForUser.filter((t) => (t.taskType || 'simple') === 'break-habit');
 
-  const simpleCounts = getCounts(simpleTasks);
-  const buildCounts = getCounts(buildTasks);
-  const breakCounts = getCounts(breakTasks);
+
 
   const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'build' | 'break'
 
@@ -293,8 +328,8 @@ export default function Home() {
     const newTheme = themeChoice || 'pink';
     if (!user) return;
 
-    applyTheme(newTheme);
-    userUpdate({ ...user, theme: newTheme }).then((updated) => {
+    // applyTheme(newTheme);
+    userUpdate({ id: user.id, theme: newTheme }).then((updated) => {
       setUser(updated);
     });
 
@@ -336,18 +371,18 @@ export default function Home() {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
             <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Tasks today</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{simpleCounts.total}</div>
-            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{simpleCounts.pending} pending · {simpleCounts.done} done</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{taskCounts.simple.total}</div>
+            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{taskCounts.simple.pending} pending · {taskCounts.simple.done} done</div>
           </div>
           <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
             <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Habits to build</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{buildCounts.total}</div>
-            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{buildCounts.pending} pending · {buildCounts.done} done</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{taskCounts.build.total}</div>
+            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{taskCounts.build.pending} pending · {taskCounts.build.done} done</div>
           </div>
           <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
             <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Habits to break</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{breakCounts.total}</div>
-            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{breakCounts.pending} pending · {breakCounts.done} done</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{taskCounts.break.total}</div>
+            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{taskCounts.break.pending} pending · {taskCounts.break.done} done</div>
           </div>
         </div>
       </div>
@@ -418,7 +453,9 @@ export default function Home() {
           )}
         </div>
 
-        {(!tasksForUser || tasksForUser.length === 0) ? (
+        {tasksLoading ? (
+          <div className="sub" style={{ marginTop: '.5rem' }}>Loading tasks…</div>
+        ) : tasks.length === 0 ? (
           <div className="sub" style={{ marginTop: '.5rem' }}>
             You don&apos;t have any tasks assigned yet.
             <div style={{ marginTop: '.25rem' }}>
@@ -433,9 +470,9 @@ export default function Home() {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '.5rem', marginTop: '.75rem' }}>
               {[
-                { key: 'simple', label: 'Simple tasks', count: simpleCounts.total },
-                { key: 'build', label: 'Build habits', count: buildCounts.total },
-                { key: 'break', label: 'Break habits', count: breakCounts.total },
+                { key: 'simple', label: 'Simple tasks', count: taskCounts.simple.total },
+                { key: 'build', label: 'Build habits', count: taskCounts.build.total },
+                { key: 'break', label: 'Break habits', count: taskCounts.break.total },
               ].map((tab) => (
                 <button
                   key={tab.key}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
+import { taskCreate, taskList } from '../lib/api/tasks.js';
 
 const TASKS_KEY = 'ns.childTasks.v1';
 
@@ -20,7 +21,7 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(TASKS_KEY);
+      const stored = taskList();
       if (stored) {
         const parsed = JSON.parse(stored);
         setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
@@ -32,12 +33,7 @@ export default function ProviderDashboard() {
 
   const saveTasks = (list) => {
     setTasks(list);
-    try {
-      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
-      localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
-    } catch {
-      // ignore
-    }
+    
   };
 
   const handleSubmit = (e) => {
@@ -77,12 +73,17 @@ export default function ProviderDashboard() {
         createdByRole: 'provider',
       });
 
-      const updated = [...tasks, newTask];
-      saveTasks(updated);
-      setChildCode('');
-      setTitle('');
-      setNotes('');
-      return;
+      taskCreate(newTask).then(() => {
+        // In a real app, we would re-fetch from the server to get any updates (like assigned user)
+        // For this demo, we'll just add it to our local list
+        const updated = [...tasks, newTask];
+        saveTasks(updated);
+        setChildCode('');
+        setTitle('');
+        setNotes('');
+      }).catch(() => {
+        setError('Failed to create task. Please try again.');
+      });
     }
 
     // ADULT TARGET (parent / normal user by name, no approval step)
@@ -110,12 +111,17 @@ export default function ProviderDashboard() {
         createdByRole: 'provider',
       });
 
-      const updated = [...tasks, newTask];
-      saveTasks(updated);
-      setAdultName('');
-      setTitle('');
-      setNotes('');
-      return;
+      taskCreate(newTask).then(() => {
+        // In a real app, we would re-fetch from the server to get any updates (like assigned user)
+        // For this demo, we'll just add it to our local list
+        const updated = [...tasks, newTask];
+        saveTasks(updated);
+        setAdultName('');
+        setTitle('');
+        setNotes('');
+      }).catch(() => {
+        setError('Failed to create task. Please try again.');
+      });
     }
   };
 

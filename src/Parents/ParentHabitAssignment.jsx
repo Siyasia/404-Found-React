@@ -3,6 +3,8 @@ import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
 import Toast from '../components/Toast.jsx';
+import { childList } from '../lib/api/children.js';
+import { taskCreate, taskList, taskUpdate } from '../lib/api/tasks.js';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -40,31 +42,33 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
   // Load children + tasks from localStorage on mount unless parent passed them in
   useEffect(() => {
-    if (parentChildren) {
-      setChildren(parentChildren);
-    } else {
-      try {
-        const storedChildren = localStorage.getItem(CHILDREN_KEY);
-        if (storedChildren) setChildren(JSON.parse(storedChildren));
-      } catch (err) {
-        console.error('Failed to load children', err);
-      }
-    }
+    async function func() {
+      if (parentChildren) {
+        setChildren(parentChildren);
 
-    if (parentTasks) {
-      // normalize incoming list to Task instances
-      setTasks(Array.isArray(parentTasks) ? parentTasks.map(Task.from) : []);
-    } else {
-      try {
-        const storedTasks = localStorage.getItem(TASKS_KEY);
-        if (storedTasks) {
-          const parsed = JSON.parse(storedTasks);
-          setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
+      } else {
+        const storedChildren = await childList()
+        if (storedChildren.status_code === 200 && Array.isArray(storedChildren.children)) {
+            setChildren(storedChildren.children);
+        } else {
+            setError('Failed to load children from server.');
+            console.log('[ParentHabitAssignment] Failed to load children', storedChildren);
         }
-      } catch (err) {
-        console.error('Failed to load tasks', err);
       }
-    }
+
+      if (parentTasks) {
+        // normalize incoming list to Task instances
+        setTasks(Array.isArray(parentTasks) ? parentTasks.map(Task.from) : []);
+      } else {
+        const storedTasks = await taskList();
+        if (storedTasks.status_code === 200 && Array.isArray(storedTasks.tasks)) {
+          setTasks(storedTasks.tasks.map(Task.from));
+        } else {
+          setError('Failed to load tasks from server.');
+          console.log('[ParentHabitAssignment] Failed to load tasks', storedTasks);
+        }
+      }
+    } func();
   }, [parentChildren, parentTasks]);
 
   // default assignee: first child if present, else the parent themself
@@ -77,17 +81,17 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
   const saveTasks = (list) => {
     // Keep instances in state, but persist plain JSON
-    setTasks(list);
-    try {
-      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
-      if (onTasksChange) {
-        onTasksChange(list);
-      } else {
-        localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
-      }
-    } catch (err) {
-      console.error('Failed to save tasks', err);
-    }
+    // setTasks(list);
+    // try {
+    //   const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
+    //   if (onTasksChange) {
+    //     onTasksChange(list);
+    //   } else {
+    //     localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
+    //   }
+    // } catch (err) {
+    //   console.error('Failed to save tasks', err);
+    // }
   };
 
   const resetForm = () => {
@@ -125,7 +129,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
   const handleRemoveReplacement = (index) => setReplacements(prev => prev.filter((_, i) => i !== index));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError('');
 
     if (!isParent) {
@@ -186,27 +190,66 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     });
 
     console.log('[ParentHabitAssignment] Assign submit', { taskType, assigneeName });
-    saveTasks([...tasks, newTask]);
-    resetForm();
-    setSuccess(`Assigned ${taskType || 'task'} to ${assigneeName}.`);
-    setTimeout(() => setSuccess(''), 3000);
+    let response = await taskCreate(newTask);
+    if (response.status_code === 200) {
+      setTasks([...tasks, newTask]);
+      resetForm();
+      setSuccess(`Assigned ${taskType || 'task'} to ${assigneeName}.`);
+      setTimeout(() => setSuccess(''), 3000);
+    } else {
+      setError('Failed to create task. Please try again.');
+    }
+    
   };
 
-  const handleToggleTaskStatus = (taskId) => {
-    console.log('[ParentHabitAssignment] Toggle status', taskId);
-    const updated = tasks.map((t) => {
-      const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
-      if (!obj) return Task.from(obj);
-      if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
-      return Task.from(obj);
+  // const handleToggleTaskStatus = (taskId) => {
+
+  //   // todo: taskUpdate do something here
+
+  //   console.log('[ParentHabitAssignment] Toggle status', taskId);
+  //   const updated = tasks.map((t) => {
+  //     const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
+  //     if (!obj) return Task.from(obj);
+  //     if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
+  //     return Task.from(obj);
+  //   });
+  //   saveTasks(updated);
+  //   setTasks(updated);
+  //   const changed = updated.find((t) => t.id === taskId);
+  //   if (changed) {
+  //     setSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
+  //     setTimeout(() => setSuccess(''), 2500);
+  //   }
+  // };
+
+  const handleToggleTaskStatus = async (taskId) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const data =
+      typeof task.toJSON === 'function' ? task.toJSON() : { ...task };
+
+    const updatedTask = Task.from({
+      ...data,
+      status: data.status === 'done' ? 'pending' : 'done',
     });
-    saveTasks(updated);
-    setTasks(updated);
-    const changed = updated.find((t) => t.id === taskId);
-    if (changed) {
-      setSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
-      setTimeout(() => setSuccess(''), 2500);
+
+    const response = await taskUpdate({ id: taskId, status: updatedTask.status });
+    if (response.status_code !== 200) {
+      console.error('[ParentHabitAssignment] Failed to update task status', response);
+      return;
     }
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+    saveTasks(tasks);
+
+    setSuccess(
+      `Marked ${updatedTask.title || 'task'} ${
+        updatedTask.status === 'done' ? 'done' : 'not done'
+      }.`
+    );
+
+    setTimeout(() => setSuccess(''), 2500);
   };
 
   function handleChangeUserUpdates(e) {
