@@ -33,6 +33,7 @@ export default function Login() {
         setError('No child account found for that code. Ask your parent to check the code.');
         return;
       }
+      const child = response.child;
 
       setUser({ ...child, role: 'child' });
       navigate('/home');
