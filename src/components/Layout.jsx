@@ -12,7 +12,7 @@ export default function Layout({ children }) {
   const onLoginPage = location.pathname === '/';
 
   const handleLogout = () => {
-    setUser(null);       // clears context + localStorage
+    setUser(null);       // clears context and user info
     navigate('/');       // back to login
   };
 

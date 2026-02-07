@@ -106,6 +106,6 @@ export async function formedHabitDelete(habit_id) {
 }
 
 export async function formedHabitList() {
-    const info = await getJSON('/habit/formed/list/');
+    const info = await getJSON('/habit/formed/list');
     return new Responses.ListFormedHabitResponse(info.status, info.data);
 }

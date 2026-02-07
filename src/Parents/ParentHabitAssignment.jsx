@@ -40,7 +40,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Load children + tasks from localStorage on mount unless parent passed them in
+  // Load children + tasks from backend on mount unless parent passed them in
   useEffect(() => {
     async function func() {
       if (parentChildren) {
@@ -78,21 +78,6 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       else if (user?.id) setAssigneeId(user.id);
     }
   }, [children, assigneeId, user]);
-
-  const saveTasks = (list) => {
-    // Keep instances in state, but persist plain JSON
-    // setTasks(list);
-    // try {
-    //   const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
-    //   if (onTasksChange) {
-    //     onTasksChange(list);
-    //   } else {
-    //     localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
-    //   }
-    // } catch (err) {
-    //   console.error('Failed to save tasks', err);
-    // }
-  };
 
   const resetForm = () => {
     setTaskType('');
@@ -170,10 +155,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       }
     }
 
-    
-
     const newTask = new Task({
-      id: generateId(),
       assigneeId,
       assigneeName,
       title: title.trim(),
@@ -202,26 +184,6 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     
   };
 
-  // const handleToggleTaskStatus = (taskId) => {
-
-  //   // todo: taskUpdate do something here
-
-  //   console.log('[ParentHabitAssignment] Toggle status', taskId);
-  //   const updated = tasks.map((t) => {
-  //     const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
-  //     if (!obj) return Task.from(obj);
-  //     if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
-  //     return Task.from(obj);
-  //   });
-  //   saveTasks(updated);
-  //   setTasks(updated);
-  //   const changed = updated.find((t) => t.id === taskId);
-  //   if (changed) {
-  //     setSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
-  //     setTimeout(() => setSuccess(''), 2500);
-  //   }
-  // };
-
   const handleToggleTaskStatus = async (taskId) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
@@ -241,7 +203,6 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     }
 
     setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
-    saveTasks(tasks);
 
     setSuccess(
       `Marked ${updatedTask.title || 'task'} ${

@@ -7,7 +7,6 @@ export async function childCreate(child) {
     const json = child.toJSON()
     const info = await postJSON('/child/create/', json);
     return new CreateChildResponse(info.status, info.data);
-
 }
 
 export async function childDelete(child_id) {
