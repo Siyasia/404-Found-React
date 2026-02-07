@@ -20,36 +20,59 @@ export function UserProvider({ children }) {
   // Load user once on startup
   useEffect(() => {
     async function func () {
-      
-    
-    try {
-      const user = await userGet();
-      if (user) {
-        setUserState(user);
-        // Re-apply theme on startup
-        if (user.theme) {
-          applyTheme(user.theme);
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = localStorage.getItem('user');
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed) setUserState(User.from(parsed));
+              if (parsed?.theme) applyTheme(parsed.theme);
+            } catch (e) {}
+          }
         }
+
+        const fetched = await userGet();
+        console.debug('userGet returned:', fetched);
+        if (fetched) {
+          let payload = null;
+          if (fetched.user) payload = fetched.user;
+          else if (fetched.data) payload = fetched.data.user ?? fetched.data;
+          else if (fetched.json_data) payload = fetched.json_data.user ?? fetched.json_data;
+          else payload = fetched;
+
+          if (payload && typeof payload === 'object') {
+            setUser(payload);
+          } else {
+            console.warn('No user payload extracted from userGet:', fetched);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user', err);
       }
-    } catch (err) {
-      console.error('Failed to load user', err);
     }
-  } func();
+    func();
   }, []);
 
   const setUser = (newUser) => {
-    let instance;
-    if (typeof newUser !== 'User' && newUser !== null) {
-       instance = newUser ? User.from(newUser) : null;
-    }
-    instance = newUser;
+    const instance = newUser ? User.from(newUser) : null;
     setUserState(instance);
+
     try {
       if (instance) {
-        // Apply theme only if provided
-        applyTheme(instance.theme || undefined);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          try {
+            localStorage.setItem('user', JSON.stringify(instance.toJSON()));
+          } catch (e) {
+            console.warn('Failed to persist user to localStorage', e);
+          }
+        }
+        if (instance.theme) applyTheme(instance.theme);
       } else {
-        logout(); // Clear session on logout
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.removeItem('user');
+        }
+        try { logout(); } catch (e) { /* ignore logout errors */ }
         applyTheme(undefined);
       }
     } catch (err) {

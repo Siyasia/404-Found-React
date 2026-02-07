@@ -96,21 +96,8 @@ export async function postJSON(url, body, { headers, timeout } = {}) {
 	}
 }
 
-// Small convenience default export
 export default {
 	getJSON,
 	postJSON
 }
-
-// Examples (uncomment to run in an async context):
-// (async () => {
-//   try {
-//     const items = await getJSON('/api/items')
-//     console.log('items', items)
-//     const created = await postJSON('/api/items', { name: 'read book' })
-//     console.log('created', created)
-//   } catch (e) {
-//     console.error('API error', e)
-//   }
-// })()
 

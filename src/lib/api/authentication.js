@@ -1,9 +1,8 @@
-import { User } from '../../models';
+import { Child, User } from '../../models';
 import { getJSON, postJSON } from './api';
 import { LoginResponse, ChildLoginResponse } from './response';
 
 export async function loginAdult(email, password) {
-    // todo: unstub this later
     const data = {
         "type": "adult",
         "username": email,
@@ -11,8 +10,6 @@ export async function loginAdult(email, password) {
     }
     const info = await postJSON('/login', data);
     return new LoginResponse(info.status, info.data);
-
-    // fetch session from response cookie
 }
 
 export async function loginChild(code) {
@@ -54,7 +51,7 @@ export async function userGet() {
  
         const json = JSON.parse(info.data);
         console.log('Parsed user info:', json);
-        if (Object.hasOwn(json, "code")) {
+        if (Object.hasOwn(json, "code") && json.code) {
             return Child.from(json);
         }
         
