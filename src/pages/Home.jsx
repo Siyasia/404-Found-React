@@ -10,8 +10,9 @@ import {
 import ThemeModal from '../Child/ThemeModal.jsx';
 import { Task, FormedHabit } from '../models';
 import { taskList, taskUpdate } from '../lib/api/tasks.js';
-import { formedHabitList } from '../lib/api/habits.js';
+import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
+import { userGet } from '../lib/api/authentication.js';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
@@ -118,23 +119,12 @@ export default function Home() {
   */
   useEffect(() => {
     async function func() {
-      const storedBuild = localStorage.getItem(BUILD_KEY);
-      if (storedBuild) {
-        try {
-          setBuildPlan(JSON.parse(storedBuild));
-        } catch {
-          setBuildPlan(null);
-        }
-      }
+      setUser(await userGet());
+      const storedBuild = (await buildHabitList()).habits?.[0] || null;
+      setBuildPlan(storedBuild);
 
-      const storedBreak = localStorage.getItem(BREAK_KEY);
-      if (storedBreak) {
-        try {
-          setBreakPlan(JSON.parse(storedBreak));
-        } catch {
-          setBreakPlan(null);
-        }
-      }
+      const storedBreak = (await breakHabitList()).habits?.[0] || null;
+      setBreakPlan(storedBreak);
 
       // fetch tasks + formed habits from API with robust checks and error handling
       setTasksLoading(true);
@@ -229,34 +219,20 @@ export default function Home() {
   */
   const saveFormedHabits = (updated) => {
     setFormedHabits(updated);
-    try {
-      const serial = (updated || []).map((h) => (h && typeof h.toJSON === 'function' ? h.toJSON() : h));
-      localStorage.setItem(FORMED_KEY, JSON.stringify(serial));
-    } catch {
-      // ignore
-    }
-  };
-
-  const deleteBuildPlan = () => {
     
+  };
+
+  const deleteBuildPlan = async () => {
+    await buildHabitDelete(buildPlan.id)
     setBuildPlan(null);
-    try {
-      localStorage.removeItem(BUILD_KEY);
-    } catch {
-      // ignore
-    }
   };
 
-  const deleteBreakPlan = () => {
+  const deleteBreakPlan = async () => {
+    await breakHabitDelete(breakPlan.id)
     setBreakPlan(null);
-    try {
-      localStorage.removeItem(BREAK_KEY);
-    } catch {
-      // ignore
-    }
   };
 
-  const completeBuildPlan = () => {
+  const completeBuildPlan = async () => {
     if (!buildPlan) return;
     const entry = new FormedHabit({
       id: crypto.randomUUID ? crypto.randomUUID() : `formed-${Date.now()}`,
@@ -269,10 +245,11 @@ export default function Home() {
 
     const updated = [entry, ...(Array.isArray(formedHabits) ? formedHabits : [])];
     saveFormedHabits(updated);
-    deleteBuildPlan();
+    // todo: update habit in database and make it formed
+    await deleteBuildPlan();
   };
 
-  const completeBreakPlan = () => {
+  const completeBreakPlan = async () => {
     if (!breakPlan) return;
     const entry = new FormedHabit({
       id: crypto.randomUUID ? crypto.randomUUID() : `formed-${Date.now()}`,
@@ -285,7 +262,8 @@ export default function Home() {
 
     const updated = [entry, ...(Array.isArray(formedHabits) ? formedHabits : [])];
     saveFormedHabits(updated);
-    deleteBreakPlan();
+    // todo: update habit in database and make it formed
+    await deleteBreakPlan();
   };
 
   /*

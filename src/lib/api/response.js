@@ -1,4 +1,4 @@
-import { User, BuildHabit, BreakHabit, Task, Child } from "../../models";
+import { User, BuildHabit, BreakHabit, FormedHabit, Task, Child } from "../../models";
 
 class Response {
     constructor(status, json_data) {
@@ -39,11 +39,29 @@ export class GetFormedHabitResponse extends Response {
     }
 }
 
-export class ListHabitResponse extends Response {
+export class ListFormedHabitResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
         this.habits = Array.isArray(json_data.habits)
             ? json_data.habits.map((habit_json) => FormedHabit.from(habit_json))
+            : [];
+    }
+}
+
+export class ListBreakHabitResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        this.habits = Array.isArray(json_data.habits)
+            ? json_data.habits.map((habit_json) => BreakHabit.from(habit_json))
+            : [];
+    }
+}
+
+export class ListBuildHabitResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        this.habits = Array.isArray(json_data.habits)
+            ? json_data.habits.map((habit_json) => BuildHabit.from(habit_json))
             : [];
     }
 }
@@ -92,7 +110,7 @@ export class ChildLoginResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
         this.child = json_data.child ? Child.from(json_data.child) : null;        
-    }   
+    }
 }
 
 export const CreateBuildHabitResponse = CreateResponse;
@@ -100,9 +118,6 @@ export const CreateBreakHabitResponse = CreateResponse;
 export const CreateTaskResponse = CreateResponse;
 export const CreateFormedHabitResponse = CreateResponse;
 export const CreateChildResponse = CreateResponse;
-export const ListBuildHabitResponse = ListHabitResponse;
-export const ListBreakHabitResponse = ListHabitResponse;
-export const ListFormedHabitResponse = ListHabitResponse;
 export const UpdateBuildHabitResponse = CreateResponse;
 export const UpdateBreakHabitResponse = CreateResponse;
 export const UpdateFormedHabitResponse = CreateResponse;
