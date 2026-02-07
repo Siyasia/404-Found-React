@@ -107,4 +107,5 @@ export const UpdateBuildHabitResponse = CreateResponse;
 export const UpdateBreakHabitResponse = CreateResponse;
 export const UpdateFormedHabitResponse = CreateResponse;
 export const UpdateTaskResponse = CreateResponse;
+export const UpdateUserResponse = CreateResponse;
 export const DeleteResponse = Response;

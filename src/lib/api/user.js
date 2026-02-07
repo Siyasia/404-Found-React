@@ -1,5 +1,6 @@
 import { getJSON, postJSON } from './api';
 import { User } from '../../models';
+import * as Responses from './response';
 
 export async function userCreate(username, email, password, type) {
     const json_data = {
@@ -14,24 +15,6 @@ export async function userCreate(username, email, password, type) {
 }
 
 export async function userUpdate(user) {
-    const json = await postJSON('/user/update/', user);
-    return parseUserInfo(json);
-}
-
-function parseUserInfo(data) {
-    // parseResponse returns parsed JSON (object), text, or null.
-    // Be defensive: if data is null/undefined, return null.
-    if (!data) return null;
-
-    // Some APIs wrap payload in a `data` field. Unwrap if present.
-    const obj = (data && typeof data === 'object' && data.data) ? data.data : data;
-
-    // Map API response to frontend User model
-    return User.from({
-      id: obj.user_id ?? null,
-      username: obj.username ?? '',
-      email: obj.email ?? '',
-      type: obj.type ?? 'user',
-      theme: obj.theme ?? undefined,
-    });
+    const json = await postJSON('/user/update', user);
+    return new Responses.UpdateUserResponse(json.status, json.data);
 }

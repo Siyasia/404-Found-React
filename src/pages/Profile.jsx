@@ -1,31 +1,47 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import { userUpdate } from '../lib/api/user.js';
 
 export default function Profile() {
-    const { user } = useUser();
+    const { user, setUser } = useUser();
 
-    // useEffect(() => {
-    //     const storedImage = localStorage.getItem('profileImage');
-    //     if (storedImage) {
-    //         user.profilePic = storedImage;
-    //     }
-    // }, []);
-
-    const handleImageChange = (event) => {
+    const handleImageChange = async (event) => {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                const base64String = reader.result;
-                user.profilePic = base64String;
-                // todo: update in backend
-                localStorage.setItem('profileImage', base64String);
-            };
+                async function func() {
+                    const base64String = reader.result;
+                    const response = await userUpdate({ profilePic: base64String });
+                    if (response.status_code !== 200) {
+                        alert('Failed to update profile picture. Please refresh the page and try again.');
+                        return;
+                    }
+                    user.profilePic = base64String;
+                    setUser({ ...user });
+                } func();
+            }
+
             reader.readAsDataURL(file);
         }
     };
 
+    // the page will load before the user does and crash, so we have to stall for a bit
+    if (!user) {
+        return (
+        <section className="profile">
+            <section className="container" style={{ paddingTop: '1rem' }}>
+            <div className="card" style={{ padding: '2.5rem 2rem', width: '600px', margin: '0 auto' }}>
+                <h1>My Profile</h1>
+                <div className="sub">Loading profile…</div>
+            </div>
+            </section>
+        </section>
+        );
+    }
+
+    // user has actually loaded now, so we can show the real profile
     return (
         <section className="profile">
             <section className="container" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start', width: '100%', paddingTop: '1rem', flexGrow: 1, gap: '1.5rem' }}>
