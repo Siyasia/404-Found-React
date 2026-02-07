@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
-import { buildHabitCreate } from '../lib/api/habits.js';
+import { buildHabitCreate, buildHabitList } from '../lib/api/habits.js';
 import { BuildHabit as BuildHabitModel } from '../models';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
@@ -39,18 +39,22 @@ export default function BuildHabit() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSavedPlan(parsed);
-        setGoal(parsed.goal || '');
-        setCue(parsed.cue || '');
-        setSteps(parsed.steps || []);
-      } catch {
-        // ignore bad JSON
+    async function func() {
+
+      const all = await buildHabitList();
+      // todo: show all instead of first
+      const stored = all.habits[0];
+      if (stored) {
+        try {
+          setSavedPlan(stored);
+          setGoal(stored.goal || '');
+          setCue(stored.cue || '');
+          setSteps(stored.steps || []);
+        } catch {
+          // ignore bad JSON
+        }
       }
-    }
+    } func();
   }, []);
 
   const handleAddStep = () => {
@@ -86,11 +90,6 @@ export default function BuildHabit() {
       console.error('[BuildHabit] Error saving plan', error);
     });
 
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(plan.toJSON()));
-    } catch {
-      // ignore
-    }
     setSavedPlan(plan);
     setSuccess('Habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);
