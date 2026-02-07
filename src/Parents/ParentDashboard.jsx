@@ -5,7 +5,7 @@ import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
 import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 import Toast from '../components/Toast.jsx';
-import { taskList } from '../lib/api/tasks.js';
+import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
 import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
 import { Child } from '../models/index.js';
 
@@ -33,6 +33,7 @@ export default function ParentDashboard() {
 
   const [children, setChildren] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [pendingTasks, setPendingTasks] = useState([]);
 
   const [childName, setChildName] = useState('');
   const [childAge, setChildAge] = useState('');
@@ -66,6 +67,15 @@ export default function ParentDashboard() {
         }
       } catch (err) {
         console.error('Failed to load tasks', err);
+      }
+
+      try {
+        const pending = await taskListPending();
+        if (pending.status_code === 200) {
+          setPendingTasks(pending.tasks);
+        }
+      } catch (err) {
+        console.error('Failed to load pending tasks', err);
       }
   } func();
   }, []);
@@ -208,35 +218,44 @@ export default function ParentDashboard() {
     });
   };
 
-  const providerPendingTasks = tasks.filter(
+  const providerPendingTasks = pendingTasks.filter(
     (t) => t.needsApproval && t.createdByRole === 'provider'
   );
 
-  const handleApproveProviderTask = (taskId) => {
-    setTasks((prev) => {
-      const updated = prev.map((t) => {
-        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
-        if (!obj || obj.id !== taskId) return Task.from(obj);
+  const handleApproveProviderTask = async (taskId) => {
+    const toUpdate = tasks.find((t) => t.id === taskId);
+    if (!toUpdate) {
+      alert('Task not found. Please refresh and try again.');
+      return;
+    }
+    const child = children.find((c) => c.code === toUpdate.childCode);
+    if (!child) {
+      alert(
+        `No child found with code ${toUpdate.childCode}. Add the child or correct the code before approving.`
+      );
+      return;
+    }
 
-        const child = children.find((c) => c.code === obj.childCode);
-        if (!child) {
-          alert(
-            `No child found with code ${obj.childCode}. Add the child or correct the code before approving.`
-          );
-          return Task.from(obj);
-        }
+    const data = {
+      taskId,
+      assigneeId: child.id,
+      assigneeName: child.name,
+      needsApproval: false,
+      approvedByParentId: user?.id,
+      approvedAt: new Date().getTime(),
+    }
 
-        obj.assigneeId = child.id;
-        obj.assigneeName = child.name;
-        obj.needsApproval = false;
-        obj.approvedByParentId = user?.id;
-        obj.approvedAt = new Date().toISOString();
-        return Task.from(obj);
-      });
-
-      saveTasks(updated);
-      return updated;
-    });
+    Object.assign(toUpdate, data);
+    const response = await taskUpdate(data);
+    if (response.status_code === 200) {
+      setTasks(prev => prev.map(t => {
+        return t.taskId === taskId ? toUpdate : t;
+      }));
+      console.log('[ParentDashboard] Approved provider task response', response);
+    } else {
+      console.error('[ParentDashboard] Error approving provider task', response);
+      alert('Failed to approve task. Please try again. Status code: ' + response.status_code);
+    }
   };
 
   const handleRejectProviderTask = (taskId) => {

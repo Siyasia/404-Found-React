@@ -28,3 +28,8 @@ export async function taskList() {
   const info = await getJSON('/task/list'); // list of task objects
   return new Responses.ListTaskResponse(info.status, info.data);
 }
+
+export async function taskListPending() {
+  const info = await getJSON('/task/list/pending'); // list of task objects
+  return new Responses.ListTaskResponse(info.status, info.data);
+}

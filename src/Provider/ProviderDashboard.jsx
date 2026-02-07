@@ -20,23 +20,15 @@ export default function ProviderDashboard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    try {
-      const stored = taskList();
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
+    async function func() {
+      const stored = await taskList();
+      if (stored.status_code === 200) {
+        setTasks(Array.isArray(stored.tasks) ? stored.tasks : []);
       }
-    } catch {
-      setTasks([]);
-    }
+    } func();
   }, []);
 
-  const saveTasks = (list) => {
-    setTasks(list);
-    
-  };
-
-  const handleSubmit = (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
@@ -48,82 +40,51 @@ export default function ProviderDashboard() {
       return;
     }
 
-    // CHILD TARGET (needs approval by parent)
+    let needsApproval = false;
+    let name = null;
+    let code = null;
+
     if (targetType === 'child') {
-      const code = childCode.trim();
+      needsApproval = true;
+      code = childCode.trim();
       if (!code) {
         setError('Please enter a child code.');
-        return;
       }
-
-      const newTask = new Task({
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        assigneeId: null,
-        assigneeName: null,
-        childCode: code,
-        targetType: 'child',
-        targetName: null,
-        title: trimmedTitle,
-        notes: trimmedNotes,
-        status: 'pending',
-        needsApproval: true,
-        createdAt: new Date().toISOString(),
-        createdById: user?.id,
-        createdByName: user?.name || 'Provider',
-        createdByRole: 'provider',
-      });
-
-      taskCreate(newTask).then(() => {
-        // In a real app, we would re-fetch from the server to get any updates (like assigned user)
-        // For this demo, we'll just add it to our local list
-        const updated = [...tasks, newTask];
-        saveTasks(updated);
-        setChildCode('');
-        setTitle('');
-        setNotes('');
-      }).catch(() => {
-        setError('Failed to create task. Please try again.');
-      });
+    } else if (targetType === 'adult') {
+        needsApproval = false;
+        name = adultName.trim();
+        if (!name) {
+          setError('Please enter the adult’s name.');
+        }
     }
 
-    // ADULT TARGET (parent / normal user by name, no approval step)
-    if (targetType === 'adult') {
-      const trimmedAdultName = adultName.trim();
-      if (!trimmedAdultName) {
-        setError('Please enter the adult’s name.');
-        return;
-      }
+    const newTask = new Task({
+      assigneeId: null,
+      assigneeName: name,
+      childCode: code,
+      targetType,
+      targetName: name,
+      title: trimmedTitle,
+      notes: trimmedNotes,
+      status: 'pending',
+      needsApproval,
+      createdAt: new Date().getTime(),
+      createdById: user?.id,
+      createdByName: user?.name || 'Provider',
+      createdByRole: 'provider',
+    });
 
-      const newTask = new Task({
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        assigneeId: null,          // we don't know their id, match by name later
-        assigneeName: trimmedAdultName,
-        childCode: null,
-        targetType: 'adult',
-        targetName: trimmedAdultName,
-        title: trimmedTitle,
-        notes: trimmedNotes,
-        status: 'pending',
-        needsApproval: false,      // goes straight to the user
-        createdAt: new Date().toISOString(),
-        createdById: user?.id,
-        createdByName: user?.name || 'Provider',
-        createdByRole: 'provider',
-      });
-
-      taskCreate(newTask).then(() => {
-        // In a real app, we would re-fetch from the server to get any updates (like assigned user)
-        // For this demo, we'll just add it to our local list
-        const updated = [...tasks, newTask];
-        saveTasks(updated);
-        setAdultName('');
-        setTitle('');
-        setNotes('');
-      }).catch(() => {
-        setError('Failed to create task. Please try again.');
-      });
+    let response = await taskCreate(newTask);
+    if (response.status_code === 200) {
+      const added = response.task ? response.task : newTask;
+      setTasks((prev) => [...prev, added]); // functional updater to avoid stale closure
+      setAdultName('');
+      setTitle('');
+      setNotes('');
+    } else {
+      setError('Failed to create task. Please try again.');
     }
-  };
+  }
 
   const myTasks = tasks.filter(
     (t) => t.createdByRole === 'provider' && t.createdById === user?.id

@@ -8,6 +8,7 @@ export class Task {
     this.id = props.id ?? String(Date.now());
     this.assigneeId = props.assigneeId ?? null;
     this.assigneeName = props.assigneeName ?? '';
+    this.childCode = props.childCode ?? '';
     this.title = props.title ?? '';
     this.notes = props.notes ?? '';
     this.taskType = props.taskType ?? 'simple';
