@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import { Task } from '../models';
 
 const TASKS_KEY = 'ns.childTasks.v1';
 
@@ -21,7 +22,8 @@ export default function ProviderDashboard() {
     try {
       const stored = localStorage.getItem(TASKS_KEY);
       if (stored) {
-        setTasks(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
       }
     } catch {
       setTasks([]);
@@ -31,7 +33,8 @@ export default function ProviderDashboard() {
   const saveTasks = (list) => {
     setTasks(list);
     try {
-      localStorage.setItem(TASKS_KEY, JSON.stringify(list));
+      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
+      localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
     } catch {
       // ignore
     }
@@ -57,7 +60,7 @@ export default function ProviderDashboard() {
         return;
       }
 
-      const newTask = {
+      const newTask = new Task({
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         assigneeId: null,
         assigneeName: null,
@@ -72,7 +75,7 @@ export default function ProviderDashboard() {
         createdById: user?.id,
         createdByName: user?.name || 'Provider',
         createdByRole: 'provider',
-      };
+      });
 
       const updated = [...tasks, newTask];
       saveTasks(updated);
@@ -90,7 +93,7 @@ export default function ProviderDashboard() {
         return;
       }
 
-      const newTask = {
+      const newTask = new Task({
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
         assigneeId: null,          // we don't know their id, match by name later
         assigneeName: trimmedAdultName,
@@ -105,7 +108,7 @@ export default function ProviderDashboard() {
         createdById: user?.id,
         createdByName: user?.name || 'Provider',
         createdByRole: 'provider',
-      };
+      });
 
       const updated = [...tasks, newTask];
       saveTasks(updated);

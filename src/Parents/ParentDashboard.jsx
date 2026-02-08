@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import { Task } from '../models';
 import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 import Toast from '../components/Toast.jsx';
 
@@ -54,7 +55,8 @@ export default function ParentDashboard() {
     try {
       const storedTasks = localStorage.getItem(TASKS_KEY);
       if (storedTasks) {
-        setTasks(JSON.parse(storedTasks));
+        const parsed = JSON.parse(storedTasks);
+        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
       }
     } catch (err) {
       console.error('Failed to load tasks', err);
@@ -79,7 +81,8 @@ export default function ParentDashboard() {
   const saveTasks = (list) => {
     setTasks(list);
     try {
-      localStorage.setItem(TASKS_KEY, JSON.stringify(list));
+      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
+      localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
     } catch (err) {
       console.error('Failed to save tasks', err);
     }
@@ -148,7 +151,7 @@ export default function ParentDashboard() {
       children.find((c) => c.id === taskAssigneeId) ||
       (user && user.id === taskAssigneeId ? user : null);
 
-    const newTask = {
+    const newTask = new Task({
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
       assigneeId: taskAssigneeId,
       assigneeName: assignee ? assignee.name : 'Unknown',
@@ -163,7 +166,7 @@ export default function ParentDashboard() {
       createdById: user?.id,
       createdByName: user?.name || 'Parent',
       createdByRole: 'parent',
-    };
+    });
 
     const updated = [...tasks, newTask];
     saveTasks(updated);
@@ -174,11 +177,12 @@ export default function ParentDashboard() {
   const handleToggleTaskStatus = (taskId) => {
     console.log('[ParentDashboard] Toggle status', taskId);
     setTasks((prev) => {
-      const updated = prev.map((t) =>
-        t.id === taskId
-          ? { ...t, status: t.status === 'done' ? 'pending' : 'done' }
-          : t
-      );
+      const updated = prev.map((t) => {
+        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
+        if (!obj) return Task.from(obj);
+        if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
+        return Task.from(obj);
+      });
       saveTasks(updated);
       const changed = updated.find((t) => t.id === taskId);
       if (changed) {
@@ -196,24 +200,23 @@ export default function ParentDashboard() {
   const handleApproveProviderTask = (taskId) => {
     setTasks((prev) => {
       const updated = prev.map((t) => {
-        if (t.id !== taskId) return t;
+        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
+        if (!obj || obj.id !== taskId) return Task.from(obj);
 
-        const child = children.find((c) => c.code === t.childCode);
+        const child = children.find((c) => c.code === obj.childCode);
         if (!child) {
           alert(
-            `No child found with code ${t.childCode}. Add the child or correct the code before approving.`
+            `No child found with code ${obj.childCode}. Add the child or correct the code before approving.`
           );
-          return t;
+          return Task.from(obj);
         }
 
-        return {
-          ...t,
-          assigneeId: child.id,
-          assigneeName: child.name,
-          needsApproval: false,
-          approvedByParentId: user?.id,
-          approvedAt: new Date().toISOString(),
-        };
+        obj.assigneeId = child.id;
+        obj.assigneeName = child.name;
+        obj.needsApproval = false;
+        obj.approvedByParentId = user?.id;
+        obj.approvedAt = new Date().toISOString();
+        return Task.from(obj);
       });
 
       saveTasks(updated);

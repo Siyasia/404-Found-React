@@ -1,18 +1,18 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Layout from './Components/Layout.jsx';
+import Layout from './components/Layout.jsx';
 
-import Home from './Pages/Home.jsx';
-import Features from './Pages/Features.jsx';
-import About from './Pages/About.jsx';
-import BuildHabit from './Pages/BuildHabit.jsx';
-import BreakHabit from './Pages/BreakHabit.jsx';
+import Home from './pages/Home.jsx';
+import Features from './pages/Features.jsx';
+import About from './pages/About.jsx';
+import BuildHabit from './pages/BuildHabit.jsx';
+import BreakHabit from './pages/BreakHabit.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
-import Profile from './Pages/Profile.jsx';
+import Profile from './pages/Profile.jsx';
 
-import Login from './Auth/Login.jsx';
-import Signup from './Auth/Signup.jsx';
+import Login from './auth/Login.jsx';
+import Signup from './auth/Signup.jsx';
 
 export default function App() {
   return (

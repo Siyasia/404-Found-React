@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import { Task } from '../models';
 import Toast from '../components/Toast.jsx';
 
 const CHILDREN_KEY = 'ns.children.v1';
@@ -51,11 +52,15 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     }
 
     if (parentTasks) {
-      setTasks(parentTasks);
+      // normalize incoming list to Task instances
+      setTasks(Array.isArray(parentTasks) ? parentTasks.map(Task.from) : []);
     } else {
       try {
         const storedTasks = localStorage.getItem(TASKS_KEY);
-        if (storedTasks) setTasks(JSON.parse(storedTasks));
+        if (storedTasks) {
+          const parsed = JSON.parse(storedTasks);
+          setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
+        }
       } catch (err) {
         console.error('Failed to load tasks', err);
       }
@@ -71,12 +76,14 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
   }, [children, assigneeId, user]);
 
   const saveTasks = (list) => {
+    // Keep instances in state, but persist plain JSON
     setTasks(list);
     try {
+      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
       if (onTasksChange) {
         onTasksChange(list);
       } else {
-        localStorage.setItem(TASKS_KEY, JSON.stringify(list));
+        localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
       }
     } catch (err) {
       console.error('Failed to save tasks', err);
@@ -160,7 +167,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
     const assigneeName = isAssigningToParent ? (user?.name || 'You') : (selectedChild ? selectedChild.name : 'Unknown');
 
-    const newTask = {
+    const newTask = new Task({
       id: generateId(),
       assigneeId,
       assigneeName,
@@ -175,7 +182,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       createdById: user?.id || null,
       createdByName: user?.name || 'Parent',
       createdByRole: 'parent',
-    };
+    });
 
     console.log('[ParentHabitAssignment] Assign submit', { taskType, assigneeName });
     saveTasks([...tasks, newTask]);
@@ -186,9 +193,12 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
 
   const handleToggleTaskStatus = (taskId) => {
     console.log('[ParentHabitAssignment] Toggle status', taskId);
-    const updated = tasks.map((t) =>
-      t.id === taskId ? { ...t, status: t.status === 'done' ? 'pending' : 'done' } : t
-    );
+    const updated = tasks.map((t) => {
+      const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
+      if (!obj) return Task.from(obj);
+      if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
+      return Task.from(obj);
+    });
     saveTasks(updated);
     setTasks(updated);
     const changed = updated.find((t) => t.id === taskId);
