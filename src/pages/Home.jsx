@@ -39,7 +39,7 @@ export default function Home() {
 
   const [buildPlan, setBuildPlan] = useState(null);
   const [breakPlan, setBreakPlan] = useState(null);
-  
+
   const [tasks, setTasks] = useState([]);
   const [simpleTasks, setSimpleTasks] = useState([]);
   const [buildTasks, setBuildTasks] = useState([]);
@@ -176,10 +176,8 @@ export default function Home() {
         setFormedLoading(false);
       }
     } func();
-    
-  }, []);
-    
 
+  }, []);
 
   useEffect(() => {
     setThemeChoice(user?.theme || 'pink');
@@ -219,7 +217,7 @@ export default function Home() {
   */
   const saveFormedHabits = (updated) => {
     setFormedHabits(updated);
-    
+
   };
 
   const deleteBuildPlan = async () => {

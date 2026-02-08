@@ -82,7 +82,6 @@ export default function BreakHabit() {
 
   const handleSave = () => {
     const plan = new BreakHabitModel({
-      id: crypto.randomUUID ? crypto.randomUUID() : null,
       account_id: user?.id ?? null,
       habit: habit.trim(),
       replacements,

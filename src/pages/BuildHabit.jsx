@@ -70,7 +70,6 @@ export default function BuildHabit() {
 
   const handleSave = async () => {
     const plan = new BuildHabitModel({
-      id: crypto.randomUUID ? crypto.randomUUID() : null,
       account_id: user?.id ?? null,
       goal: goal.trim(),
       cue: cue.trim(),
