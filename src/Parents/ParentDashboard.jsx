@@ -5,6 +5,9 @@ import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
 import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 import Toast from '../components/Toast.jsx';
+import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
+import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
+import { Child } from '../models/index.js';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -30,6 +33,7 @@ export default function ParentDashboard() {
 
   const [children, setChildren] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [pendingTasks, setPendingTasks] = useState([]);
 
   const [childName, setChildName] = useState('');
   const [childAge, setChildAge] = useState('');
@@ -42,25 +46,38 @@ export default function ParentDashboard() {
   const [taskError, setTaskError] = useState('');
   const [taskSuccess, setTaskSuccess] = useState('');
 
-  useEffect(() => {
-    try {
-      const storedChildren = localStorage.getItem(CHILDREN_KEY);
-      if (storedChildren) {
-        setChildren(JSON.parse(storedChildren));
+  useEffect( () => {
+    async function func(){
+      try {
+        const storedChildren = await childList();
+        
+        if (storedChildren.status_code === 200) {
+          // setChildren(JSON.parse(storedChildren));
+          setChildren(storedChildren.children);
+        }
+      } catch (err) {
+        console.error('Failed to load children', err);
       }
-    } catch (err) {
-      console.error('Failed to load children', err);
-    }
 
-    try {
-      const storedTasks = localStorage.getItem(TASKS_KEY);
-      if (storedTasks) {
-        const parsed = JSON.parse(storedTasks);
-        setTasks(Array.isArray(parsed) ? parsed.map(Task.from) : []);
+      try {
+
+        const storedTasks = await taskList();
+        if (storedTasks.status_code === 200) {
+          setTasks(storedTasks.tasks);
+        }
+      } catch (err) {
+        console.error('Failed to load tasks', err);
       }
-    } catch (err) {
-      console.error('Failed to load tasks', err);
-    }
+
+      try {
+        const pending = await taskListPending();
+        if (pending.status_code === 200) {
+          setPendingTasks(pending.tasks);
+        }
+      } catch (err) {
+        console.error('Failed to load pending tasks', err);
+      }
+  } func();
   }, []);
 
   useEffect(() => {
@@ -71,24 +88,13 @@ export default function ParentDashboard() {
 
   const saveChildren = (list) => {
     setChildren(list);
-    try {
-      localStorage.setItem(CHILDREN_KEY, JSON.stringify(list));
-    } catch (err) {
-      console.error('Failed to save children', err);
-    }
   };
 
   const saveTasks = (list) => {
     setTasks(list);
-    try {
-      const serial = (list || []).map((t) => (t && typeof t.toJSON === 'function' ? t.toJSON() : t));
-      localStorage.setItem(TASKS_KEY, JSON.stringify(serial));
-    } catch (err) {
-      console.error('Failed to save tasks', err);
-    }
   };
 
-  const handleAddChild = (e) => {
+  const handleAddChild = async (e) => {
     e.preventDefault();
     setChildError('');
 
@@ -105,32 +111,43 @@ export default function ParentDashboard() {
       return;
     }
 
-    const newChild = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    const newChild = Child.from({
+      parentId: user.id,
       name,
       age: ageNumber,
       code: generateChildCode(children),
-      createdAt: new Date().toISOString(),
-    };
+      createdAt: new Date().getTime(),
+    });
 
     console.log('[ParentDashboard] Add child submit');
-    const updated = [...children, newChild];
-    saveChildren(updated);
-    setChildName('');
-    setChildAge('');
-    setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
-    setTimeout(() => setChildSuccess(''), 3000);
+    const result = await childCreate(newChild)
+    newChild.id = result.id; // Update with ID from backend
+    if (result.status_code === 200) {
+      const updated = [...children, newChild];
+      saveChildren(updated)
+      setChildName('');
+      setChildAge('');
+      setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
+      setTimeout(() => setChildSuccess(''), 3000);
+    } else {
+      setChildError('Failed to add child. Please try again.');
+    }
+    
   };
 
-  const handleRemoveChild = (id) => {
+  const handleRemoveChild = async (id) => {
     const updatedChildren = children.filter((c) => c.id !== id);
-    saveChildren(updatedChildren);
-
-    const updatedTasks = tasks.filter((t) => t.assigneeId !== id);
-    saveTasks(updatedTasks);
+    const result = await childDelete(id);
+    if (result.status_code === 200) {
+      saveChildren(updatedChildren);
+      const updatedTasks = tasks.filter((t) => t.assigneeId !== id);
+      saveTasks(updatedTasks);
+    } else {
+      alert('Failed to remove child. Please try again. Status code: ' + result.status_code);
+    }
   };
 
-  const handleAssignTask = (e) => {
+  const handleAssignTask = async (e) => {
     e.preventDefault();
     setTaskError('');
 
@@ -147,12 +164,20 @@ export default function ParentDashboard() {
       return;
     }
 
-    const assignee =
-      children.find((c) => c.id === taskAssigneeId) ||
-      (user && user.id === taskAssigneeId ? user : null);
+    let assignee;
+    if (user && user.id === taskAssigneeId) {
+        assignee = user;
+    } else {
+      let result = await childGet(taskAssigneeId)
+      if (result.status_code === 200) {
+        assignee = result.child;
+      }
+      else {
+        setTaskError('Selected assignee not found. Please refresh and try again.');
+      }
+    }
 
     const newTask = new Task({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
       assigneeId: taskAssigneeId,
       assigneeName: assignee ? assignee.name : 'Unknown',
       title,
@@ -193,35 +218,44 @@ export default function ParentDashboard() {
     });
   };
 
-  const providerPendingTasks = tasks.filter(
+  const providerPendingTasks = pendingTasks.filter(
     (t) => t.needsApproval && t.createdByRole === 'provider'
   );
 
-  const handleApproveProviderTask = (taskId) => {
-    setTasks((prev) => {
-      const updated = prev.map((t) => {
-        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
-        if (!obj || obj.id !== taskId) return Task.from(obj);
+  const handleApproveProviderTask = async (taskId) => {
+    const toUpdate = tasks.find((t) => t.id === taskId);
+    if (!toUpdate) {
+      alert('Task not found. Please refresh and try again.');
+      return;
+    }
+    const child = children.find((c) => c.code === toUpdate.childCode);
+    if (!child) {
+      alert(
+        `No child found with code ${toUpdate.childCode}. Add the child or correct the code before approving.`
+      );
+      return;
+    }
 
-        const child = children.find((c) => c.code === obj.childCode);
-        if (!child) {
-          alert(
-            `No child found with code ${obj.childCode}. Add the child or correct the code before approving.`
-          );
-          return Task.from(obj);
-        }
+    const data = {
+      taskId,
+      assigneeId: child.id,
+      assigneeName: child.name,
+      needsApproval: false,
+      approvedByParentId: user?.id,
+      approvedAt: new Date().getTime(),
+    }
 
-        obj.assigneeId = child.id;
-        obj.assigneeName = child.name;
-        obj.needsApproval = false;
-        obj.approvedByParentId = user?.id;
-        obj.approvedAt = new Date().toISOString();
-        return Task.from(obj);
-      });
-
-      saveTasks(updated);
-      return updated;
-    });
+    Object.assign(toUpdate, data);
+    const response = await taskUpdate(data);
+    if (response.status_code === 200) {
+      setTasks(prev => prev.map(t => {
+        return t.taskId === taskId ? toUpdate : t;
+      }));
+      console.log('[ParentDashboard] Approved provider task response', response);
+    } else {
+      console.error('[ParentDashboard] Error approving provider task', response);
+      alert('Failed to approve task. Please try again. Status code: ' + response.status_code);
+    }
   };
 
   const handleRejectProviderTask = (taskId) => {
@@ -356,7 +390,11 @@ export default function ParentDashboard() {
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  onClick={() => handleRemoveChild(child.id)}
+                  onClick={async () =>{
+console.log('Removed child', child.id)
+                    await handleRemoveChild(child.id)
+
+                  } }
                 >
                   Remove
                 </button>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
+import { buildHabitCreate, buildHabitList } from '../lib/api/habits.js';
 import { BuildHabit as BuildHabitModel } from '../models';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
@@ -38,18 +39,22 @@ export default function BuildHabit() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSavedPlan(parsed);
-        setGoal(parsed.goal || '');
-        setCue(parsed.cue || '');
-        setSteps(parsed.steps || []);
-      } catch {
-        // ignore bad JSON
+    async function func() {
+
+      const all = await buildHabitList();
+      // todo: show all instead of first
+      const stored = all.habits[0];
+      if (stored) {
+        try {
+          setSavedPlan(stored);
+          setGoal(stored.goal || '');
+          setCue(stored.cue || '');
+          setSteps(stored.steps || []);
+        } catch {
+          // ignore bad JSON
+        }
       }
-    }
+    } func();
   }, []);
 
   const handleAddStep = () => {
@@ -63,17 +68,27 @@ export default function BuildHabit() {
     setSteps((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const plan = new BuildHabitModel({
-      id: crypto.randomUUID ? crypto.randomUUID() : null,
       account_id: user?.id ?? null,
       goal: goal.trim(),
       cue: cue.trim(),
       steps,
       savedOn: new Date().toISOString(),
     });
-    console.log('[BuildHabit] Save plan', plan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan.toJSON()));
+
+    // Call backend API (best-effort) and persist locally as a fallback
+    await buildHabitCreate(
+      plan.goal,
+      plan.cue,
+      plan.steps,
+      new Date().getTime(),
+    ).then((response) => {
+      console.log('[BuildHabit] Saved plan response', response);
+    }).catch((error) => {
+      console.error('[BuildHabit] Error saving plan', error);
+    });
+
     setSavedPlan(plan);
     setSuccess('Habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
+import { breakHabitCreate, breakHabitGet, breakHabitList } from '../lib/api/habits.js';
 import { BreakHabit as BreakHabitModel } from '../models';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
@@ -39,18 +40,22 @@ export default function BreakHabit() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSavedPlan(parsed);
-        setHabit(parsed.habit || '');
-        setReplacements(parsed.replacements || []);
-        setMicroSteps(parsed.microSteps || []);
-      } catch {
-        // ignore bad JSON
+    async function func() {
+
+      const all = await breakHabitList();
+      // todo: show all instead of first
+      const stored = all.habits[0];
+      if (stored) {
+        try {
+          setSavedPlan(stored);
+          setHabit(stored.habit || '');
+          setReplacements(stored.replacements || []);
+          setMicroSteps(stored.microSteps || []);
+        } catch {
+          // ignore bad JSON
+        }
       }
-    }
+    } func();
   }, []);
 
   const handleAddReplacement = () => {
@@ -77,7 +82,6 @@ export default function BreakHabit() {
 
   const handleSave = () => {
     const plan = new BreakHabitModel({
-      id: crypto.randomUUID ? crypto.randomUUID() : null,
       account_id: user?.id ?? null,
       habit: habit.trim(),
       replacements,
@@ -85,11 +89,17 @@ export default function BreakHabit() {
       savedOn: new Date().toISOString(),
     });
 
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(plan.toJSON()));
-    } catch {
-      // ignore
-    }
+    breakHabitCreate(
+      plan.habit,
+      plan.replacements,
+      plan.microSteps,
+      new Date().getTime(),
+    ).then((response) => {
+      console.log('[BreakHabit] Saved plan response', response);
+    }).catch((error) => {
+      console.error('[BreakHabit] Error saving plan', error);
+    });
+
     setSavedPlan(plan);
     setSuccess('Break habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);

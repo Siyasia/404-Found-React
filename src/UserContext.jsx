@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from './models';
+import { logout, userGet } from './lib/api/authentication';
 
-const CURRENT_USER_KEY = 'ns.currentUser.v1';
 
 const UserContext = createContext(null);
 
@@ -19,36 +19,64 @@ export function UserProvider({ children }) {
 
   // Load user once on startup
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CURRENT_USER_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const instance = User.from(parsed);
-        setUserState(instance);
-        // Re-apply theme on startup
-        if (instance && instance.theme) {
-          applyTheme(instance.theme);
+    async function func () {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = localStorage.getItem('user');
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed) setUserState(User.from(parsed));
+              if (parsed?.theme) applyTheme(parsed.theme);
+            } catch (e) {}
+          }
         }
+
+        const fetched = await userGet();
+        console.debug('userGet returned:', fetched);
+        if (fetched) {
+          let payload = null;
+          if (fetched.user) payload = fetched.user;
+          else if (fetched.data) payload = fetched.data.user ?? fetched.data;
+          else if (fetched.json_data) payload = fetched.json_data.user ?? fetched.json_data;
+          else payload = fetched;
+
+          if (payload && typeof payload === 'object') {
+            setUser(payload);
+          } else {
+            console.warn('No user payload extracted from userGet:', fetched);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user', err);
       }
-    } catch (err) {
-      console.error('Failed to load user from localStorage', err);
     }
+    func();
   }, []);
 
   const setUser = (newUser) => {
     const instance = newUser ? User.from(newUser) : null;
     setUserState(instance);
+
     try {
       if (instance) {
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(instance.toJSON()));
-        // Apply theme only if provided
-        applyTheme(instance.theme);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          try {
+            localStorage.setItem('user', JSON.stringify(instance.toJSON()));
+          } catch (e) {
+            console.warn('Failed to persist user to localStorage', e);
+          }
+        }
+        if (instance.theme) applyTheme(instance.theme);
       } else {
-        localStorage.removeItem(CURRENT_USER_KEY);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.removeItem('user');
+        }
+        try { logout(); } catch (e) { /* ignore logout errors */ }
         applyTheme(undefined);
       }
     } catch (err) {
-      console.error('Failed to save user to localStorage', err);
+      console.error('Failed to set user', err);
     }
   };
 

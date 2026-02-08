@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
+import { signupAdult, signupChild } from '../lib/api/authentication.js';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function Signup() {
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
 
-  const handleSignUp = (event) => {
+  const handleSignUp = async (event) => {
     event.preventDefault();
     setError('');
 
@@ -25,23 +26,12 @@ export default function Signup() {
 
     // ==== CHILD SIGNUP (code-only) ====
     if (role === 'child') {
-      if (!trimmedCode) {
-        setError('Please enter the child code provided by your parent.');
-        return;
-      }
 
-      let children = [];
-      try {
-        const raw = localStorage.getItem('ns.children.v1');
-        if (raw) children = JSON.parse(raw) || [];
-      } catch {
-        children = [];
-      }
+      // Account has been created at this point, so it's actually a login rather than a signup
+      const response = await loginChild(trimmedCode);
 
-      const child = children.find((c) => c.code === trimmedCode);
-
-      if (!child) {
-        setError('No child account found for that code. Ask your parent to check it.');
+      if (response.status !== 200) {
+        setError('No child account found for that code. Ask your parent to check the code.');
         return;
       }
 
@@ -74,18 +64,25 @@ export default function Signup() {
       );
       return;
     }
+    const response = await signupAdult(age, name, role, email, password);
+    // response = await signupAdult(email, password);
 
-    const newUser = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-      password,
-      email,
-      name: trimmedName,
-      age: numericAge,
-      role,
-      createdAt: new Date().toISOString(),
-    };
+    if (response.success === false) {
+      setError('Failed to signup. Email may be associated with another account.');
+      return;
+    }
 
-    setUser(newUser);
+    // const newUser = {
+    //   id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
+    //   email,
+    //   password,
+    //   name: (email.split('@')[0] || 'User'),
+    //   age: '50',
+    //   role: 'user',
+    //   createdAt: new Date().toISOString(),
+    // };
+
+    setUser(response.user);
     navigate('/home');
   };
 
