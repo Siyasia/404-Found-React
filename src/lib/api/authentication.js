@@ -20,10 +20,11 @@ export async function loginChild(code) {
     return new ChildLoginResponse(info.status, info.data);
 }
 
-export async function signupAdult(age, username, type, email, password) {
+export async function signupAdult(age, name, type, email, password) {
     const data = {
         "age": age,
-        "username": username,
+        "name": name,
+        "username": email,
         "type": type,
         "email": email,
         "password": password
