@@ -36,7 +36,7 @@ export default function Signup() {
       }
 
       setUser({ ...child, role: 'child' });
-      navigate('/child-homepage');
+      navigate('/home');
       return;
     }
 
@@ -101,10 +101,6 @@ export default function Signup() {
       navigate('/parent');
     } else if (userRole === 'provider') {
       navigate('/provider');
-    } else if (userRole === 'child') {
-      navigate('/child-homepage');
-    } else if (userRole === 'user') {
-      navigate('/home');
     } else {
       navigate('/home');
     }

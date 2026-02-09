@@ -2,15 +2,15 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import ThemeModal from '../Child/ThemeModal.jsx';
 import {
   canCreateOwnTasks,
   canAssignTasksToChildren,
   canCreateProviderTasks,
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
-import ThemeModal from '../Child/ThemeModal.jsx';
 import { Task, FormedHabit } from '../models';
-import { taskList, taskUpdate } from '../lib/api/tasks.js';
+import { taskList, taskUpdate, taskCreate } from '../lib/api/tasks.js';
 import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
 import { userGet } from '../lib/api/authentication.js';
@@ -48,6 +48,11 @@ export default function Home() {
   // this absolutely blows but whatever :D
   const [taskCounts, setTaskCounts] = useState({"build": {total: 0, done: 0, pending: 0}, "break": {total: 0, done: 0, pending: 0}, "simple": {total: 0, done: 0, pending: 0}});
   const [tasksLoading, setTasksLoading] = useState(true);
+
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskNotes, setNewTaskNotes] = useState('');
+  const [newTaskError, setNewTaskError] = useState('');
+  const [newTaskSaving, setNewTaskSaving] = useState(false);
 
   const [formedHabits, setFormedHabits] = useState(null);
   const [formedLoading, setFormedLoading] = useState(true);
@@ -209,6 +214,53 @@ export default function Home() {
     await taskUpdate({ id: taskId, status: updatedTask.status })
 
     setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+  };
+
+  const handleAddSimpleTask = async (event) => {
+    event.preventDefault();
+    if (newTaskSaving) return;
+
+    const title = newTaskTitle.trim();
+    const notes = newTaskNotes.trim();
+
+    if (!title) {
+      setNewTaskError('Please enter a task name.');
+      return;
+    }
+
+    setNewTaskError('');
+    setNewTaskSaving(true);
+
+    try {
+      const baseTask = new Task({
+        assigneeId: user?.id || null,
+        assigneeName: user?.name || 'You',
+        title,
+        notes,
+        taskType: 'simple',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        createdById: user?.id || null,
+        createdByName: user?.name || 'You',
+        createdByRole: user?.role || 'user',
+      });
+
+      const response = await taskCreate(baseTask);
+      const payload = typeof baseTask.toJSON === 'function' ? baseTask.toJSON() : baseTask;
+      const createdTask = Task.from({
+        ...payload,
+        ...(response && response.id ? { id: response.id } : {}),
+      });
+
+      setTasks((prev) => [...prev, createdTask]);
+      setNewTaskTitle('');
+      setNewTaskNotes('');
+    } catch (err) {
+      console.error('Error creating task', err);
+      setNewTaskError('Could not add task. Please try again.');
+    } finally {
+      setNewTaskSaving(false);
+    }
   };
 
   /*
@@ -556,6 +608,69 @@ export default function Home() {
         </div>
 
         {/* ROW 3: PLANS + MASTERED (col 2) */}
+
+        {/* QUICK ADD TASK - col 1, row 3 */}
+        <div style={{
+          gridColumn: '1',
+          gridRow: '3',
+          background: 'white',
+          border: '1px solid rgba(0,0,0,0.06)',
+          borderRadius: '16px',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Add a task</h2>
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>Simple tasks for you</span>
+          </div>
+
+          <form onSubmit={handleAddSimpleTask} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '.9rem', color: '#374151' }}>
+              <span style={{ fontWeight: 600 }}>Task name</span>
+              <input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="Example: Read for 20 minutes"
+                style={{ padding: '.7rem .8rem', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '.95rem' }}
+              />
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '.9rem', color: '#374151' }}>
+              <span style={{ fontWeight: 600 }}>Notes (optional)</span>
+              <textarea
+                rows={3}
+                value={newTaskNotes}
+                onChange={(e) => setNewTaskNotes(e.target.value)}
+                placeholder="Add details or reminders"
+                style={{ padding: '.7rem .8rem', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '.95rem', fontFamily: 'inherit' }}
+              />
+            </label>
+
+            {newTaskError && (
+              <div style={{ color: '#b91c1c', fontSize: '.9rem' }}>{newTaskError}</div>
+            )}
+
+            <button
+              type="submit"
+              className="btn"
+              disabled={newTaskSaving}
+              style={{
+                padding: '.75rem',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                color: 'white',
+                fontWeight: 600,
+                cursor: newTaskSaving ? 'not-allowed' : 'pointer',
+                border: 'none'
+              }}
+            >
+              {newTaskSaving ? 'Adding…' : 'Add task'}
+            </button>
+          </form>
+        </div>
 
         {/* YOUR PLANS Card - col 2, row 3 */}
         {canCreate && (

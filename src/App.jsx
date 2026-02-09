@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 
 import Home from './pages/Home.jsx';
-import ChildHomepage from './Child/ChildHomepage.jsx';
+import HomeGate from './pages/HomeGate.jsx';
 import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import About from './pages/About.jsx';
@@ -23,8 +23,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
 
         {/* Main app */}
-        <Route path="/home" element={<Home />} />
-        <Route path="/child-homepage" element={<ChildHomepage />} />
+        <Route path="/home" element={<HomeGate />} />
         <Route path="/features" element={<Features />} />
         <Route path="/about" element={<About />} />
         <Route path="/build-habit" element={<BuildHabit />} />
@@ -34,7 +33,7 @@ export default function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="*" element={<Home />} />
+        <Route path="*" element={<HomeGate />} />
 
       </Routes>
     </Layout>

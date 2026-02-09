@@ -21,9 +21,7 @@ export default function Layout({ children }) {
   }
 
   const roleLabel = user ? ROLE_LABEL[user.role] || user.role : null;
-  const homePath = user?.role === 'child'
-    ? '/child-homepage'
-    : '/home';
+  const homePath = '/home';
 
   return (
     <>
