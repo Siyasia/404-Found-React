@@ -48,6 +48,10 @@ export default function Login() {
 
     const response = await loginAdult(email, password);
 
+    console.log('📨 Login API Response:', response);
+    console.log('📊 Response status:', response.status_code);
+    console.log('👤 Response user:', response.user);
+
     if (response.status_code !== 200) {
       setError('Failed to login. Please try again.');
       return;

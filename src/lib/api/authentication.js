@@ -25,6 +25,7 @@ export async function signupAdult(age, name, type, email, password) {
         "age": parseInt(age, 10),
         "name": name,
         "username": email,
+        "role": type,
         "type": type,
         "email": email,
         "password": password

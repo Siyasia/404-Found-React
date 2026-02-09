@@ -67,6 +67,10 @@ export default function Signup() {
     const response = await signupAdult(age, name, role, email, password);
     // response = await signupAdult(email, password);
 
+    console.log('📨 Signup API Response:', response);
+    console.log('📊 Response status:', response.status_code);
+    console.log('👤 Response user:', response.user);
+
     if (response.status_code !== 200 || !response.user) {
       // Extract error message from backend response
       const errorMsg = response.error 
