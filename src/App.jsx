@@ -2,8 +2,9 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 
-import Home from './pages/UserHomepage.jsx';
+import Home from './pages/Home.jsx';
 import ChildHomepage from './Child/ChildHomepage.jsx';
+import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import About from './pages/About.jsx';
 import BuildHabit from './pages/BuildHabit.jsx';
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/provider" element={<ProviderDashboard />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Home />} />
 
       </Routes>

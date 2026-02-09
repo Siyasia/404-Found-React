@@ -21,6 +21,7 @@ export function UserProvider({ children }) {
   useEffect(() => {
     async function func () {
       try {
+        let localUser = null;
         if (typeof window !== 'undefined' && window.localStorage) {
           const raw = localStorage.getItem('user');
           if (raw) {
@@ -29,26 +30,30 @@ export function UserProvider({ children }) {
               if (parsed) {
                 const isChild = parsed?.role === 'child' || (parsed?.code && !parsed?.role);
                 const normalized = isChild ? { ...parsed, role: 'child', type: 'child' } : parsed;
-                setUserState(User.from(normalized));
+                localUser = User.from(normalized);
+                setUserState(localUser);
               }
               if (parsed?.theme) applyTheme(parsed.theme);
             } catch (e) {}
           }
         }
 
-        const fetched = await userGet();
-        console.debug('userGet returned:', fetched);
-        if (fetched) {
-          let payload = null;
-          if (fetched.user) payload = fetched.user;
-          else if (fetched.data) payload = fetched.data.user ?? fetched.data;
-          else if (fetched.json_data) payload = fetched.json_data.user ?? fetched.json_data;
-          else payload = fetched;
+        // Only fetch from backend if no local user exists
+        if (!localUser) {
+          const fetched = await userGet();
+          console.debug('userGet returned:', fetched);
+          if (fetched) {
+            let payload = null;
+            if (fetched.user) payload = fetched.user;
+            else if (fetched.data) payload = fetched.data.user ?? fetched.data;
+            else if (fetched.json_data) payload = fetched.json_data.user ?? fetched.json_data;
+            else payload = fetched;
 
-          if (payload && typeof payload === 'object') {
-            setUser(payload);
-          } else {
-            console.warn('No user payload extracted from userGet:', fetched);
+            if (payload && typeof payload === 'object') {
+              setUser(payload);
+            } else {
+              console.warn('No user payload extracted from userGet:', fetched);
+            }
           }
         }
       } catch (err) {
