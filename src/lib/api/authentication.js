@@ -22,7 +22,7 @@ export async function loginChild(code) {
 
 export async function signupAdult(age, name, type, email, password) {
     const data = {
-        "age": age,
+        "age": parseInt(age, 10),
         "name": name,
         "username": email,
         "type": type,
