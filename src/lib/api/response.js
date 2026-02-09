@@ -99,17 +99,29 @@ export class ListChildResponse extends Response {
     }
 }
 
+const normalizeChildPayload = (childPayload) => {
+    if (!childPayload) return null;
+    if (typeof childPayload === 'string') {
+        try {
+            return Child.from(JSON.parse(childPayload));
+        } catch (e) {
+            return Child.from({});
+        }
+    }
+    return Child.from(childPayload);
+};
+
 export class GetChildResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
-        this.child = json_data.child ? Child.from(json_data.child) : null;
+        this.child = normalizeChildPayload(json_data.child);
     }
 }
 
 export class ChildLoginResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
-        this.child = json_data.child ? Child.from(json_data.child) : null;        
+        this.child = normalizeChildPayload(json_data.child);        
     }
 }
 

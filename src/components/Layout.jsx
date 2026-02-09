@@ -21,17 +21,20 @@ export default function Layout({ children }) {
   }
 
   const roleLabel = user ? ROLE_LABEL[user.role] || user.role : null;
+  const homePath = user?.role === 'child'
+    ? '/child-homepage'
+    : '/home';
 
   return (
     <>
       <header className="site-header">
         <div className="container" style={{ display: 'flex', alignItems: 'center' }}>
-          <Link to="/home" className="brand">
+          <Link to={homePath} className="brand">
             Next Steps
           </Link>
 
           <nav className="site-nav">
-            <NavLink to="/home" className="nav-link">Home</NavLink>
+            <NavLink to={homePath} className="nav-link">Home</NavLink>
             <NavLink to="/features" className="nav-link">Features</NavLink>
             {canCreate && (
               <>

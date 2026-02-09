@@ -8,7 +8,7 @@ import {
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
 import ThemeModal from '../Child/ThemeModal.jsx';
-import { Task, FormedHabit } from '../models';
+import { Task, FormedHabit } from '../models/index.js';
 import { taskList, taskUpdate } from '../lib/api/tasks.js';
 import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
@@ -316,10 +316,21 @@ export default function Home() {
     (h) => !h.userId || h.userId === user?.id
   );
 
+  const roleEmoji = user?.role === 'child'
+    ? '⭐'
+    : user?.role === 'user'
+      ? '🍎'
+      : '';
+
   return (
     <section className="container">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-        <h1 style={{ marginBottom: '.25rem' }}>Good {greetingPart}, {user?.name || 'there'}</h1>
+        <h1 style={{ marginBottom: '.25rem' }}>
+          Good {greetingPart}, {user?.name || 'there'}
+          {roleEmoji && (
+            <span style={{ marginLeft: '.5rem' }} aria-hidden="true">{roleEmoji}</span>
+          )}
+        </h1>
         {user?.role === 'child' && (
           <button
             type="button"

@@ -36,7 +36,7 @@ export default function Login() {
       const child = response.child;
 
       setUser({ ...child, role: 'child' });
-      navigate('/home');
+      navigate('/child-homepage');
       return;
     }
 
@@ -72,6 +72,10 @@ export default function Login() {
       navigate('/parent');
     } else if (userRole === 'provider') {
       navigate('/provider');
+    } else if (userRole === 'child') {
+      navigate('/child-homepage');
+    } else if (userRole === 'user') {
+      navigate('/home');
     } else {
       navigate('/home');
     }
