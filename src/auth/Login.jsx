@@ -53,7 +53,11 @@ export default function Login() {
     console.log('👤 Response user:', response.user);
 
     if (response.status_code !== 200) {
-      setError('Failed to login. Please try again.');
+      const errorMsg = response.error
+        || (response.status_code === 400 || response.status_code === 404
+          ? 'No account found for that email. Please sign up first.'
+          : 'Failed to login. Please try again.');
+      setError(errorMsg);
       return;
     }
 
