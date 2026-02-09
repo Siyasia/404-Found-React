@@ -80,6 +80,22 @@ export async function postJSON(url, body, { headers, timeout } = {}) {
 			signal: t.signal,
 			credentials: "include"
 		})
+		
+		// Handle error responses gracefully
+		if (!res.ok) {
+			const contentType = res.headers.get('content-type') || ''
+			const isJSON = contentType.includes('application/json')
+			const text = await res.text()
+			let errorData = text
+			if (isJSON && text) {
+				try { errorData = JSON.parse(text) } catch (e) { /* ignore */ }
+			}
+			return {
+				status: res.status,
+				data: errorData
+			}
+		}
+		
 		return {
             status: res.status,
             data: await parseResponse(res)

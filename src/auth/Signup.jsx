@@ -67,8 +67,13 @@ export default function Signup() {
     const response = await signupAdult(age, name, role, email, password);
     // response = await signupAdult(email, password);
 
-    if (response.success === false) {
-      setError('Failed to signup. Email may be associated with another account.');
+    if (response.status_code !== 200 || !response.user) {
+      // Extract error message from backend response
+      const errorMsg = response.error 
+        || (typeof response.data === 'object' && response.data?.error) 
+        || (typeof response.data === 'object' && response.data?.detail)
+        || 'Failed to signup. Email may be associated with another account.';
+      setError(errorMsg);
       return;
     }
 
@@ -83,7 +88,18 @@ export default function Signup() {
     // };
 
     setUser(response.user);
-    navigate('/home');
+    
+    // Navigate based on user role
+    const userRole = response.user.role || response.user.type;
+    console.log('User signed up with role:', userRole, 'Full user:', response.user);
+    
+    if (userRole === 'parent') {
+      navigate('/parent');
+    } else if (userRole === 'provider') {
+      navigate('/provider');
+    } else {
+      navigate('/home');
+    }
   };
 
   return (

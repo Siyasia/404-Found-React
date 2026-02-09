@@ -55,7 +55,18 @@ export default function Login() {
 
 
     setUser(response.user);
-    navigate('/home');
+    
+    // Navigate based on user role
+    const userRole = response.user.role || response.user.type;
+    console.log('User logged in with role:', userRole, 'Full user:', response.user);
+    
+    if (userRole === 'parent') {
+      navigate('/parent');
+    } else if (userRole === 'provider') {
+      navigate('/provider');
+    } else {
+      navigate('/home');
+    }
   };
 
 
