@@ -43,6 +43,8 @@ export default function BreakHabit() {
     startDate: toLocalISODate(),
     endDate: '',
   });
+  const [rewardChoice, setRewardChoice] = useState('coins');
+  const [rewardText, setRewardText] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
   const [success, setSuccess] = useState('');
 
@@ -118,6 +120,10 @@ export default function BreakHabit() {
       microSteps,
       savedOn: new Date().toISOString(),
       schedule,
+      reward:
+        rewardChoice === 'custom'
+          ? rewardText.trim()
+          : '50 coins bonus on completion',
     });
 
     breakHabitCreate(
@@ -148,7 +154,7 @@ export default function BreakHabit() {
     });
   };
 
-  const totalSteps = 3;
+  const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
   return (
@@ -345,12 +351,86 @@ export default function BreakHabit() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleSave}
+                onClick={() => setStep(4)}
                 disabled={
                   !habit.trim() ||
                   replacements.length === 0 ||
                   microSteps.length === 0
                 }
+              >
+                Next: Rewards
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 4: Rewards */}
+        {step === 4 && (
+          <>
+            <h2>Step 4: Pick a reward</h2>
+            <p className="sub">
+              You automatically earn 20 coins for each completed habit step. Choose a bigger reward for finishing—if you skip choosing, you will get 50 coins instead.
+            </p>
+
+            <div className="stacked-input" style={{ alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="radio"
+                  name="rewardChoice"
+                  value="coins"
+                  checked={rewardChoice === 'coins'}
+                  onChange={() => setRewardChoice('coins')}
+                />
+                <span>Keep coin bonus (50 coins on completion)</span>
+              </label>
+            </div>
+
+            <div className="stacked-input" style={{ alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                <input
+                  type="radio"
+                  name="rewardChoice"
+                  value="custom"
+                  checked={rewardChoice === 'custom'}
+                  onChange={() => setRewardChoice('custom')}
+                />
+                <span style={{ flex: 1 }}>Set a custom reward</span>
+              </label>
+            </div>
+
+            {rewardChoice === 'custom' && (
+              <label className="auth-label" style={{ marginTop: '0.75rem' }}>
+                Describe your reward
+                <input
+                  type="text"
+                  value={rewardText}
+                  onChange={(e) => setRewardText(e.target.value)}
+                  placeholder="Example: New game, outing, special treat"
+                />
+              </label>
+            )}
+
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setStep(3)}
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={rewardChoice === 'custom' && !rewardText.trim()}
               >
                 Save plan
               </button>
