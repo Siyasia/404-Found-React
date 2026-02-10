@@ -20,6 +20,8 @@ export default function SchedulePicker({ value, onChange }) {
     endDate: ''
   }
 
+  const noEndDate = !schedule.endDate
+
   const update = (partial) => {
     onChange({ ...schedule, ...partial })
   }
@@ -46,12 +48,13 @@ export default function SchedulePicker({ value, onChange }) {
   const showInterval = schedule.repeat === REPEAT.INTERVAL_DAYS
 
   return (
-    <div className="schedule-picker" style={{ display: 'grid', gap: '0.5rem' }}>
-      <label style={{ display: 'grid', gap: '0.25rem' }}>
+    <div className="schedule-picker">
+      <label className="schedule-field">
         <span>Repeat</span>
         <select
           value={schedule.repeat}
           onChange={(e) => update({ repeat: e.target.value })}
+          className="schedule-control"
         >
           {repeatOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -60,9 +63,9 @@ export default function SchedulePicker({ value, onChange }) {
       </label>
 
       {showDays && (
-        <div style={{ display: 'grid', gap: '0.35rem' }}>
+        <div className="schedule-field">
           <span>Days of week</span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+          <div className="schedule-days">
             {DAY_LABELS.map((day) => {
               const active = (schedule.daysOfWeek || []).includes(day.value)
               return (
@@ -70,14 +73,7 @@ export default function SchedulePicker({ value, onChange }) {
                   key={day.value}
                   type="button"
                   onClick={() => toggleDay(day.value)}
-                  style={{
-                    padding: '0.35rem 0.6rem',
-                    borderRadius: '999px',
-                    border: '1px solid #ccc',
-                    background: active ? '#2563eb' : '#fff',
-                    color: active ? '#fff' : '#000',
-                    cursor: 'pointer'
-                  }}
+                  className={`schedule-day ${active ? 'active' : ''}`}
                 >
                   {day.label}
                 </button>
@@ -88,41 +84,47 @@ export default function SchedulePicker({ value, onChange }) {
       )}
 
       {showInterval && (
-        <label style={{ display: 'grid', gap: '0.25rem', maxWidth: '160px' }}>
+        <label className="schedule-field schedule-interval">
           <span>Interval (days)</span>
           <input
             type="number"
             min="1"
             value={schedule.intervalDays || 1}
             onChange={(e) => update({ intervalDays: Math.max(1, Number(e.target.value) || 1) })}
+            className="schedule-control"
           />
         </label>
       )}
 
-      <label style={{ display: 'grid', gap: '0.25rem', maxWidth: '220px' }}>
-        <span>Start date</span>
-        <input
-          type="date"
-          value={schedule.startDate || toLocalISODate()}
-          onChange={(e) => update({ startDate: e.target.value })}
-        />
-      </label>
-
-      <div style={{ display: 'grid', gap: '0.25rem', maxWidth: '220px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="scheduleGrid">
+        <label className="schedule-field">
+          <span>Start date</span>
           <input
-            type="checkbox"
-            checked={!schedule.endDate}
-            onChange={(e) => update({ endDate: e.target.checked ? '' : schedule.startDate })}
+            type="date"
+            value={schedule.startDate || toLocalISODate()}
+            onChange={(e) => update({ startDate: e.target.value })}
+            className="schedule-control"
           />
-          <span>No end date</span>
         </label>
-        <input
-          type="date"
-          value={schedule.endDate || ''}
-          disabled={!schedule.endDate}
-          onChange={(e) => update({ endDate: e.target.value })}
-        />
+
+        <div className="schedule-field">
+          <label className="schedule-checkbox">
+            <input
+              type="checkbox"
+              checked={noEndDate}
+              onChange={(e) => update({ endDate: e.target.checked ? '' : schedule.startDate })}
+            />
+            <span>No end date</span>
+          </label>
+          {!noEndDate && (
+            <input
+              type="date"
+              value={schedule.endDate || ''}
+              onChange={(e) => update({ endDate: e.target.value })}
+              className="schedule-control"
+            />
+          )}
+        </div>
       </div>
     </div>
   )

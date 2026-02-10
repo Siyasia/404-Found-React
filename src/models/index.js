@@ -166,7 +166,7 @@ export class User {
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
     this.type = this.role; // i think these should be the same?
-    this.theme = props.theme ?? 'pink';
+    this.theme = props.theme ?? 'light';
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
     // explicit common extras

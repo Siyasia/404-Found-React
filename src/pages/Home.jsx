@@ -15,7 +15,8 @@ import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, brea
 import { userUpdate } from '../lib/api/user.js';
 import { userGet } from '../lib/api/authentication.js';
 import SchedulePicker from '../components/SchedulePicker.jsx';
-import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate } from '../lib/schedule.js';
+import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate, computeCurrentStreak, computeBestStreak } from '../lib/schedule.js';
+import TaskCard from '../components/TaskCard.jsx';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
@@ -220,14 +221,36 @@ export default function Home() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    const doneToday = task.lastCompletedOn === todayISO;
+    const log = { ...(task.completionLog || {}) };
+    const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
+    const status = doneToday ? 'pending' : 'done';
+
+    if (doneToday) {
+      delete log[todayISO];
+    } else {
+      log[todayISO] = true;
+    }
+
     const updatedTask = {
       ...task,
+      status,
       lastCompletedOn: doneToday ? null : todayISO,
-      status: doneToday ? 'pending' : 'done',
+      completionLog: log,
     };
 
-    await taskUpdate({ id: taskId, status: updatedTask.status, lastCompletedOn: updatedTask.lastCompletedOn });
+    if (task.schedule) {
+      const currentStreak = computeCurrentStreak(updatedTask, todayISO);
+      const bestStreak = Math.max(computeBestStreak(updatedTask), task.stats?.bestStreak || 0, currentStreak);
+      updatedTask.stats = { ...(task.stats || {}), currentStreak, bestStreak };
+    }
+
+    await taskUpdate({
+      id: taskId,
+      status: updatedTask.status,
+      lastCompletedOn: updatedTask.lastCompletedOn,
+      completionLog: updatedTask.completionLog,
+      stats: updatedTask.stats,
+    });
 
     setTasks((prev) => prev.map((t) => (t.id === taskId ? withTodayStatus(updatedTask) : t)));
   };
@@ -260,6 +283,7 @@ export default function Home() {
         createdByName: user?.name || 'You',
         createdByRole: user?.role || 'user',
         schedule: newTaskSchedule,
+        completionLog: {},
       });
 
       const response = await taskCreate(baseTask);
@@ -362,7 +386,8 @@ export default function Home() {
 
   const withTodayStatus = (task) => {
     if (!task) return task;
-    const doneToday = task.lastCompletedOn === todayISO;
+    const log = task.completionLog || {};
+    const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
     return Task.from({ ...task, status: doneToday ? 'done' : 'pending' });
   };
 
@@ -505,484 +530,347 @@ export default function Home() {
       : '';
 
   return (
-    <div style={{ 
-      maxWidth: '1200px', 
-      margin: '0 auto', 
-      padding: '24px', 
-      minHeight: 'calc(100vh - 64px)',
-      display: 'grid',
-      placeItems: 'center',
-    }}>
-      
-      <div style={{ 
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gridTemplateRows: 'auto auto auto',
-        gap: '16px',
-        width: '100%',
-        alignContent: 'start'
-      }}>
-        
-        {/* ROW 1: Header (spans full width) */}
-        <div style={{ gridColumn: '1 / -1', minHeight: '96px', display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '8px' }}>
-            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>
-              Good {greetingPart}, {user?.name || 'there'}
-            </h1>
+    <div className="homePage">
+      <div className="homeLayout">
+        <header className="homeHeader">
+          <div className="homeHeaderTop">
+            <h1 className="homeTitle">Good {greetingPart}, {user?.name || 'there'}</h1>
             {user?.role === 'child' && (
               <button
                 type="button"
                 aria-label="Theme settings"
                 onClick={() => setThemeOpen(true)}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  fontSize: '1.15rem',
-                  opacity: .35,
-                  padding: '.25rem .35rem',
-                  borderRadius: '.5rem'
-                }}
+                className="themeButton"
                 title="Settings"
               >
                 🎨
               </button>
             )}
           </div>
-          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Here's what's on your plate today.</p>
-        </div>
+          <p className="homeSub">Here's what's on your plate today.</p>
+        </header>
 
-        {/* ROW 2: TODAY CARD (col 1) + STATS GRID (col 2) */}
-
-        {/* TODAY Card - col 1, row 2 */}
-        <div style={{ 
-          gridColumn: '1', 
-          gridRow: '2',
-          background: 'white', 
-          border: '1px solid rgba(0,0,0,0.06)', 
-          borderRadius: '16px', 
-          padding: '16px', 
-          display: 'flex', 
-          flexDirection: 'column',
-          maxHeight: '320px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Today</h2>
-            <button
-              type="button"
-              onClick={speakTaskSummary}
-              disabled={!supportsTTS}
-              style={{
-                padding: '.3rem .5rem',
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb',
-                background: 'white',
-                cursor: supportsTTS ? 'pointer' : 'not-allowed',
-                fontWeight: 500,
-                fontSize: '.8rem',
-              }}
-            >
-              🔊 Read
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: '.4rem', marginBottom: '12px', flexWrap: 'wrap' }}>
-            {[
-              { key: 'simple', label: 'Simple', count: taskCounts.simple.total },
-              { key: 'build', label: 'Build', count: taskCounts.build.total },
-              { key: 'break', label: 'Break', count: taskCounts.break.total },
-            ].map((tab) => (
+        <section className="homeLeft">
+          <div className="card todayCard">
+            <div className="todayHeader">
+              <h2 className="sectionTitle">Today</h2>
               <button
-                key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className="btn"
-                style={{
-                  padding: '.35rem .6rem',
-                  borderRadius: '999px',
-                  border: activeTab === tab.key ? '1px solid #4f46e5' : '1px solid #e5e7eb',
-                  background: activeTab === tab.key ? '#eef2ff' : 'white',
-                  color: '#111827',
-                  fontSize: '.85rem',
-                }}
+                onClick={speakTaskSummary}
+                disabled={!supportsTTS}
+                className="btn todayReadButton"
               >
-                {tab.label} ({tab.count})
+                🔊 Read
               </button>
-            ))}
+            </div>
+
+            <div className="tabList">
+              {[
+                { key: 'simple', label: 'Simple', count: taskCounts.simple.total },
+                { key: 'build', label: 'Build', count: taskCounts.build.total },
+                { key: 'break', label: 'Break', count: taskCounts.break.total },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`btn tabButton ${activeTab === tab.key ? 'tabButtonActive' : ''}`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </div>
+
+            <div className="taskList">
+              {tasksLoading ? (
+                <div className="mutedText">Loading…</div>
+              ) : tasks.length === 0 ? (
+                <EmptyState
+                  icon="📋"
+                  title="No tasks"
+                  description="Create a habit plan"
+                  buttonLabel="Build"
+                  buttonLink="/build-habit"
+                />
+              ) : (
+                <>
+                  {activeTab === 'simple' && (() => {
+                    const groups = splitTasks(simpleTasks);
+                    const renderItem = (task) => (
+                      <li key={task.id} className="taskListItem">
+                        <TaskCard task={task}>
+                          <input
+                            type="checkbox"
+                            checked={task.status === 'done'}
+                            onChange={() => handleToggleMyTaskStatus(task.id)}
+                            className="taskCheckbox"
+                          />
+                        </TaskCard>
+                      </li>
+                    );
+
+                    return (
+                      <div className="taskGroup">
+                        {groups.due.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Due Today</div>
+                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.upcoming.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Upcoming (next 7 days)</div>
+                            <ul className="taskListGroup">{groups.upcoming.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.later.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Starts Later</div>
+                            <ul className="taskListGroup">{groups.later.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                          <div className="mutedText">No tasks scheduled.</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {activeTab === 'build' && (() => {
+                    const groups = splitTasks(buildTasks);
+                    const renderItem = (task) => (
+                      <li key={task.id} className="taskListItem">
+                        <TaskCard task={task}>
+                          <input
+                            type="checkbox"
+                            checked={task.status === 'done'}
+                            onChange={() => handleToggleMyTaskStatus(task.id)}
+                            className="taskCheckbox"
+                          />
+                        </TaskCard>
+                      </li>
+                    );
+
+                    return (
+                      <div className="taskGroup">
+                        {groups.due.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Due Today</div>
+                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.upcoming.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Upcoming (next 7 days)</div>
+                            <ul className="taskListGroup">{groups.upcoming.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.later.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Starts Later</div>
+                            <ul className="taskListGroup">{groups.later.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                          <div className="mutedText">No tasks scheduled.</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {activeTab === 'break' && (() => {
+                    const groups = splitTasks(breakTasks);
+                    const renderItem = (task) => (
+                      <li key={task.id} className="taskListItem">
+                        <TaskCard task={task}>
+                          <input
+                            type="checkbox"
+                            checked={task.status === 'done'}
+                            onChange={() => handleToggleMyTaskStatus(task.id)}
+                            className="taskCheckbox"
+                          />
+                        </TaskCard>
+                      </li>
+                    );
+
+                    return (
+                      <div className="taskGroup">
+                        {groups.due.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Due Today</div>
+                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.upcoming.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Upcoming (next 7 days)</div>
+                            <ul className="taskListGroup">{groups.upcoming.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.later.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Starts Later</div>
+                            <ul className="taskListGroup">{groups.later.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                          <div className="mutedText">No tasks scheduled.</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+              </>
+            )}
+            </div>
           </div>
 
-          {/* Task list - scrollable */}
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            {tasksLoading ? (
-              <div style={{ color: '#6b7280', fontSize: '.9rem' }}>Loading…</div>
-            ) : tasks.length === 0 ? (
-              <EmptyState
-                icon="📋"
-                title="No tasks"
-                description="Create a habit plan"
-                buttonLabel="Build"
-                buttonLink="/build-habit"
-              />
-            ) : (
-              <>
-                {activeTab === 'simple' && (() => {
-                  const groups = splitTasks(simpleTasks);
-                  const renderItem = (task) => (
-                    <li key={task.id} style={{
-                      display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={task.status === 'done'}
-                        onChange={() => handleToggleMyTaskStatus(task.id)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <div style={{ flex: 1, textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1 }}>
-                        {task.title}
-                        {scheduleBadges(task)}
-                      </div>
-                      <span style={{ fontSize: '.7rem', padding: '.05rem .3rem', borderRadius: '4px', background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a' }}>
-                        {task.status === 'done' ? '✓' : '◇'}
-                      </span>
-                    </li>
-                  );
+          <div className="card addTaskCard">
+            <div className="addTaskHeader">
+              <h2 className="sectionTitle">Add a task</h2>
+              <span className="mutedText">Simple tasks for you</span>
+            </div>
 
-                  return (
-                    <div>
-                      {groups.due.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', marginBottom: '.2rem' }}>Due Today</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.due.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.upcoming.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Upcoming (next 7 days)</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.upcoming.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.later.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Starts Later</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.later.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
-                        <div style={{ color: '#6b7280', fontSize: '.9rem' }}>No tasks scheduled.</div>
-                      )}
-                    </div>
-                  );
-                })()}
+            <form onSubmit={handleAddSimpleTask} className="addTaskForm">
+              <label className="fieldLabel">
+                <span className="fieldTitle">Task name</span>
+                <input
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Example: Read for 20 minutes"
+                  className="textInput"
+                />
+              </label>
 
-                {activeTab === 'build' && (() => {
-                  const groups = splitTasks(buildTasks);
-                  const renderItem = (task) => (
-                    <li key={task.id} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
-                    }}>
-                      <input type="checkbox" checked={task.status === 'done'} onChange={() => handleToggleMyTaskStatus(task.id)} style={{ cursor: 'pointer', marginTop: '.2rem' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1, fontWeight: 500 }}>{task.title}</div>
-                        <div style={{ fontSize: '.8rem', color: '#6b7280' }}>{friendlyFrequency(task.frequency)}</div>
-                        {scheduleBadges(task)}
-                      </div>
-                    </li>
-                  );
+              <label className="fieldLabel">
+                <span className="fieldTitle">Notes (optional)</span>
+                <textarea
+                  rows={3}
+                  value={newTaskNotes}
+                  onChange={(e) => setNewTaskNotes(e.target.value)}
+                  placeholder="Add details or reminders"
+                  className="textInput"
+                  style={{ fontFamily: 'inherit' }}
+                />
+              </label>
 
-                  return (
-                    <div>
-                      {groups.due.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', marginBottom: '.2rem' }}>Due Today</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.due.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.upcoming.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Upcoming (next 7 days)</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.upcoming.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.later.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Starts Later</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.later.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
-                        <div style={{ color: '#6b7280', fontSize: '.9rem' }}>No tasks scheduled.</div>
-                      )}
-                    </div>
-                  );
-                })()}
+              <div className="scheduleBox">
+                <div className="fieldTitle">Schedule</div>
+                <SchedulePicker value={newTaskSchedule} onChange={setNewTaskSchedule} />
+              </div>
 
-                {activeTab === 'break' && (() => {
-                  const groups = splitTasks(breakTasks);
-                  const renderItem = (task) => (
-                    <li key={task.id} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
-                    }}>
-                      <input type="checkbox" checked={task.status === 'done'} onChange={() => handleToggleMyTaskStatus(task.id)} style={{ cursor: 'pointer', marginTop: '.2rem' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1, fontWeight: 500 }}>{task.habitToBreak || task.title}</div>
-                        <div style={{ fontSize: '.8rem', color: '#6b7280' }}>{friendlyFrequency(task.frequency)}</div>
-                        {scheduleBadges(task)}
-                      </div>
-                    </li>
-                  );
+              {newTaskError && (
+                <div className="errorText">{newTaskError}</div>
+              )}
 
-                  return (
-                    <div>
-                      {groups.due.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', marginBottom: '.2rem' }}>Due Today</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.due.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.upcoming.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Upcoming (next 7 days)</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.upcoming.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.later.length > 0 && (
-                        <>
-                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Starts Later</div>
-                          <ul style={{ paddingLeft: 0, margin: 0 }}>
-                            {groups.later.map(renderItem)}
-                          </ul>
-                        </>
-                      )}
-                      {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
-                        <div style={{ color: '#6b7280', fontSize: '.9rem' }}>No tasks scheduled.</div>
-                      )}
-                    </div>
-                  );
-                })()}
-            </>
+              <button
+                type="submit"
+                className="btn addTaskButton"
+                disabled={newTaskSaving}
+              >
+                {newTaskSaving ? 'Adding…' : 'Add task'}
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <aside className="homeRight">
+          <div className="statsGrid">
+            <div className="statCard">
+              <div className="statLabel">Tasks</div>
+              <div className="statValue">{taskCounts.simple.total}</div>
+              <div className="statSub">{taskCounts.simple.pending} pending</div>
+            </div>
+            <div className="statCard">
+              <div className="statLabel">Build</div>
+              <div className="statValue">{taskCounts.build.total}</div>
+              <div className="statSub">{taskCounts.build.pending} pending</div>
+            </div>
+            <div className="statCard">
+              <div className="statLabel">Break</div>
+              <div className="statValue">{taskCounts.break.total}</div>
+              <div className="statSub">{taskCounts.break.pending} pending</div>
+            </div>
+            <div className="statCard statAction">
+              {canCreate ? (
+                <Link to="/build-habit" className="btn" style={{ width: '100%' }}>
+                  + New Plan
+                </Link>
+              ) : (
+                <span className="mutedText">Ready?</span>
+              )}
+            </div>
+          </div>
+
+          {canCreate && (
+            <div className="card plansCard">
+              <h2 className="sectionTitle">Your Plans</h2>
+
+              <div className="planRow planRowBuild">
+                <div>
+                  <div className="planTitle">📈 Build</div>
+                  {buildPlan ? (
+                    <div className="planSub">{buildPlan.goal || 'No goal'}</div>
+                  ) : (
+                    <div className="planSub mutedText">Start a habit</div>
+                  )}
+                </div>
+                <div className="planActions">
+                  <Link to="/build-habit" className="btn btn-ghost planButton">
+                    {buildPlan ? 'Edit' : 'Create'}
+                  </Link>
+                  {buildPlan && (
+                    <button type="button" className="btn planButton" onClick={completeBuildPlan}>
+                      Done
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="planRow planRowBreak">
+                <div>
+                  <div className="planTitle">🚫 Break</div>
+                  {breakPlan ? (
+                    <div className="planSub">{breakPlan.habit || 'No habit'}</div>
+                  ) : (
+                    <div className="planSub mutedText">Replace a habit</div>
+                  )}
+                </div>
+                <div className="planActions">
+                  <Link to="/break-habit" className="btn btn-ghost planButton">
+                    {breakPlan ? 'Edit' : 'Create'}
+                  </Link>
+                  {breakPlan && (
+                    <button type="button" className="btn planButton" onClick={completeBreakPlan}>
+                      Done
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
-          </div>
-        </div>
 
-        {/* STATS GRID - col 2, row 2 (2x2 tiles) */}
-        <div style={{ 
-          gridColumn: '2', 
-          gridRow: '2',
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          gap: '12px',
-          height: 'fit-content'
-        }}>
-          {/* Tasks tile */}
-          <div style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '16px', padding: '12px', height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: '12px', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280', fontWeight: 600 }}>Tasks</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px' }}>{taskCounts.simple.total}</div>
-            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{taskCounts.simple.pending} pending</div>
-          </div>
+          {canCreate && (
+            <div className="card masteredCard">
+              <h2 className="sectionTitle">Mastered 🏆</h2>
 
-          {/* Build habits tile */}
-          <div style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '16px', padding: '12px', height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: '12px', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280', fontWeight: 600 }}>Build</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px' }}>{taskCounts.build.total}</div>
-            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{taskCounts.build.pending} pending</div>
-          </div>
-
-          {/* Break habits tile */}
-          <div style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '16px', padding: '12px', height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: '12px', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280', fontWeight: 600 }}>Break</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px' }}>{taskCounts.break.total}</div>
-            <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{taskCounts.break.pending} pending</div>
-          </div>
-
-          {/* Quick action tile */}
-          <div style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '16px', padding: '12px', height: '92px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {canCreate ? (
-              <Link to="/build-habit" className="btn" style={{ padding: '.4rem .6rem', fontSize: '.85rem', whiteSpace: 'nowrap' }}>
-                + New Plan
-              </Link>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#9ca3af' }}>Ready?</span>
-            )}
-          </div>
-        </div>
-
-        {/* ROW 3: PLANS + MASTERED (col 2) */}
-
-        {/* QUICK ADD TASK - col 1, row 3 */}
-        <div style={{
-          gridColumn: '1',
-          gridRow: '3',
-          background: 'white',
-          border: '1px solid rgba(0,0,0,0.06)',
-          borderRadius: '16px',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Add a task</h2>
-            <span style={{ fontSize: '12px', color: '#6b7280' }}>Simple tasks for you</span>
-          </div>
-
-          <form onSubmit={handleAddSimpleTask} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '.9rem', color: '#374151' }}>
-              <span style={{ fontWeight: 600 }}>Task name</span>
-              <input
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="Example: Read for 20 minutes"
-                style={{ padding: '.7rem .8rem', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '.95rem' }}
-              />
-            </label>
-
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '.9rem', color: '#374151' }}>
-              <span style={{ fontWeight: 600 }}>Notes (optional)</span>
-              <textarea
-                rows={3}
-                value={newTaskNotes}
-                onChange={(e) => setNewTaskNotes(e.target.value)}
-                placeholder="Add details or reminders"
-                style={{ padding: '.7rem .8rem', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '.95rem', fontFamily: 'inherit' }}
-              />
-            </label>
-
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '.75rem' }}>
-              <div style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.35rem', color: '#374151' }}>Schedule</div>
-              <SchedulePicker value={newTaskSchedule} onChange={setNewTaskSchedule} />
+              {formedForUser.length === 0 ? (
+                <EmptyState icon="⭐" title="Nothing yet" description="Complete a plan" buttonLabel="Start" buttonLink="/build-habit" />
+              ) : (
+                <ul className="masteredList">
+                  {formedForUser.slice(0, 6).map((h) => (
+                    <li key={h.id} className="masteredItem">
+                      <div className="masteredTitle">{h.title}</div>
+                      <div className="masteredMeta">
+                        {h.type === 'build' ? '📈' : '🚫'} {h.completedAt ? new Date(h.completedAt).toLocaleDateString() : ''}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-
-            {newTaskError && (
-              <div style={{ color: '#b91c1c', fontSize: '.9rem' }}>{newTaskError}</div>
-            )}
-
-            <button
-              type="submit"
-              className="btn"
-              disabled={newTaskSaving}
-              style={{
-                padding: '.75rem',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                color: 'white',
-                fontWeight: 600,
-                cursor: newTaskSaving ? 'not-allowed' : 'pointer',
-                border: 'none'
-              }}
-            >
-              {newTaskSaving ? 'Adding…' : 'Add task'}
-            </button>
-          </form>
-        </div>
-
-        {/* YOUR PLANS Card - col 2, row 3 */}
-        {canCreate && (
-          <div style={{ 
-            gridColumn: '2', 
-            gridRow: '3',
-            background: 'white', 
-            border: '1px solid rgba(0,0,0,0.06)', 
-            borderRadius: '16px', 
-            padding: '16px', 
-            display: 'flex', 
-            flexDirection: 'column' 
-          }}>
-            <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 600 }}>Your Plans</h2>
-
-            {/* Build Plan Row */}
-            <div style={{ padding: '12px', background: '#f9fafb', borderRadius: '12px', marginBottom: '12px', borderLeft: '3px solid #4f46e5', minHeight: '88px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '.95rem' }}>📈 Build</div>
-                {buildPlan ? (
-                  <div style={{ fontSize: '.85rem', color: '#6b7280', marginTop: '4px' }}>{buildPlan.goal || 'No goal'}</div>
-                ) : (
-                  <div style={{ fontSize: '.85rem', color: '#9ca3af', marginTop: '4px' }}>Start a habit</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '.4rem', marginTop: '8px' }}>
-                <Link to="/build-habit" className="btn btn-ghost" style={{ padding: '.3rem .5rem', fontSize: '.75rem', flex: 1, textAlign: 'center' }}>
-                  {buildPlan ? 'Edit' : 'Create'}
-                </Link>
-                {buildPlan && (
-                  <button type="button" className="btn" style={{ padding: '.3rem .5rem', fontSize: '.75rem' }} onClick={completeBuildPlan}>
-                    Done
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Break Plan Row */}
-            <div style={{ padding: '12px', background: '#f9fafb', borderRadius: '12px', borderLeft: '3px solid #dc2626', minHeight: '88px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '.95rem' }}>🚫 Break</div>
-                {breakPlan ? (
-                  <div style={{ fontSize: '.85rem', color: '#6b7280', marginTop: '4px' }}>{breakPlan.habit || 'No habit'}</div>
-                ) : (
-                  <div style={{ fontSize: '.85rem', color: '#9ca3af', marginTop: '4px' }}>Replace a habit</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '.4rem', marginTop: '8px' }}>
-                <Link to="/break-habit" className="btn btn-ghost" style={{ padding: '.3rem .5rem', fontSize: '.75rem', flex: 1, textAlign: 'center' }}>
-                  {breakPlan ? 'Edit' : 'Create'}
-                </Link>
-                {breakPlan && (
-                  <button type="button" className="btn" style={{ padding: '.3rem .5rem', fontSize: '.75rem' }} onClick={completeBreakPlan}>
-                    Done
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MASTERED Card - col 2, row 4 (after Plans) */}
-        {canCreate && (
-          <div style={{ 
-            gridColumn: '2', 
-            background: 'white', 
-            border: '1px solid rgba(0,0,0,0.06)', 
-            borderRadius: '16px', 
-            padding: '16px',
-            maxHeight: '240px',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 600 }}>Mastered 🏆</h2>
-
-            {formedForUser.length === 0 ? (
-              <EmptyState icon="⭐" title="Nothing yet" description="Complete a plan" buttonLabel="Start" buttonLink="/build-habit" />
-            ) : (
-              <ul style={{ paddingLeft: 0, margin: 0, listStyle: 'none', flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                {formedForUser.slice(0, 6).map((h) => (
-                  <li key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: '.85rem' }}>
-                    <div style={{ fontWeight: 600 }}>{h.title}</div>
-                    <div style={{ fontSize: '.75rem', color: '#6b7280' }}>
-                      {h.type === 'build' ? '📈' : '🚫'} {h.completedAt ? new Date(h.completedAt).toLocaleDateString() : ''}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+          )}
+        </aside>
       </div>
 
       <ThemeModal

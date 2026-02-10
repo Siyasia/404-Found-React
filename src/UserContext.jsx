@@ -12,9 +12,12 @@ export function UserProvider({ children }) {
   const applyTheme = (theme) => {
     if (typeof document === 'undefined') return;
     const body = document.body;
-    body.classList.remove('theme-blue', 'theme-pink');
-    if (theme === 'blue') body.classList.add('theme-blue');
-    if (theme === 'pink') body.classList.add('theme-pink');
+    body.classList.remove('theme-light', 'theme-dark', 'theme-blue', 'theme-pink');
+    if (theme === 'dark') {
+      body.classList.add('theme-dark');
+    } else {
+      body.classList.add('theme-light');
+    }
   };
 
   // Load user once on startup

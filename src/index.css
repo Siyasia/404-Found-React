@@ -21,6 +21,10 @@
   --gray-300: #d1d5db;
   --border: #e5e7eb;
   --border-light: #f3f4f6;
+  --body-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --card-shadow: var(--shadow-sm);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.1);
@@ -40,12 +44,55 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--body-bg);
   color: var(--text-dark);
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body.theme-dark {
+  --blue-50: #1f2937;
+  --blue-100: #1e293b;
+  --blue-200: #334155;
+  --blue-500: #8b9afc;
+  --blue-600: #7c89f5;
+  --blue-700: #6b79eb;
+  --text-dark: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-light: #cbd5e1;
+  --white: #0f172a;
+  --gray-50: #0b1220;
+  --gray-100: #0f172a;
+  --gray-200: #1f2a3d;
+  --gray-300: #334155;
+  --border: rgba(148, 163, 184, 0.35);
+  --border-light: rgba(148, 163, 184, 0.25);
+  --body-bg: radial-gradient(circle at 20% 20%, #0f172a 0%, #0b1220 35%, #0b1220 100%);
+  --card-bg: #0f172a;
+  --card-border: rgba(148, 163, 184, 0.35);
+  --card-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+body.theme-dark a {
+  color: #a5b4fc;
+}
+
+body.theme-dark .site-header {
+  background: linear-gradient(135deg, #0f172a 0%, #0b1220 100%);
+  border-bottom-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+body.theme-dark .nav-link {
+  color: var(--text-muted);
+}
+
+body.theme-dark .nav-link:hover,
+body.theme-dark .nav-link:focus-visible {
+  background: var(--gray-100);
+  color: var(--text-light);
 }
 
 /* ===========================
@@ -247,12 +294,12 @@ input:focus-visible {
    =========================== */
 
 .card {
-  background: var(--white);
-  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 1rem;
   padding: 1.5rem;
   transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--card-shadow);
 }
 
 .card:hover {
