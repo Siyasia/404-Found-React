@@ -724,54 +724,56 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="card addTaskCard">
-            <div className="addTaskHeader">
-              <h2 className="sectionTitle">Add a task</h2>
-              <span className="mutedText">Simple tasks for you</span>
-            </div>
-
-            <form onSubmit={handleAddSimpleTask} className="addTaskForm">
-              <label className="fieldLabel">
-                <span className="fieldTitle">Task name</span>
-                <input
-                  type="text"
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Example: Read for 20 minutes"
-                  className="textInput"
-                />
-              </label>
-
-              <label className="fieldLabel">
-                <span className="fieldTitle">Notes (optional)</span>
-                <textarea
-                  rows={3}
-                  value={newTaskNotes}
-                  onChange={(e) => setNewTaskNotes(e.target.value)}
-                  placeholder="Add details or reminders"
-                  className="textInput"
-                  style={{ fontFamily: 'inherit' }}
-                />
-              </label>
-
-              <div className="scheduleBox">
-                <div className="fieldTitle">Schedule</div>
-                <SchedulePicker value={newTaskSchedule} onChange={setNewTaskSchedule} />
+          {user?.role !== 'child' && (
+            <div className="card addTaskCard">
+              <div className="addTaskHeader">
+                <h2 className="sectionTitle">Add a task</h2>
+                <span className="mutedText">Simple tasks for you</span>
               </div>
 
-              {newTaskError && (
-                <div className="errorText">{newTaskError}</div>
-              )}
+              <form onSubmit={handleAddSimpleTask} className="addTaskForm">
+                <label className="fieldLabel">
+                  <span className="fieldTitle">Task name</span>
+                  <input
+                    type="text"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    placeholder="Example: Read for 20 minutes"
+                    className="textInput"
+                  />
+                </label>
 
-              <button
-                type="submit"
-                className="btn addTaskButton"
-                disabled={newTaskSaving}
-              >
-                {newTaskSaving ? 'Adding…' : 'Add task'}
-              </button>
-            </form>
-          </div>
+                <label className="fieldLabel">
+                  <span className="fieldTitle">Notes (optional)</span>
+                  <textarea
+                    rows={3}
+                    value={newTaskNotes}
+                    onChange={(e) => setNewTaskNotes(e.target.value)}
+                    placeholder="Add details or reminders"
+                    className="textInput"
+                    style={{ fontFamily: 'inherit' }}
+                  />
+                </label>
+
+                <div className="scheduleBox">
+                  <div className="fieldTitle">Schedule</div>
+                  <SchedulePicker value={newTaskSchedule} onChange={setNewTaskSchedule} />
+                </div>
+
+                {newTaskError && (
+                  <div className="errorText">{newTaskError}</div>
+                )}
+
+                <button
+                  type="submit"
+                  className="btn addTaskButton"
+                  disabled={newTaskSaving}
+                >
+                  {newTaskSaving ? 'Adding…' : 'Add task'}
+                </button>
+              </form>
+            </div>
+          )}
         </section>
 
         <aside className="homeRight">
