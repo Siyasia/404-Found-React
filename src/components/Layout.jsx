@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import { ROLE_LABEL, canCreateOwnTasks } from '../Roles/roles.js';
+import { ROLE, ROLE_LABEL, canCreateOwnTasks } from '../Roles/roles.js';
 
 export default function Layout({ children }) {
   const { user, setUser } = useUser();
   const canCreate = user && canCreateOwnTasks(user);
+  const isParent = user?.role === ROLE.PARENT;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -21,7 +22,7 @@ export default function Layout({ children }) {
   }
 
   const roleLabel = user ? ROLE_LABEL[user.role] || user.role : null;
-  const homePath = '/home';
+  const homePath = isParent ? '/parent' : '/home';
 
   return (
     <>
@@ -32,15 +33,26 @@ export default function Layout({ children }) {
           </Link>
 
           <nav className="site-nav">
-            <NavLink to={homePath} className="nav-link">Home</NavLink>
-            <NavLink to="/features" className="nav-link">Features</NavLink>
-            {canCreate && (
+            {isParent ? (
               <>
-                <NavLink to="/build-habit" className="nav-link">Build Habit</NavLink>
-                <NavLink to="/break-habit" className="nav-link">Break Habit</NavLink>
+                <NavLink to="/parent/dashboard?tab=children" className="nav-link">Children</NavLink>
+                <NavLink to="/parent/dashboard?tab=assign" className="nav-link">Assign tasks</NavLink>
+                <NavLink to="/parent/dashboard?tab=my-tasks" className="nav-link">My tasks</NavLink>
+                <NavLink to="/parent/dashboard?tab=approvals" className="nav-link">Approvals</NavLink>
+              </>
+            ) : (
+              <>
+                <NavLink to={homePath} className="nav-link">Home</NavLink>
+                <NavLink to="/features" className="nav-link">Features</NavLink>
+                {canCreate && (
+                  <>
+                    <NavLink to="/build-habit" className="nav-link">Build Habit</NavLink>
+                    <NavLink to="/break-habit" className="nav-link">Break Habit</NavLink>
+                  </>
+                )}
+                <NavLink to="/about" className="nav-link">About</NavLink>
               </>
             )}
-            <NavLink to="/about" className="nav-link">About</NavLink>
           </nav>
 
           {user && !onLoginPage && (

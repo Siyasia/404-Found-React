@@ -13,7 +13,14 @@ function generateId() {
   return (typeof crypto !== 'undefined' && crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
 }
 
-export default function ParentHabitAssignment({ embed = false, parentChildren = null, parentTasks = null, onTasksChange = null }) {
+export default function ParentHabitAssignment({
+  embed = false,
+  parentChildren = null,
+  parentTasks = null,
+  onTasksChange = null,
+  compactList = false,
+  listMaxHeight = 520,
+}) {
   const { user } = useUser();
   const isParent = user?.role === ROLE.PARENT;
 
@@ -39,6 +46,7 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
   const [frequency, setFrequency] = useState('daily');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' ? window.innerWidth <= 900 : false);
 
   // Load children + tasks from backend on mount unless parent passed them in
   useEffect(() => {
@@ -78,6 +86,14 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
       else if (user?.id) setAssigneeId(user.id);
     }
   }, [children, assigneeId, user]);
+
+  // Track viewport width for responsive grid layout
+  useEffect(() => {
+    const handleResize = () => setIsNarrow(window.innerWidth <= 900);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const resetForm = () => {
     setTaskType('');
@@ -238,19 +254,52 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
     );
   }
 
-  return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1rem' }}>
-      <h1 style={{ marginBottom: '0.5rem' }}>Parent Dashboard — Assign tasks</h1>
+  const gridStyle = {
+    display: 'grid',
+    gridTemplateColumns: isNarrow ? '1fr' : '1.25fr 0.75fr',
+    gap: '16px',
+    alignItems: 'start',
+  };
 
+  const shellStyle = embed
+    ? { width: '100%', padding: '0.5rem' }
+    : { maxWidth: '1200px', margin: '0 auto', padding: '24px' };
+
+  const cardStyle = {
+    background: 'white',
+    border: '1px solid #e5e7eb',
+    borderRadius: '1rem',
+    padding: embed ? '1rem' : '1.25rem',
+    boxShadow: embed ? 'none' : '0 10px 30px rgba(17, 24, 39, 0.06)',
+  };
+
+  const listCardStyle = {
+    ...cardStyle,
+    padding: compactList ? '0.85rem' : cardStyle.padding,
+    maxHeight: `${listMaxHeight}px`,
+    overflow: 'auto',
+  };
+
+  return (
+    <div style={shellStyle}>
       <Toast message={success} type="success" onClose={() => setSuccess('')} />
-      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '1rem', padding: '2rem', marginBottom: '2rem' }}>
-        <h2 style={{ marginBottom: '1rem' }}>
-          Assign to: {isAssigningToParent
-            ? `${user?.name || 'You'} (you)`
-            : selectedChild
-              ? `${selectedChild.name} (${selectedChild.age})`
-              : '—'}
-        </h2>
+
+      <div style={gridStyle}>
+        <div style={cardStyle}>
+          <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.15rem' }}>
+            Assign tasks & habits
+          </h2>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <p className="sub" style={{ margin: '0 0 0.35rem' }}>Assign to</p>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
+              {isAssigningToParent
+                ? `${user?.name || 'You'} (you)`
+                : selectedChild
+                  ? `${selectedChild.name} (${selectedChild.age})`
+                  : '—'}
+            </h3>
+          </div>
 
         <label style={{ display: 'block', marginBottom: '1rem' }}>
           <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Assign to <span aria-hidden="true" className="required-asterisk">*</span></span>
@@ -344,33 +393,60 @@ export default function ParentHabitAssignment({ embed = false, parentChildren = 
             {success && <p style={{ color: '#16a34a', marginBottom: '1rem' }}>{success}</p>}
 
         <button type="button" onClick={handleSubmit} style={{ width: '100%', padding: '1rem', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: 'white', border: 'none', borderRadius: '0.75rem' }}>Assign</button>
-      </div>
-
-      {tasks.length > 0 && (
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '1rem', padding: '2rem' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Assigned Tasks & Habits</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {tasks.map(t => (
-              <div key={t.id} style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.75rem', background: '#fafafa' }}>
-                <div style={{ marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>{t.taskType}</span>
-                  <h3 style={{ margin: '0.25rem 0' }}>{t.title}</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#6b7280' }}>For: {t.assigneeName}</p>
-                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', color: t.status === 'done' ? '#14532d' : '#6b7280' }}>
-                    Status: {t.status === 'done' ? 'Done ✅' : 'Pending'}
-                  </p>
-                </div>
-                {t.notes && <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', fontStyle: 'italic', color: '#6b7280' }}>Note: {t.notes}</p>}
-                <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => handleToggleTaskStatus(t.id)}>
-                    {t.status === 'done' ? 'Mark not done' : 'Mark done'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
-      )}
+
+        <div style={listCardStyle}>
+          <h2 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1rem' }}>Assigned Tasks & Habits</h2>
+          {tasks.length === 0 ? (
+            <p className="sub" style={{ margin: 0 }}>No tasks assigned yet.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: compactList ? '0.65rem' : '1rem' }}>
+              {tasks.map(t => (
+                <div
+                  key={t.id}
+                  style={{
+                    padding: compactList ? '0.7rem' : '1rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.65rem',
+                    background: '#fafafa',
+                  }}
+                >
+                  <div style={{ marginBottom: compactList ? '0.35rem' : '0.5rem' }}>
+                    <span style={{ fontSize: compactList ? '0.78rem' : '0.82rem', color: '#6b7280' }}>{t.taskType}</span>
+                    <h3 style={{ margin: '0.18rem 0', fontSize: compactList ? '0.98rem' : '1rem' }}>{t.title}</h3>
+                    <p style={{ margin: 0, fontSize: compactList ? '0.85rem' : '0.9rem', color: '#6b7280' }}>For: {t.assigneeName}</p>
+                    <p style={{ margin: '0.18rem 0 0', fontSize: compactList ? '0.84rem' : '0.88rem', color: t.status === 'done' ? '#14532d' : '#6b7280' }}>
+                      Status: {t.status === 'done' ? 'Done ✅' : 'Pending'}
+                    </p>
+                  </div>
+                  {t.notes && (
+                    <p
+                      style={{
+                        margin: compactList ? '0.25rem 0 0' : '0.5rem 0 0',
+                        fontSize: compactList ? '0.84rem' : '0.88rem',
+                        fontStyle: 'italic',
+                        color: '#6b7280',
+                      }}
+                    >
+                      Note: {t.notes}
+                    </p>
+                  )}
+                  <div style={{ marginTop: compactList ? '0.25rem' : '0.4rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: compactList ? '0.3rem 0.55rem' : '0.35rem 0.65rem', fontSize: compactList ? '0.85rem' : '0.9rem' }}
+                      onClick={() => handleToggleTaskStatus(t.id)}
+                    >
+                      {t.status === 'done' ? 'Mark not done' : 'Mark done'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
