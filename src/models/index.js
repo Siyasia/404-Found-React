@@ -166,7 +166,9 @@ export class User {
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
     this.type = this.role; // i think these should be the same?
-    this.theme = props.theme ?? 'light';
+    this.themeMode = props.themeMode ?? props.theme ?? 'light';
+    this.palette = props.palette ?? 'gold';
+    this.theme = this.themeMode; // legacy alias
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
     // explicit common extras
@@ -192,7 +194,9 @@ export class User {
       role: this.role,
       createdAt: this.createdAt,
       type: this.type,
-      theme: this.theme,
+      theme: this.themeMode,
+      themeMode: this.themeMode,
+      palette: this.palette,
       profilePic: this.profilePic,
       stats: this.stats,
       code: this.code,

@@ -5,9 +5,17 @@ import { ROLE } from '../Roles/roles.js';
 export default function Profile() {
   const { user, setUser } = useUser();
 
-  const handleThemeChange = (event) => {
-    const theme = event.target.value;
-    setUser({ ...user, theme });
+  const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
+  const palette = user?.palette || 'gold';
+
+  const handleModeChange = (event) => {
+    const themeMode = event.target.value;
+    setUser({ ...user, themeMode, theme: themeMode });
+  };
+
+  const handlePaletteChange = (event) => {
+    const palette = event.target.value;
+    setUser({ ...user, palette });
   };
 
   if (!user) {
@@ -41,32 +49,59 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '620px', marginTop: '1rem' }}>
+      <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '820px', marginTop: '1rem' }}>
         <h3 style={{ marginTop: 0 }}>Theme</h3>
-        <p className="sub" style={{ marginBottom: '1rem' }}>Choose the color mode you prefer for the app.</p>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <label className="auth-label" style={{ width: '180px', margin: 0 }}>
-            <span style={{ fontWeight: 600 }}>Light mode</span>
-            <input
-              type="radio"
-              name="theme"
-              value="light"
-              checked={user.theme !== 'dark'}
-              onChange={handleThemeChange}
-              style={{ width: 'auto' }}
-            />
-          </label>
-          <label className="auth-label" style={{ width: '180px', margin: 0 }}>
-            <span style={{ fontWeight: 600 }}>Dark mode</span>
-            <input
-              type="radio"
-              name="theme"
-              value="dark"
-              checked={user.theme === 'dark'}
-              onChange={handleThemeChange}
-              style={{ width: 'auto' }}
-            />
-          </label>
+        <p className="sub" style={{ marginBottom: '1rem' }}>Choose your palette and mode.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', alignItems: 'start' }}>
+          <div>
+            <p style={{ fontWeight: 600, marginBottom: '0.6rem' }}>Palette</p>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {[
+                { value: 'gold', label: 'Gold Dust' },
+                { value: 'cool', label: 'Cool Systems' },
+                { value: 'morning', label: 'Morning Routine' },
+              ].map((opt) => (
+                <label key={opt.value} className="auth-label" style={{ width: 'fit-content', margin: 0, padding: '0.35rem 0.5rem' }}>
+                  <span style={{ fontWeight: 600 }}>{opt.label}</span>
+                  <input
+                    type="radio"
+                    name="palette"
+                    value={opt.value}
+                    checked={palette === opt.value}
+                    onChange={handlePaletteChange}
+                    style={{ width: 'auto' }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p style={{ fontWeight: 600, marginBottom: '0.6rem' }}>Mode</p>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <label className="auth-label" style={{ width: 'fit-content', margin: 0, padding: '0.35rem 0.5rem' }}>
+                <span style={{ fontWeight: 600 }}>Light</span>
+                <input
+                  type="radio"
+                  name="themeMode"
+                  value="light"
+                  checked={themeMode !== 'dark'}
+                  onChange={handleModeChange}
+                  style={{ width: 'auto' }}
+                />
+              </label>
+              <label className="auth-label" style={{ width: 'fit-content', margin: 0, padding: '0.35rem 0.5rem' }}>
+                <span style={{ fontWeight: 600 }}>Dark</span>
+                <input
+                  type="radio"
+                  name="themeMode"
+                  value="dark"
+                  checked={themeMode === 'dark'}
+                  onChange={handleModeChange}
+                  style={{ width: 'auto' }}
+                />
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </section>

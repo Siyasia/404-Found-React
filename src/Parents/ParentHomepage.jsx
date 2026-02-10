@@ -346,6 +346,8 @@ export default function ParentHomepage() {
 
   const pageMaxWidth = { maxWidth: '1200px', margin: '0 auto', padding: '0 0 1.25rem' };
 
+  const sectionGap = '16px';
+
   // --- Layout helpers (reduce wasted whitespace + add per-card scrolling) ---
   // Using clamp keeps it responsive while still giving the cards consistent height.
   const cardBase = {
@@ -384,9 +386,17 @@ export default function ParentHomepage() {
   return (
     <div className="parent-shell">
       <Toast message={toast} type="success" onClose={() => setToast('')} />
-      <div className="parent-home" style={pageMaxWidth}>
+      <div
+        className="parent-home"
+        style={{
+          ...pageMaxWidth,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: sectionGap,
+        }}
+      >
         {/* HERO */}
-        <div className="hero-row" style={{ marginBottom: '0.75rem', padding: '0.35rem 0' }}>
+        <div className="hero-row" style={{ padding: '0.35rem 0' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'end' }}>
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: 700, marginBottom: '8px' }}>
@@ -428,13 +438,10 @@ export default function ParentHomepage() {
           </div>
         </div>
 
-        <div style={{ height: '10px' }} />
-
         {malformedTasks.length > 0 && (
           <div
             className="card"
             style={{
-              marginBottom: '1rem',
               border: '1px solid rgba(122, 155, 184, 0.35)',
               background: 'rgba(122, 155, 184, 0.08)',
               padding: '1rem 1.1rem',
@@ -470,7 +477,6 @@ export default function ParentHomepage() {
             gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
             gap: '16px',
             alignItems: 'start',
-            marginBottom: '16px',
           }}
         >
           {/* TODAY */}
@@ -721,7 +727,6 @@ export default function ParentHomepage() {
             gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
             gap: '16px',
             alignItems: 'start',
-            marginBottom: '16px',
           }}
         >
           {/* QUICK ASSIGN (UI like user home) */}

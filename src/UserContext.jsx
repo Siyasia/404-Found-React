@@ -8,16 +8,23 @@ const UserContext = createContext(null);
 export function UserProvider({ children }) {
   const [user, setUserState] = useState(null);
 
-  // Apply a simple theme class to the <body>
-  const applyTheme = (theme) => {
+  const applyTheme = (prefs) => {
     if (typeof document === 'undefined') return;
     const body = document.body;
-    body.classList.remove('theme-light', 'theme-dark', 'theme-blue', 'theme-pink');
-    if (theme === 'dark') {
-      body.classList.add('theme-dark');
-    } else {
-      body.classList.add('theme-light');
-    }
+    const palette = prefs?.palette || 'gold';
+    const mode = prefs?.themeMode || prefs?.mode || (prefs?.theme === 'dark' ? 'dark' : 'light');
+
+    body.classList.remove(
+      'mode-light', 'mode-dark',
+      'theme-gold', 'theme-cool', 'theme-morning',
+      'theme-blue', 'theme-pink', 'theme-light', 'theme-dark'
+    );
+
+    body.classList.add(mode === 'dark' ? 'mode-dark' : 'mode-light');
+
+    if (palette === 'cool') body.classList.add('theme-cool');
+    else if (palette === 'morning') body.classList.add('theme-morning');
+    else body.classList.add('theme-gold');
   };
 
   // Load user once on startup
@@ -35,8 +42,8 @@ export function UserProvider({ children }) {
                 const normalized = isChild ? { ...parsed, role: 'child', type: 'child' } : parsed;
                 localUser = User.from(normalized);
                 setUserState(localUser);
+                applyTheme(localUser);
               }
-              if (parsed?.theme) applyTheme(parsed.theme);
             } catch (e) {}
           }
         }
@@ -67,27 +74,29 @@ export function UserProvider({ children }) {
   }, []);
 
   const setUser = (newUser) => {
+    const mode = newUser?.themeMode || (newUser?.theme === 'dark' ? 'dark' : newUser?.theme) || 'light';
+    const palette = newUser?.palette || 'gold';
     const isChild = newUser?.role === 'child' || (newUser?.code && !newUser?.role);
     const normalized = isChild ? { ...newUser, role: 'child', type: 'child' } : newUser;
-    const instance = normalized ? User.from(normalized) : null;
+    const instance = normalized ? User.from({ ...normalized, themeMode: mode, theme: mode, palette }) : null;
     setUserState(instance);
 
     try {
-      if (instance) {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          try {
-            localStorage.setItem('user', JSON.stringify(instance.toJSON()));
-          } catch (e) {
-            console.warn('Failed to persist user to localStorage', e);
+        if (instance) {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            try {
+              localStorage.setItem('user', JSON.stringify(instance.toJSON()));
+            } catch (e) {
+              console.warn('Failed to persist user to localStorage', e);
+            }
           }
-        }
-        if (instance.theme) applyTheme(instance.theme);
-      } else {
+          applyTheme(instance);
+        } else {
         if (typeof window !== 'undefined' && window.localStorage) {
           localStorage.removeItem('user');
         }
         try { logout(); } catch (e) { /* ignore logout errors */ }
-        applyTheme(undefined);
+          applyTheme({});
       }
     } catch (err) {
       console.error('Failed to set user', err);

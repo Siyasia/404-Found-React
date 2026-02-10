@@ -424,7 +424,7 @@ section.container > .card + .card {
 .homeLayout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: 35px;
   align-items: start;
   width: 100%;
 }
@@ -434,7 +434,7 @@ section.container > .card + .card {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px;
+  padding: 0px;
 }
 
 .homeHeaderTop {
@@ -468,17 +468,18 @@ section.container > .card + .card {
 
 .homeLeft {
   display: grid;
-  gap: 16px;
+  gap: 24px;
   min-width: 0;
 }
 
 .homeRight {
   display: grid;
-  gap: 16px;
+  gap: 24px;
   min-width: 0;
   align-content: start;
 }
 
+/* Home - Card shells (Today / Add Task / Plans / Mastered) */
 .todayCard,
 .addTaskCard,
 .plansCard,
@@ -488,9 +489,23 @@ section.container > .card + .card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
+  padding: 20px;
 }
 
+/* Keep "today" and "add task" cards static (no hover lift) */
+.todayCard,
+.addTaskCard {
+  transition: none;
+}
+
+.todayCard:hover,
+.addTaskCard:hover {
+  border-color: var(--card-border);
+  box-shadow: var(--card-shadow);
+  transform: none;
+}
+
+/* Home - Today header row */
 .todayHeader {
   display: flex;
   align-items: center;
@@ -629,18 +644,20 @@ section.container > .card + .card {
   border: none;
 }
 
+/* Home - Stats cards (right column) */
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
   width: 100%;
 }
 
 .statCard {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  padding: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -670,6 +687,7 @@ section.container > .card + .card {
   justify-content: center;
 }
 
+/* Home - Plans card */
 .planRow {
   padding: 12px;
   background: #f9fafb;
@@ -715,6 +733,7 @@ section.container > .card + .card {
   text-align: center;
 }
 
+/* Home - Mastered card */
 .masteredList {
   padding-left: 0;
   margin: 0;

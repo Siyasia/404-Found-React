@@ -43,43 +43,46 @@ export default function BreakHabit() {
     startDate: toLocalISODate(),
     endDate: '',
   });
-  const [savedPlan, setSavedPlan] = useState(null);
+  const [savedPlans, setSavedPlans] = useState([]);
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
     async function func() {
 
       const all = await breakHabitList();
-      // todo: show all instead of first
-      const stored = all.habits[0];
-      if (stored) {
+      const remotePlans = Array.isArray(all?.habits) ? all.habits.slice(0, 5) : [];
+
+      if (remotePlans.length > 0) {
+        setSavedPlans(remotePlans);
+        const first = remotePlans[0];
+        setHabit(first.habit || '');
+        setReplacements(first.replacements || []);
+        setMicroSteps(first.microSteps || []);
+        if (first.schedule) {
+          setSchedule((prev) => ({ ...prev, ...first.schedule }));
+        }
+        return;
+      }
+
+      // fallback to local storage when backend has no schedule yet
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
         try {
-          setSavedPlan(stored);
-          setHabit(stored.habit || '');
-          setReplacements(stored.replacements || []);
-          setMicroSteps(stored.microSteps || []);
-          if (stored.schedule) {
-            setSchedule({ ...schedule, ...stored.schedule });
+          const parsed = JSON.parse(cached);
+          const plans = Array.isArray(parsed) ? parsed : [parsed];
+          const sliced = plans.slice(0, 5);
+          setSavedPlans(sliced);
+          if (sliced[0]) {
+            const first = sliced[0];
+            setHabit(first.habit || '');
+            setReplacements(first.replacements || []);
+            setMicroSteps(first.microSteps || []);
+            if (first.schedule) {
+              setSchedule((prev) => ({ ...prev, ...first.schedule }));
+            }
           }
         } catch {
-          // ignore bad JSON
-        }
-      } else {
-        // fallback to local storage when backend has no schedule yet
-        const cached = localStorage.getItem(STORAGE_KEY);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            setSavedPlan(parsed);
-            setHabit(parsed.habit || '');
-            setReplacements(parsed.replacements || []);
-            setMicroSteps(parsed.microSteps || []);
-            if (parsed.schedule) {
-              setSchedule({ ...schedule, ...parsed.schedule });
-            }
-          } catch {
-            // ignore
-          }
+          // ignore
         }
       }
     } func();
@@ -128,10 +131,21 @@ export default function BreakHabit() {
       console.error('[BreakHabit] Error saving plan', error);
     });
 
-    setSavedPlan(plan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+    setSavedPlans((prev) => {
+      const next = [plan, ...prev].slice(0, 5);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
     setSuccess('Break habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleDelete = (index) => {
+    setSavedPlans((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const totalSteps = 3;
@@ -345,37 +359,60 @@ export default function BreakHabit() {
         )}
       </div>
 
-      {savedPlan && (
+      {savedPlans.length > 0 && (
         <div
           className="card"
           style={{ marginTop: '1.5rem', maxWidth: '780px' }}
         >
-          <h2>Your saved plan</h2>
-          <p>
-            <strong>Habit to break:</strong> {savedPlan.habit}
-          </p>
+          <h2>Your saved plans (max 5)</h2>
+          <p className="sub">Newest first.</p>
+          {savedPlans.map((plan, planIdx) => (
+            <div
+              key={`break-plan-${planIdx}-${plan.habit}`}
+              style={{
+                padding: '0.75rem 0',
+                borderTop: planIdx === 0 ? 'none' : '1px solid var(--border-color, #e5e7eb)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                <div>
+                  <p><strong>Habit to break:</strong> {plan.habit}</p>
+                  {plan.schedule?.startDate && (
+                    <p className="sub">Starts {plan.schedule.startDate}{plan.schedule.endDate ? `, ends ${plan.schedule.endDate}` : ''}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => handleDelete(planIdx)}
+                >
+                  Delete
+                </button>
+              </div>
 
-          {savedPlan.replacements?.length > 0 && (
-            <>
-              <p className="sub">Replacements:</p>
-              <ul>
-                {savedPlan.replacements.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
-                ))}
-              </ul>
-            </>
-          )}
+              {plan.replacements?.length > 0 && (
+                <>
+                  <p className="sub">Replacements:</p>
+                  <ul>
+                    {plan.replacements.map((item, idx) => (
+                      <li key={`${item}-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
 
-          {savedPlan.microSteps?.length > 0 && (
-            <>
-              <p className="sub">Tiny steps:</p>
-              <ol>
-                {savedPlan.microSteps.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
-                ))}
-              </ol>
-            </>
-          )}
+              {plan.microSteps?.length > 0 && (
+                <>
+                  <p className="sub">Tiny steps:</p>
+                  <ol>
+                    {plan.microSteps.map((item, idx) => (
+                      <li key={`${item}-${idx}`}>{item}</li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </section>

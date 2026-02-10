@@ -808,7 +808,7 @@ export default function Home() {
 
               <div className="planRow planRowBuild">
                 <div>
-                  <div className="planTitle">📈 Build</div>
+                  <div className="planTitle"> Build</div>
                   {buildPlan ? (
                     <div className="planSub">{buildPlan.goal || 'No goal'}</div>
                   ) : (
@@ -829,7 +829,7 @@ export default function Home() {
 
               <div className="planRow planRowBreak">
                 <div>
-                  <div className="planTitle">🚫 Break</div>
+                  <div className="planTitle"> Break</div>
                   {breakPlan ? (
                     <div className="planSub">{breakPlan.habit || 'No habit'}</div>
                   ) : (
