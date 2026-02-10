@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
-import { breakHabitCreate, breakHabitGet, breakHabitList } from '../lib/api/habits.js';
+import { breakHabitCreate, breakHabitGet, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { BreakHabit as BreakHabitModel } from '../models';
 import SchedulePicker from '../components/SchedulePicker.jsx';
 import { toLocalISODate } from '../lib/schedule.js';
@@ -47,6 +47,19 @@ export default function BreakHabit() {
   const [rewardText, setRewardText] = useState('');
   const [savedPlans, setSavedPlans] = useState([]);
   const [success, setSuccess] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const resetForm = () => {
+    setStep(1);
+    setHabit('');
+    setReplacements([]);
+    setNewReplacement('');
+    setMicroSteps([]);
+    setNewMicroStep('');
+    setSchedule({ repeat: 'DAILY', startDate: toLocalISODate(), endDate: '' });
+    setRewardChoice('coins');
+    setRewardText('');
+  };
 
   useEffect(() => {
     async function func() {
@@ -56,13 +69,6 @@ export default function BreakHabit() {
 
       if (remotePlans.length > 0) {
         setSavedPlans(remotePlans);
-        const first = remotePlans[0];
-        setHabit(first.habit || '');
-        setReplacements(first.replacements || []);
-        setMicroSteps(first.microSteps || []);
-        if (first.schedule) {
-          setSchedule((prev) => ({ ...prev, ...first.schedule }));
-        }
         return;
       }
 
@@ -74,15 +80,6 @@ export default function BreakHabit() {
           const plans = Array.isArray(parsed) ? parsed : [parsed];
           const sliced = plans.slice(0, 5);
           setSavedPlans(sliced);
-          if (sliced[0]) {
-            const first = sliced[0];
-            setHabit(first.habit || '');
-            setReplacements(first.replacements || []);
-            setMicroSteps(first.microSteps || []);
-            if (first.schedule) {
-              setSchedule((prev) => ({ ...prev, ...first.schedule }));
-            }
-          }
         } catch {
           // ignore
         }
@@ -143,15 +140,49 @@ export default function BreakHabit() {
       return next;
     });
     setSuccess('Break habit plan saved successfully.');
+    resetForm();
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  const handleDelete = (index) => {
-    setSavedPlans((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
+  const loadPlanForEdit = (plan) => {
+    const safeSchedule = plan?.schedule || {};
+    setHabit(plan?.habit || '');
+    setReplacements(plan?.replacements || []);
+    setNewReplacement('');
+    setMicroSteps(plan?.microSteps || []);
+    setNewMicroStep('');
+    setSchedule({
+      repeat: safeSchedule.repeat || 'DAILY',
+      startDate: safeSchedule.startDate || toLocalISODate(),
+      endDate: safeSchedule.endDate || '',
     });
+    const reward = plan?.reward || '';
+    if (!reward || reward.includes('50 coins')) {
+      setRewardChoice('coins');
+      setRewardText('');
+    } else {
+      setRewardChoice('custom');
+      setRewardText(reward);
+    }
+    setStep(1);
+  };
+
+  const handleDelete = async (index, plan) => {
+    try {
+      if (plan?.id) {
+        await breakHabitDelete(plan.id);
+      }
+    } catch (err) {
+      console.error('[BreakHabit] Error deleting plan', err);
+    } finally {
+      setSavedPlans((prev) => {
+        const next = prev.filter((_, i) => i !== index);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+      setNotice('Deleted break-habit plan');
+      setTimeout(() => setNotice(''), 2200);
+    }
   };
 
   const totalSteps = 4;
@@ -165,6 +196,7 @@ export default function BreakHabit() {
       </p>
 
       <Toast message={success} type="success" onClose={() => setSuccess('')} />
+      <Toast message={notice} type="info" onClose={() => setNotice('')} />
       <div
         className="card"
         style={{ marginTop: '1.5rem', maxWidth: '780px' }}
@@ -461,13 +493,22 @@ export default function BreakHabit() {
                     <p className="sub">Starts {plan.schedule.startDate}{plan.schedule.endDate ? `, ends ${plan.schedule.endDate}` : ''}</p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => handleDelete(planIdx)}
-                >
-                  Delete
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => loadPlanForEdit(plan)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleDelete(planIdx, plan)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
 
               {plan.replacements?.length > 0 && (
