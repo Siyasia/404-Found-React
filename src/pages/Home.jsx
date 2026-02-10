@@ -564,21 +564,10 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="tabList">
-              {[
-                { key: 'simple', label: 'Simple', count: taskCounts.simple.total },
-                { key: 'build', label: 'Build', count: taskCounts.build.total },
-                { key: 'break', label: 'Break', count: taskCounts.break.total },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`btn tabButton ${activeTab === tab.key ? 'tabButtonActive' : ''}`}
-                >
-                  {tab.label} ({tab.count})
-                </button>
-              ))}
+            <div className="tabList" aria-label="Task categories">
+              <button type="button" className="btn tabButton tabButtonActive" disabled>
+                Simple ({taskCounts.simple.total})
+              </button>
             </div>
 
             <div className="taskList">
@@ -594,92 +583,8 @@ export default function Home() {
                 />
               ) : (
                 <>
-                  {activeTab === 'simple' && (() => {
+                  {(() => {
                     const groups = splitTasks(simpleTasks);
-                    const renderItem = (task) => (
-                      <li key={task.id} className="taskListItem">
-                        <TaskCard task={task}>
-                          <input
-                            type="checkbox"
-                            checked={task.status === 'done'}
-                            onChange={() => handleToggleMyTaskStatus(task.id)}
-                            className="taskCheckbox"
-                          />
-                        </TaskCard>
-                      </li>
-                    );
-
-                    return (
-                      <div className="taskGroup">
-                        {groups.due.length > 0 && (
-                          <>
-                            <div className="taskGroupTitle">Due Today</div>
-                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
-                          </>
-                        )}
-                        {groups.upcoming.length > 0 && (
-                          <>
-                            <div className="taskGroupTitle">Upcoming (next 7 days)</div>
-                            <ul className="taskListGroup">{groups.upcoming.map(renderItem)}</ul>
-                          </>
-                        )}
-                        {groups.later.length > 0 && (
-                          <>
-                            <div className="taskGroupTitle">Starts Later</div>
-                            <ul className="taskListGroup">{groups.later.map(renderItem)}</ul>
-                          </>
-                        )}
-                        {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
-                          <div className="mutedText">No tasks scheduled.</div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {activeTab === 'build' && (() => {
-                    const groups = splitTasks(buildTasks);
-                    const renderItem = (task) => (
-                      <li key={task.id} className="taskListItem">
-                        <TaskCard task={task}>
-                          <input
-                            type="checkbox"
-                            checked={task.status === 'done'}
-                            onChange={() => handleToggleMyTaskStatus(task.id)}
-                            className="taskCheckbox"
-                          />
-                        </TaskCard>
-                      </li>
-                    );
-
-                    return (
-                      <div className="taskGroup">
-                        {groups.due.length > 0 && (
-                          <>
-                            <div className="taskGroupTitle">Due Today</div>
-                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
-                          </>
-                        )}
-                        {groups.upcoming.length > 0 && (
-                          <>
-                            <div className="taskGroupTitle">Upcoming (next 7 days)</div>
-                            <ul className="taskListGroup">{groups.upcoming.map(renderItem)}</ul>
-                          </>
-                        )}
-                        {groups.later.length > 0 && (
-                          <>
-                            <div className="taskGroupTitle">Starts Later</div>
-                            <ul className="taskListGroup">{groups.later.map(renderItem)}</ul>
-                          </>
-                        )}
-                        {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
-                          <div className="mutedText">No tasks scheduled.</div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {activeTab === 'break' && (() => {
-                    const groups = splitTasks(breakTasks);
                     const renderItem = (task) => (
                       <li key={task.id} className="taskListItem">
                         <TaskCard task={task}>

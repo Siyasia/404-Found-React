@@ -469,6 +469,7 @@ section.container > .card + .card {
 .homeLeft {
   display: grid;
   gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   min-width: 0;
 }
 
@@ -490,6 +491,11 @@ section.container > .card + .card {
   flex-direction: column;
   gap: 12px;
   padding: 20px;
+}
+
+/* Home - Today card sizing */
+.todayCard {
+  max-height: 540px;
 }
 
 /* Keep "today" and "add task" cards static (no hover lift) */

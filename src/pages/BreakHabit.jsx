@@ -9,6 +9,7 @@ import SchedulePicker from '../components/SchedulePicker.jsx';
 import { toLocalISODate } from '../lib/schedule.js';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
+const STEP_STATUS_KEY = 'ns.breakSteps.status.v1';
 
 export default function BreakHabit() {
   const { user } = useUser();
@@ -48,6 +49,32 @@ export default function BreakHabit() {
   const [savedPlans, setSavedPlans] = useState([]);
   const [success, setSuccess] = useState('');
   const [notice, setNotice] = useState('');
+  const [stepStatus, setStepStatus] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STEP_STATUS_KEY)) || {};
+    } catch {
+      return {};
+    }
+  });
+
+  const persistStepStatus = (next) => {
+    setStepStatus(next);
+    localStorage.setItem(STEP_STATUS_KEY, JSON.stringify(next));
+  };
+
+  const planKey = (plan, idx = 0) => (plan?.id ? `id:${plan.id}` : `local:${plan?.habit || idx}`);
+
+  const toggleStepDone = (plan, idx, planIdx = 0, type = 'micro') => {
+    const key = `${planKey(plan, planIdx)}:${type}`;
+    setStepStatus((prev) => {
+      const currentPlan = prev[key] || {};
+      const nextPlan = { ...currentPlan, [idx]: !currentPlan[idx] };
+      if (!nextPlan[idx]) delete nextPlan[idx];
+      const next = { ...prev, [key]: nextPlan };
+      persistStepStatus(next);
+      return next;
+    });
+  };
 
   const resetForm = () => {
     setStep(1);
@@ -524,11 +551,33 @@ export default function BreakHabit() {
 
               {plan.microSteps?.length > 0 && (
                 <>
-                  <p className="sub">Tiny steps:</p>
+                  <p className="sub">Tiny steps (check off as you go):</p>
                   <ol>
-                    {plan.microSteps.map((item, idx) => (
-                      <li key={`${item}-${idx}`}>{item}</li>
-                    ))}
+                    {plan.microSteps.map((item, idx) => {
+                      const key = `${planKey(plan, planIdx)}:micro`;
+                      const done = !!(stepStatus[key] && stepStatus[key][idx]);
+                      return (
+                        <li
+                          key={`${item}-${idx}`}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={done}
+                            onChange={() => toggleStepDone(plan, idx, planIdx, 'micro')}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span
+                            style={{
+                              textDecoration: done ? 'line-through' : 'none',
+                              opacity: done ? 0.6 : 1,
+                            }}
+                          >
+                            {item}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ol>
                 </>
               )}
