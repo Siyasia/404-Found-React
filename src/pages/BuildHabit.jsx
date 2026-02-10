@@ -5,6 +5,8 @@ import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
 import { buildHabitCreate, buildHabitList } from '../lib/api/habits.js';
 import { BuildHabit as BuildHabitModel } from '../models';
+import SchedulePicker from '../components/SchedulePicker.jsx';
+import { toLocalISODate } from '../lib/schedule.js';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
 
@@ -35,6 +37,11 @@ export default function BuildHabit() {
   const [cue, setCue] = useState('');
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
+  const [schedule, setSchedule] = useState({
+    repeat: 'DAILY',
+    startDate: toLocalISODate(),
+    endDate: '',
+  });
   const [savedPlan, setSavedPlan] = useState(null);
   const [success, setSuccess] = useState('');
 
@@ -50,8 +57,28 @@ export default function BuildHabit() {
           setGoal(stored.goal || '');
           setCue(stored.cue || '');
           setSteps(stored.steps || []);
+          if (stored.schedule) {
+            setSchedule({ ...schedule, ...stored.schedule });
+          }
         } catch {
           // ignore bad JSON
+        }
+      } else {
+        // fallback to local storage when backend has no schedule yet
+        const cached = localStorage.getItem(STORAGE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            setSavedPlan(parsed);
+            setGoal(parsed.goal || '');
+            setCue(parsed.cue || '');
+            setSteps(parsed.steps || []);
+            if (parsed.schedule) {
+              setSchedule({ ...schedule, ...parsed.schedule });
+            }
+          } catch {
+            // ignore
+          }
         }
       }
     } func();
@@ -75,6 +102,7 @@ export default function BuildHabit() {
       cue: cue.trim(),
       steps,
       savedOn: new Date().toISOString(),
+      schedule,
     });
 
     // Call backend API (best-effort) and persist locally as a fallback
@@ -90,6 +118,7 @@ export default function BuildHabit() {
     });
 
     setSavedPlan(plan);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
     setSuccess('Habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);
   };
@@ -206,6 +235,11 @@ export default function BuildHabit() {
             <p className="sub">
               Break this habit into tiny, specific actions you can actually do every time the cue happens.
             </p>
+
+            <div style={{ margin: '1rem 0' }}>
+              <h3 style={{ marginBottom: '0.25rem' }}>Schedule</h3>
+              <SchedulePicker value={schedule} onChange={setSchedule} />
+            </div>
 
             <div className="stacked-input">
               <input

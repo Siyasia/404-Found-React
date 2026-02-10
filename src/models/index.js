@@ -18,6 +18,8 @@ export class Task {
     this.frequency = props.frequency ?? null;
     this.streak = props.streak ?? 0;
     this.completedDates = Array.isArray(props.completedDates) ? props.completedDates.slice() : [];
+    this.schedule = props.schedule ?? null;
+    this.lastCompletedOn = props.lastCompletedOn ?? null;
     this.status = props.status ?? 'pending';
     this.createdAt = props.createdAt ?? new Date().toISOString();
     this.createdById = props.createdById ?? null;
@@ -56,6 +58,8 @@ export class Task {
       frequency: this.frequency,
       streak: this.streak,
       completedDates: this.completedDates.slice(),
+      schedule: this.schedule,
+      lastCompletedOn: this.lastCompletedOn,
       status: this.status,
       createdAt: this.createdAt,
       createdById: this.createdById,
@@ -80,6 +84,8 @@ export class BuildHabit {
     this.goal = props.goal ?? '';
     this.cue = props.cue ?? '';
     this.steps = Array.isArray(props.steps) ? props.steps.slice() : [];
+    this.schedule = props.schedule ?? null;
+    this.savedOn = props.savedOn ?? null;
   }
 
   static from(obj) {
@@ -88,7 +94,7 @@ export class BuildHabit {
   }
 
   toJSON() {
-    return { id: this.id, account_id: this.account_id, goal: this.goal, cue: this.cue, steps: this.steps.slice() };
+    return { id: this.id, account_id: this.account_id, goal: this.goal, cue: this.cue, steps: this.steps.slice(), schedule: this.schedule, savedOn: this.savedOn };
   }
 }
 
@@ -100,6 +106,7 @@ export class BreakHabit {
     this.replacements = Array.isArray(props.replacements) ? props.replacements.slice() : [];
     this.microSteps = Array.isArray(props.microSteps) ? props.microSteps.slice() : [];
     this.savedOn = props.savedOn ?? null;
+    this.schedule = props.schedule ?? null;
   }
 
   static from(obj) {
@@ -108,7 +115,7 @@ export class BreakHabit {
   }
 
   toJSON() {
-    return { id: this.id, account_id: this.account_id, habit: this.habit, replacements: this.replacements.slice(), microSteps: this.microSteps.slice(), savedOn: this.savedOn };
+    return { id: this.id, account_id: this.account_id, habit: this.habit, replacements: this.replacements.slice(), microSteps: this.microSteps.slice(), savedOn: this.savedOn, schedule: this.schedule };
   }
 }
 

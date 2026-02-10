@@ -5,6 +5,8 @@ import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
 import { breakHabitCreate, breakHabitGet, breakHabitList } from '../lib/api/habits.js';
 import { BreakHabit as BreakHabitModel } from '../models';
+import SchedulePicker from '../components/SchedulePicker.jsx';
+import { toLocalISODate } from '../lib/schedule.js';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
 
@@ -36,6 +38,11 @@ export default function BreakHabit() {
   const [newReplacement, setNewReplacement] = useState('');
   const [microSteps, setMicroSteps] = useState([]);
   const [newMicroStep, setNewMicroStep] = useState('');
+  const [schedule, setSchedule] = useState({
+    repeat: 'DAILY',
+    startDate: toLocalISODate(),
+    endDate: '',
+  });
   const [savedPlan, setSavedPlan] = useState(null);
   const [success, setSuccess] = useState('');
 
@@ -51,8 +58,28 @@ export default function BreakHabit() {
           setHabit(stored.habit || '');
           setReplacements(stored.replacements || []);
           setMicroSteps(stored.microSteps || []);
+          if (stored.schedule) {
+            setSchedule({ ...schedule, ...stored.schedule });
+          }
         } catch {
           // ignore bad JSON
+        }
+      } else {
+        // fallback to local storage when backend has no schedule yet
+        const cached = localStorage.getItem(STORAGE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            setSavedPlan(parsed);
+            setHabit(parsed.habit || '');
+            setReplacements(parsed.replacements || []);
+            setMicroSteps(parsed.microSteps || []);
+            if (parsed.schedule) {
+              setSchedule({ ...schedule, ...parsed.schedule });
+            }
+          } catch {
+            // ignore
+          }
         }
       }
     } func();
@@ -87,6 +114,7 @@ export default function BreakHabit() {
       replacements,
       microSteps,
       savedOn: new Date().toISOString(),
+      schedule,
     });
 
     breakHabitCreate(
@@ -101,6 +129,7 @@ export default function BreakHabit() {
     });
 
     setSavedPlan(plan);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
     setSuccess('Break habit plan saved successfully.');
     setTimeout(() => setSuccess(''), 3000);
   };
@@ -241,6 +270,11 @@ export default function BreakHabit() {
             <p className="sub">
               Break this change into tiny, specific actions you can actually do.
             </p>
+
+            <div style={{ margin: '1rem 0' }}>
+              <h3 style={{ marginBottom: '0.25rem' }}>Schedule</h3>
+              <SchedulePicker value={schedule} onChange={setSchedule} />
+            </div>
 
             <div className="stacked-input">
               <input

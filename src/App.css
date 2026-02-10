@@ -123,22 +123,6 @@ p {
   border-bottom: none;
 }
 
-.kpi-grid {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.kpi-small-right .card {
-  width: 120px;
-  min-width: 110px;
-  padding: 0.75rem 0.8rem;
-}
-
-.kpi-small-right .card .sub {
-  font-size: 0.85rem;
-}
 
 .parentTasksLayout {
   display: grid;

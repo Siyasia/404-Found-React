@@ -14,11 +14,14 @@ import { taskList, taskUpdate, taskCreate } from '../lib/api/tasks.js';
 import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
 import { userGet } from '../lib/api/authentication.js';
+import SchedulePicker from '../components/SchedulePicker.jsx';
+import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate } from '../lib/schedule.js';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
 const FORMED_KEY = 'ns.habitsFormed.v1';
+const TASK_SCHEDULE_KEY = 'ns.taskSchedule.v1';
 
 export default function Home() {
   /*
@@ -51,6 +54,11 @@ export default function Home() {
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskNotes, setNewTaskNotes] = useState('');
+  const [newTaskSchedule, setNewTaskSchedule] = useState({
+    repeat: 'DAILY',
+    startDate: toLocalISODate(),
+    endDate: '',
+  });
   const [newTaskError, setNewTaskError] = useState('');
   const [newTaskSaving, setNewTaskSaving] = useState(false);
 
@@ -59,6 +67,7 @@ export default function Home() {
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [themeChoice, setThemeChoice] = useState(user?.theme || 'pink');
+  const todayISO = useMemo(() => toLocalISODate(), []);
 
   function updateTaskCounts() {
     const getCounts = (arr) => {
@@ -144,7 +153,8 @@ export default function Home() {
           Array.isArray(storedTasks.tasks)
         ) {
           // storedTasks.tasks may already contain Task instances from the response wrapper
-          setTasks(storedTasks.tasks.map((t) => Task.from(t)));
+          const withSchedules = mergeSchedules(storedTasks.tasks.map((t) => Task.from(t)));
+          setTasks(withSchedules);
         } else {
           // mark as loaded but empty on error or no data
           setTasks([]);
@@ -207,13 +217,19 @@ export default function Home() {
 
   const handleToggleMyTaskStatus = async (taskId) => {
 
-    let task = tasks.find((t) => t.id === taskId);
-    let updatedTask = structuredClone(task);
-    updatedTask.status = updatedTask.status === 'done' ? 'pending' : 'done';
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
 
-    await taskUpdate({ id: taskId, status: updatedTask.status })
+    const doneToday = task.lastCompletedOn === todayISO;
+    const updatedTask = {
+      ...task,
+      lastCompletedOn: doneToday ? null : todayISO,
+      status: doneToday ? 'pending' : 'done',
+    };
 
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+    await taskUpdate({ id: taskId, status: updatedTask.status, lastCompletedOn: updatedTask.lastCompletedOn });
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? withTodayStatus(updatedTask) : t)));
   };
 
   const handleAddSimpleTask = async (event) => {
@@ -243,18 +259,21 @@ export default function Home() {
         createdById: user?.id || null,
         createdByName: user?.name || 'You',
         createdByRole: user?.role || 'user',
+        schedule: newTaskSchedule,
       });
 
       const response = await taskCreate(baseTask);
       const payload = typeof baseTask.toJSON === 'function' ? baseTask.toJSON() : baseTask;
-      const createdTask = Task.from({
+      const createdTask = withTodayStatus({
         ...payload,
         ...(response && response.id ? { id: response.id } : {}),
       });
 
+      persistSchedule(createdTask.id, newTaskSchedule);
       setTasks((prev) => [...prev, createdTask]);
       setNewTaskTitle('');
       setNewTaskNotes('');
+      setNewTaskSchedule({ repeat: 'DAILY', startDate: toLocalISODate(), endDate: '' });
     } catch (err) {
       console.error('Error creating task', err);
       setNewTaskError('Could not add task. Please try again.');
@@ -339,6 +358,116 @@ export default function Home() {
     if (freq === 'weekdays') return 'Weekdays';
     if (freq === 'weekends') return 'Weekends';
     return freq;
+  };
+
+  const withTodayStatus = (task) => {
+    if (!task) return task;
+    const doneToday = task.lastCompletedOn === todayISO;
+    return Task.from({ ...task, status: doneToday ? 'done' : 'pending' });
+  };
+
+  const loadScheduleCache = () => {
+    try {
+      return JSON.parse(localStorage.getItem(TASK_SCHEDULE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const persistSchedule = (taskId, schedule) => {
+    if (!taskId || !schedule) return;
+    const cache = loadScheduleCache();
+    cache[taskId] = schedule;
+    localStorage.setItem(TASK_SCHEDULE_KEY, JSON.stringify(cache));
+  };
+
+  const mergeSchedules = (list) => {
+    const cache = loadScheduleCache();
+    return (list || []).map((t) => {
+      const schedule = t.schedule || cache[t.id] || null;
+      return withTodayStatus({ ...t, schedule });
+    });
+  };
+
+  const scheduleBadges = (task) => {
+    if (!task?.schedule) return null;
+    const s = task.schedule;
+    const badges = [];
+    const label = formatScheduleLabel(s);
+    if (label) badges.push(label);
+    const todayIso = toLocalISODate();
+    if (s.startDate && s.startDate > todayIso) {
+      badges.push(`Starts ${new Date(`${s.startDate}T00:00:00`).toLocaleDateString()}`);
+    }
+    if (s.endDate) {
+      badges.push(`Ends ${new Date(`${s.endDate}T00:00:00`).toLocaleDateString()}`);
+    }
+
+    return (
+      <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginTop: '.2rem' }}>
+        {badges.map((text, idx) => (
+          <span
+            key={`${task.id}-sch-${idx}`}
+            style={{
+              fontSize: '.7rem',
+              padding: '.1rem .4rem',
+              borderRadius: '999px',
+              background: '#eef2ff',
+              color: '#4338ca',
+              border: '1px solid #e0e7ff'
+            }}
+          >
+            {text}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const categorizeTask = (task) => {
+    if (!task?.schedule) return { bucket: 'unscheduled', nextDue: null };
+    const s = task.schedule;
+    const dueToday = isDueOnDate(s, todayISO) && task.lastCompletedOn !== todayISO;
+    if (dueToday) return { bucket: 'due', nextDue: todayISO };
+
+    const nextDue = getNextDueDate(s, todayISO);
+    if (nextDue) {
+      const diffDays = Math.floor((new Date(`${nextDue}T00:00:00`) - new Date(`${todayISO}T00:00:00`)) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 7) return { bucket: 'upcoming', nextDue };
+      return { bucket: 'later', nextDue };
+    }
+    return { bucket: 'later', nextDue: null };
+  };
+
+  const splitTasks = (list) => {
+    const due = [];
+    const upcoming = [];
+    const later = [];
+
+    (list || []).forEach((t) => {
+      const info = categorizeTask(t);
+      if (info.bucket === 'due') {
+        due.push(t);
+      } else if (info.bucket === 'upcoming') {
+        upcoming.push({ ...t, nextDue: info.nextDue });
+      } else if (info.bucket === 'later') {
+        later.push({ ...t, nextDue: info.nextDue });
+      } else {
+        // unscheduled tasks behave like due today if still pending
+        if ((t.status || 'pending') !== 'done') {
+          due.push(t);
+        }
+      }
+    });
+
+    upcoming.sort((a, b) => new Date(`${a.nextDue}T00:00:00`) - new Date(`${b.nextDue}T00:00:00`));
+    later.sort((a, b) => {
+      const aDate = a.nextDue ? new Date(`${a.nextDue}T00:00:00`) : new Date(`${todayISO}T00:00:00`).getTime() + 365 * 24 * 60 * 60 * 1000;
+      const bDate = b.nextDue ? new Date(`${b.nextDue}T00:00:00`) : new Date(`${todayISO}T00:00:00`).getTime() + 365 * 24 * 60 * 60 * 1000;
+      return aDate - bDate;
+    });
+
+    return { due, upcoming, later };
   };
 
   const daysAgo = (dateStr) => {
@@ -497,69 +626,156 @@ export default function Home() {
               />
             ) : (
               <>
-                {activeTab === 'simple' && (
-                  <ul style={{ paddingLeft: 0, margin: 0 }}>
-                    {simpleTasks
-                      .slice(0, 8)
-                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                      .map((task) => (
-                        <li key={task.id} style={{
-                          display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
-                        }}>
-                          <input
-                            type="checkbox"
-                            checked={task.status === 'done'}
-                            onChange={() => handleToggleMyTaskStatus(task.id)}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          <div style={{ flex: 1, textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1 }}>
-                            {task.title}
-                          </div>
-                          <span style={{ fontSize: '.7rem', padding: '.05rem .3rem', borderRadius: '4px', background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a' }}>
-                            {task.status === 'done' ? '✓' : '◇'}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                )}
+                {activeTab === 'simple' && (() => {
+                  const groups = splitTasks(simpleTasks);
+                  const renderItem = (task) => (
+                    <li key={task.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={task.status === 'done'}
+                        onChange={() => handleToggleMyTaskStatus(task.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1, textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1 }}>
+                        {task.title}
+                        {scheduleBadges(task)}
+                      </div>
+                      <span style={{ fontSize: '.7rem', padding: '.05rem .3rem', borderRadius: '4px', background: task.status === 'done' ? '#d1fae5' : '#dbeafe', color: task.status === 'done' ? '#065f46' : '#1e3a8a' }}>
+                        {task.status === 'done' ? '✓' : '◇'}
+                      </span>
+                    </li>
+                  );
 
-                {activeTab === 'build' && (
-                  <ul style={{ paddingLeft: 0, margin: 0 }}>
-                    {buildTasks
-                      .slice(0, 6)
-                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                      .map((task) => (
-                        <li key={task.id} style={{
-                          display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
-                        }}>
-                          <input type="checkbox" checked={task.status === 'done'} onChange={() => handleToggleMyTaskStatus(task.id)} style={{ cursor: 'pointer', marginTop: '.2rem' }} />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1, fontWeight: 500 }}>{task.title}</div>
-                            <div style={{ fontSize: '.8rem', color: '#6b7280' }}>{friendlyFrequency(task.frequency)}</div>
-                          </div>
-                        </li>
-                      ))}
-                </ul>
-              )}
+                  return (
+                    <div>
+                      {groups.due.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', marginBottom: '.2rem' }}>Due Today</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.due.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.upcoming.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Upcoming (next 7 days)</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.upcoming.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.later.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Starts Later</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.later.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                        <div style={{ color: '#6b7280', fontSize: '.9rem' }}>No tasks scheduled.</div>
+                      )}
+                    </div>
+                  );
+                })()}
 
-              {activeTab === 'break' && (
-                <ul style={{ paddingLeft: 0, margin: 0 }}>
-                  {breakTasks
-                    .slice(0, 6)
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .map((task) => (
-                      <li key={task.id} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
-                      }}>
-                        <input type="checkbox" checked={task.status === 'done'} onChange={() => handleToggleMyTaskStatus(task.id)} style={{ cursor: 'pointer', marginTop: '.2rem' }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1, fontWeight: 500 }}>{task.habitToBreak || task.title}</div>
-                          <div style={{ fontSize: '.8rem', color: '#6b7280' }}>{friendlyFrequency(task.frequency)}</div>
-                        </div>
-                      </li>
-                    ))}
-                </ul>
-              )}
+                {activeTab === 'build' && (() => {
+                  const groups = splitTasks(buildTasks);
+                  const renderItem = (task) => (
+                    <li key={task.id} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
+                    }}>
+                      <input type="checkbox" checked={task.status === 'done'} onChange={() => handleToggleMyTaskStatus(task.id)} style={{ cursor: 'pointer', marginTop: '.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1, fontWeight: 500 }}>{task.title}</div>
+                        <div style={{ fontSize: '.8rem', color: '#6b7280' }}>{friendlyFrequency(task.frequency)}</div>
+                        {scheduleBadges(task)}
+                      </div>
+                    </li>
+                  );
+
+                  return (
+                    <div>
+                      {groups.due.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', marginBottom: '.2rem' }}>Due Today</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.due.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.upcoming.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Upcoming (next 7 days)</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.upcoming.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.later.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Starts Later</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.later.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                        <div style={{ color: '#6b7280', fontSize: '.9rem' }}>No tasks scheduled.</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {activeTab === 'break' && (() => {
+                  const groups = splitTasks(breakTasks);
+                  const renderItem = (task) => (
+                    <li key={task.id} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.35rem 0', borderBottom: '1px solid #f3f4f6', fontSize: '.9rem'
+                    }}>
+                      <input type="checkbox" checked={task.status === 'done'} onChange={() => handleToggleMyTaskStatus(task.id)} style={{ cursor: 'pointer', marginTop: '.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ textDecoration: task.status === 'done' ? 'line-through' : 'none', opacity: task.status === 'done' ? 0.6 : 1, fontWeight: 500 }}>{task.habitToBreak || task.title}</div>
+                        <div style={{ fontSize: '.8rem', color: '#6b7280' }}>{friendlyFrequency(task.frequency)}</div>
+                        {scheduleBadges(task)}
+                      </div>
+                    </li>
+                  );
+
+                  return (
+                    <div>
+                      {groups.due.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', marginBottom: '.2rem' }}>Due Today</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.due.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.upcoming.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Upcoming (next 7 days)</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.upcoming.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.later.length > 0 && (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '.85rem', margin: '0.6rem 0 .2rem' }}>Starts Later</div>
+                          <ul style={{ paddingLeft: 0, margin: 0 }}>
+                            {groups.later.map(renderItem)}
+                          </ul>
+                        </>
+                      )}
+                      {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                        <div style={{ color: '#6b7280', fontSize: '.9rem' }}>No tasks scheduled.</div>
+                      )}
+                    </div>
+                  );
+                })()}
             </>
           )}
           </div>
@@ -648,6 +864,11 @@ export default function Home() {
                 style={{ padding: '.7rem .8rem', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '.95rem', fontFamily: 'inherit' }}
               />
             </label>
+
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '.75rem' }}>
+              <div style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.35rem', color: '#374151' }}>Schedule</div>
+              <SchedulePicker value={newTaskSchedule} onChange={setNewTaskSchedule} />
+            </div>
 
             {newTaskError && (
               <div style={{ color: '#b91c1c', fontSize: '.9rem' }}>{newTaskError}</div>
