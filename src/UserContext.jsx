@@ -26,7 +26,11 @@ export function UserProvider({ children }) {
           if (raw) {
             try {
               const parsed = JSON.parse(raw);
-              if (parsed) setUserState(User.from(parsed));
+              if (parsed) {
+                const isChild = parsed?.role === 'child' || (parsed?.code && !parsed?.role);
+                const normalized = isChild ? { ...parsed, role: 'child', type: 'child' } : parsed;
+                setUserState(User.from(normalized));
+              }
               if (parsed?.theme) applyTheme(parsed.theme);
             } catch (e) {}
           }
@@ -55,7 +59,9 @@ export function UserProvider({ children }) {
   }, []);
 
   const setUser = (newUser) => {
-    const instance = newUser ? User.from(newUser) : null;
+    const isChild = newUser?.role === 'child' || (newUser?.code && !newUser?.role);
+    const normalized = isChild ? { ...newUser, role: 'child', type: 'child' } : newUser;
+    const instance = normalized ? User.from(normalized) : null;
     setUserState(instance);
 
     try {
