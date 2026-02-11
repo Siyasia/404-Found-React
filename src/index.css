@@ -259,6 +259,7 @@ input:focus-visible {
   position: sticky;
   top: 0;
   z-index: 100;
+  padding: 12px 0; /* give the logo more breathing room */
 }
 
 .container {
@@ -268,7 +269,7 @@ input:focus-visible {
 }
 
 .header-inner {
-  height: 70px;
+  min-height: 76px;
   display: flex;
   align-items: center;
   justify-content: space-between;

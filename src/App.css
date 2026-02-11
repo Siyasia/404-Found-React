@@ -468,9 +468,17 @@ section.container > .card + .card {
 
 .homeLeft {
   display: grid;
-  gap: 24px;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 32px; 
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   min-width: 0;
+}
+
+/* Keep single column on smaller screens */
+@media (max-width: 960px) {
+  .homeLeft {
+    grid-template-columns: 1fr;
+  }
 }
 
 .homeRight {
@@ -490,18 +498,7 @@ section.container > .card + .card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px;
-}
-
-.addTaskCard {
   padding: 16px;
-  max-height: 520px;
-  overflow: auto;
-}
-
-/* Home - Today card sizing */
-.todayCard {
-  max-height: 540px;
 }
 
 /* Keep "today" and "add task" cards static (no hover lift) */

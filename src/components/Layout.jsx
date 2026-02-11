@@ -27,9 +27,13 @@ export default function Layout({ children }) {
   return (
     <>
       <header className="site-header">
-        <div className="container" style={{ display: 'flex', alignItems: 'center' }}>
-          <Link to={homePath} className="brand">
-            Next Steps
+        <div className="container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Link to={homePath} className="brand" aria-label="Go to home" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            <img
+              src="/c4fd8e6f-5ad7-4f61-971d-7f495278396c.png"
+              alt="Next Steps logo"
+              style={{ height: '32px', width: 'auto', display: 'block' }}
+            />
           </Link>
 
           <nav className="site-nav">
@@ -42,26 +46,19 @@ export default function Layout({ children }) {
               </>
             ) : (
               <>
-                <NavLink to={homePath} className="nav-link">Home</NavLink>
-                <NavLink to="/features" className="nav-link">Features</NavLink>
+                {/* <NavLink to="/features" className="nav-link">Features</NavLink> */}
                 {canCreate && (
                   <>
                     <NavLink to="/build-habit" className="nav-link">Build Habit</NavLink>
                     <NavLink to="/break-habit" className="nav-link">Break Habit</NavLink>
                   </>
                 )}
-                <NavLink to="/about" className="nav-link">About</NavLink>
+                {/* <NavLink to="/about" className="nav-link">About</NavLink> */}
               </>
             )}
           </nav>
 
-          <Link to={homePath} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-            <img
-              src="/c4fd8e6f-5ad7-4f61-971d-7f495278396c.png"
-              alt="Next Steps logo"
-              style={{ height: '32px', width: 'auto' }}
-            />
-          </Link>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }} />
 
           {user && !onLoginPage && (
             <div style={{ marginLeft: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

@@ -20,10 +20,12 @@ function formatDate() {
   }).format(new Date());
 }
 
+// this normalization is needed because some API responses use "childId" while others use "assigneeId" for the same purpose, and we want to treat them interchangeably.
 function normalizeId(val) {
   return val === undefined || val === null ? null : String(val);
 }
 
+//
 function getTaskType(task) {
   return task?.taskType || task?.type || 'simple';
 }
