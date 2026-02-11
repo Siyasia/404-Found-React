@@ -36,7 +36,7 @@ export default function Signup() {
       }
 
       setUser({ ...child, role: 'child' });
-      navigate('/home');
+      navigate('/child-homepage');
       return;
     }
 
@@ -58,10 +58,6 @@ export default function Signup() {
       return;
     }
 
-    console.log('Signup API Response:', response);
-    console.log('Response status:', response.status_code);
-    console.log('Response user:', response.user);
-
     if ((role === 'user' || role === 'parent') && numericAge < 14) {
       setError(
         'Users and parents must be at least 14 years old. Please adjust the age or choose a different role.'
@@ -69,7 +65,10 @@ export default function Signup() {
       return;
     }
     const response = await signupAdult(age, name, role, email, password);
-    // response = await signupAdult(email, password);
+
+    console.log('Signup API Response:', response);
+    console.log('Response status:', response.status_code);
+    console.log('Response user:', response.user);
 
     if (response.status_code !== 200 || !response.user) {
       // Extract error message from backend response
@@ -101,6 +100,8 @@ export default function Signup() {
       navigate('/parent');
     } else if (userRole === 'provider') {
       navigate('/provider');
+    } else if (userRole === 'child') {
+      navigate('/child-homepage');
     } else {
       navigate('/home');
     }
@@ -237,5 +238,4 @@ export default function Signup() {
       </div>
     </section>
   );
-
 }
