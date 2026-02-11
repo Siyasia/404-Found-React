@@ -55,8 +55,16 @@ export default function Layout({ children }) {
             )}
           </nav>
 
+          <Link to={homePath} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+            <img
+              src="/c4fd8e6f-5ad7-4f61-971d-7f495278396c.png"
+              alt="Next Steps logo"
+              style={{ height: '32px', width: 'auto' }}
+            />
+          </Link>
+
           {user && !onLoginPage && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ marginLeft: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontWeight: 500 }}>
                 Welcome, {user.name}
                 {roleLabel ? ` (${roleLabel})` : ''}

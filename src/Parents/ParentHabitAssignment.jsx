@@ -13,6 +13,10 @@ function generateId() {
   return (typeof crypto !== 'undefined' && crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
 }
 
+function normalizeId(val) {
+  return val === undefined || val === null ? '' : String(val);
+}
+
 export default function ParentHabitAssignment({
   embed = false,
   parentChildren = null,
@@ -82,8 +86,8 @@ export default function ParentHabitAssignment({
   // default assignee: first child if present, else the parent themself
   useEffect(() => {
     if (!assigneeId) {
-      if (children.length > 0) setAssigneeId(children[0].id);
-      else if (user?.id) setAssigneeId(user.id);
+      if (children.length > 0) setAssigneeId(normalizeId(children[0].id));
+      else if (user?.id) setAssigneeId(normalizeId(user.id));
     }
   }, [children, assigneeId, user]);
 
@@ -108,8 +112,11 @@ export default function ParentHabitAssignment({
     setError('');
   };
 
-  let selectedChild = children.find(c => c.id === assigneeId);
-  let isAssigningToParent = user?.id && assigneeId === user.id;
+  const normalizedAssigneeId = normalizeId(assigneeId);
+  const normalizedUserId = normalizeId(user?.id);
+
+  let selectedChild = children.find((c) => normalizeId(c.id) === normalizedAssigneeId);
+  let isAssigningToParent = normalizedUserId && normalizedAssigneeId === normalizedUserId;
   let assigneeName = isAssigningToParent ? (user?.name || 'You') : (selectedChild ? selectedChild.name : 'Unknown');
 
   const handleAddStep = () => {
@@ -230,10 +237,8 @@ export default function ParentHabitAssignment({
   };
 
   function handleChangeUserUpdates(e) {
-    let id = parseInt(e.target.value);
+    const id = normalizeId(e.target.value);
     setAssigneeId(id);
-    isAssigningToParent = user?.id && id === user.id;
-    selectedChild = children.find(c => c.id === id);
   }
 
   if (!user) {
@@ -305,10 +310,10 @@ export default function ParentHabitAssignment({
           <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Assign to <span aria-hidden="true" className="required-asterisk">*</span></span>
           <select value={assigneeId} onChange={handleChangeUserUpdates} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }} required aria-required="true">
             {user?.id && (
-              <option value={user.id}>{user.name} (you)</option>
+              <option value={normalizeId(user.id)}>{user.name} (you)</option>
             )}
             {children.map(child => (
-              <option key={child.id} value={child.id}>{child.name} ({child.age} years old)</option>
+              <option key={child.id} value={normalizeId(child.id)}>{child.name} ({child.age} years old)</option>
             ))}
           </select>
           {children.length === 0 && (

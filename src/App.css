@@ -493,6 +493,12 @@ section.container > .card + .card {
   padding: 20px;
 }
 
+.addTaskCard {
+  padding: 16px;
+  max-height: 520px;
+  overflow: auto;
+}
+
 /* Home - Today card sizing */
 .todayCard {
   max-height: 540px;

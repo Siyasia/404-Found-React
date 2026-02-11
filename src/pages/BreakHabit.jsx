@@ -57,13 +57,16 @@ export default function BreakHabit() {
     }
   });
 
+  // === Effects and handlers ===
   const persistStepStatus = (next) => {
     setStepStatus(next);
     localStorage.setItem(STEP_STATUS_KEY, JSON.stringify(next));
   };
 
+  // Generate a unique key for a plan to track step completion status
   const planKey = (plan, idx = 0) => (plan?.id ? `id:${plan.id}` : `local:${plan?.habit || idx}`);
 
+  // Toggle completion status of a micro-step for a given plan
   const toggleStepDone = (plan, idx, planIdx = 0, type = 'micro') => {
     const key = `${planKey(plan, planIdx)}:${type}`;
     setStepStatus((prev) => {
@@ -76,6 +79,7 @@ export default function BreakHabit() {
     });
   };
 
+  // Reset the form to initial state after saving or when starting a new plan
   const resetForm = () => {
     setStep(1);
     setHabit('');
@@ -88,6 +92,7 @@ export default function BreakHabit() {
     setRewardText('');
   };
 
+  // Load saved plans from backend or local storage on mount
   useEffect(() => {
     async function func() {
 
@@ -114,6 +119,7 @@ export default function BreakHabit() {
     } func();
   }, []);
 
+  // Add/remove replacements and micro-steps in the form
   const handleAddReplacement = () => {
     const trimmed = newReplacement.trim();
     if (!trimmed) return;
@@ -121,10 +127,12 @@ export default function BreakHabit() {
     setNewReplacement('');
   };
 
+  // Remove a replacement by index
   const handleRemoveReplacement = (index) => {
     setReplacements((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Add a micro-step to the list
   const handleAddMicroStep = () => {
     const trimmed = newMicroStep.trim();
     if (!trimmed) return;
@@ -132,10 +140,12 @@ export default function BreakHabit() {
     setNewMicroStep('');
   };
 
+  // Remove a micro-step by index
   const handleRemoveMicroStep = (index) => {
     setMicroSteps((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Save the plan to backend and local storage, then reset the form
   const handleSave = () => {
     const plan = new BreakHabitModel({
       account_id: user?.id ?? null,
@@ -150,6 +160,7 @@ export default function BreakHabit() {
           : '50 coins bonus on completion',
     });
 
+    // Save to backend
     breakHabitCreate(
       plan.habit,
       plan.replacements,
@@ -161,6 +172,7 @@ export default function BreakHabit() {
       console.error('[BreakHabit] Error saving plan', error);
     });
 
+    // Update local state and storage
     setSavedPlans((prev) => {
       const next = [plan, ...prev].slice(0, 5);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -171,6 +183,7 @@ export default function BreakHabit() {
     setTimeout(() => setSuccess(''), 3000);
   };
 
+  // Load a saved plan into the form for editing
   const loadPlanForEdit = (plan) => {
     const safeSchedule = plan?.schedule || {};
     setHabit(plan?.habit || '');
@@ -194,6 +207,7 @@ export default function BreakHabit() {
     setStep(1);
   };
 
+  // Delete a plan from backend and local storage
   const handleDelete = async (index, plan) => {
     try {
       if (plan?.id) {
@@ -212,9 +226,11 @@ export default function BreakHabit() {
     }
   };
 
+  // Calculate progress percentage for the progress bar
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
+  // === Render ===
   return (
     <section className="container">
       <h1>Break a Habit</h1>

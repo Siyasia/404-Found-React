@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import { childList } from '../lib/api/children.js';
-import { taskList, taskUpdate, taskListPending } from '../lib/api/tasks.js';
+import { taskList, taskUpdate, taskListPending, taskCreate } from '../lib/api/tasks.js';
 import { Task } from '../models';
 import Toast from '../components/Toast.jsx';
 
@@ -139,6 +139,7 @@ export default function ParentHomepage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [assigning, setAssigning] = useState(false);
 
   const [draftTitle, setDraftTitle] = useState('');
   const [draftNotes, setDraftNotes] = useState('');
@@ -157,9 +158,6 @@ export default function ParentHomepage() {
 
         if (childResp.status_code === 200 && Array.isArray(childResp.children)) {
           setChildren(childResp.children);
-          if (!draftChildId && childResp.children.length > 0) {
-            setDraftChildId(childResp.children[0]?.id || '');
-          }
         }
 
         if (taskResp.status_code === 200 && Array.isArray(taskResp.tasks)) {
@@ -193,6 +191,25 @@ export default function ParentHomepage() {
   const userId = useMemo(() => normalizeId(user?.id), [user]);
   const childIds = useMemo(() => new Set(children.map((c) => normalizeId(c.id))), [children]);
   const todayIso = todayString();
+
+  const assigneeOptions = useMemo(() => {
+    const options = [];
+    if (userId) {
+      options.push({ value: userId, name: user?.name || 'Me (parent)', type: 'parent' });
+    }
+    children.forEach((child) => {
+      options.push({ value: normalizeId(child.id), name: child.name, type: 'child' });
+    });
+    return options;
+  }, [children, user?.name, userId]);
+
+  useEffect(() => {
+    if (!draftChildId) {
+      if (userId) return setDraftChildId(userId);
+      if (children.length > 0) return setDraftChildId(normalizeId(children[0]?.id));
+    }
+    return undefined;
+  }, [draftChildId, userId, children]);
 
   const tasksForKids = useMemo(
     () => tasks.filter((t) => childIds.has(normalizeId(getAssigneeId(t)))),
@@ -313,17 +330,56 @@ export default function ParentHomepage() {
     return navigate('/parent/dashboard?tab=my-tasks');
   };
 
-  const handleQuickAssign = (e) => {
+  const handleQuickAssign = async (e) => {
     e.preventDefault();
-    navigate('/parent/dashboard?tab=assign', {
-      state: {
-        prefill: {
-          title: draftTitle,
-          notes: draftNotes,
-          childId: draftChildId,
-        },
-      },
+    setError('');
+    if (!draftChildId) {
+      setError('Please choose who to assign the task to.');
+      return;
+    }
+    const title = draftTitle.trim();
+    if (!title) {
+      setError('Please enter a task name.');
+      return;
+    }
+
+    const assigneeId = normalizeId(draftChildId);
+    const isParentTarget = userId && assigneeId === userId;
+    const targetChild = children.find((c) => normalizeId(c.id) === assigneeId);
+    const assigneeName = isParentTarget ? (user?.name || 'You') : targetChild?.name || 'Unknown';
+
+    const newTask = new Task({
+      assigneeId,
+      assigneeName,
+      title,
+      notes: draftNotes.trim(),
+      taskType: 'simple',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      createdById: user?.id || null,
+      createdByName: user?.name || 'Parent',
+      createdByRole: 'parent',
     });
+
+    try {
+      setAssigning(true);
+      const resp = await taskCreate(newTask);
+      if (resp.status_code === 200) {
+        const withId = resp.id ? Task.from({ ...newTask.toJSON(), id: resp.id }) : newTask;
+        setTasks((prev) => [...prev, withId]);
+        setToast(`Assigned to ${assigneeName}.`);
+        setTimeout(() => setToast(''), 2500);
+        setDraftTitle('');
+        setDraftNotes('');
+      } else {
+        setError('Failed to assign task. Please try again.');
+      }
+    } catch (err) {
+      console.error('[ParentHomepage] quick assign error', err);
+      setError('Failed to assign task. Please try again.');
+    } finally {
+      setAssigning(false);
+    }
   };
 
   if (!user) {
@@ -362,7 +418,7 @@ export default function ParentHomepage() {
   const cardHeights = {
     // Align with the “User” home feel: compact top row, slightly taller second row.
     top: 'clamp(240px, 34vh, 280px)',
-    mid: 'clamp(300px, 44vh, 380px)',
+    mid: 'clamp(240px, 40vh, 320px)',
   };
 
   const cardHeader = {
@@ -759,19 +815,19 @@ export default function ParentHomepage() {
 
                 <div>
                   <label htmlFor="quick-child" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
-                    Child
+                    Assign to
                   </label>
                   <select
                     id="quick-child"
                     value={draftChildId}
                     onChange={(e) => setDraftChildId(e.target.value)}
-                    disabled={children.length === 0}
+                    disabled={assigneeOptions.length === 0}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(226,232,240,.9)', background: 'rgba(255,255,255,.85)' }}
                   >
-                    {children.length === 0 && <option value="">No children</option>}
-                    {children.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
+                    {assigneeOptions.length === 0 && <option value="">No available assignees</option>}
+                    {assigneeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.name} {opt.type === 'child' ? '(child)' : '(me)'}
                       </option>
                     ))}
                   </select>
@@ -796,9 +852,9 @@ export default function ParentHomepage() {
                 type="submit"
                 className="btn btn-parent-primary"
                 style={{ width: '100%', height: '44px', marginTop: '12px' }}
-                disabled={children.length === 0}
+                disabled={assigneeOptions.length === 0 || assigning}
               >
-                Continue to assign
+                {assigning ? 'Assigning…' : 'Assign task'}
               </button>
             </form>
           </div>

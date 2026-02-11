@@ -56,13 +56,16 @@ export default function BuildHabit() {
     }
   });
 
+  // Persist step completion status to local storage
   const persistStepStatus = (next) => {
     setStepStatus(next);
     localStorage.setItem(STEP_STATUS_KEY, JSON.stringify(next));
   };
 
+  // Generate a unique key for a plan to track step completion status
   const planKey = (plan, idx = 0) => (plan?.id ? `id:${plan.id}` : `local:${plan?.goal || idx}`);
 
+  // Toggle completion status of a step for a given plan
   const toggleStepDone = (plan, idx, planIdx = 0) => {
     const key = planKey(plan, planIdx);
     setStepStatus((prev) => {
@@ -75,6 +78,7 @@ export default function BuildHabit() {
     });
   };
 
+  // Reset the form to initial state
   const resetForm = () => {
     setStep(1);
     setGoal('');
@@ -86,6 +90,7 @@ export default function BuildHabit() {
     setRewardText('');
   };
 
+  // Load saved plans from backend or local storage on mount
   useEffect(() => {
     async function func() {
 
@@ -112,6 +117,7 @@ export default function BuildHabit() {
     } func();
   }, []);
 
+  // Add a new step to the steps list
   const handleAddStep = () => {
     const trimmed = newStep.trim();
     if (!trimmed) return;
@@ -119,10 +125,12 @@ export default function BuildHabit() {
     setNewStep('');
   };
 
+  // Remove a step by index
   const handleRemoveStep = (index) => {
     setSteps((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Save the habit plan to backend and local storage, then reset the form
   const handleSave = async () => {
     const plan = new BuildHabitModel({
       account_id: user?.id ?? null,
@@ -149,6 +157,7 @@ export default function BuildHabit() {
       console.error('[BuildHabit] Error saving plan', error);
     });
 
+    // Update local state and storage
     setSavedPlans((prev) => {
       const next = [plan, ...prev].slice(0, 5);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -159,6 +168,7 @@ export default function BuildHabit() {
     setTimeout(() => setSuccess(''), 3000);
   };
 
+  // Load a saved plan into the form for editing
   const loadPlanForEdit = (plan) => {
     const safeSchedule = plan?.schedule || {};
     setGoal(plan?.goal || '');
@@ -181,6 +191,7 @@ export default function BuildHabit() {
     setStep(1);
   };
 
+  // Delete a plan from backend and local storage
   const handleDelete = async (index, plan) => {
     try {
       if (plan?.id) {
@@ -199,6 +210,7 @@ export default function BuildHabit() {
     }
   };
 
+  //  Calculate progress percentage for the progress bar
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
