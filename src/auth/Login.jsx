@@ -36,7 +36,7 @@ export default function Login() {
       const child = response.child;
 
       setUser({ ...child, role: 'child' });
-      navigate('/home');
+      navigate('/child-homepage');
       return;
     }
 
@@ -51,7 +51,7 @@ export default function Login() {
     console.log('Login API Response:', response);
     console.log('Response status:', response.status_code);
     console.log('Response user:', response.user);
-    
+
     if (response.status_code !== 200) {
       const errorMsg = response.error
         || (response.status_code === 400 || response.status_code === 404
@@ -72,6 +72,8 @@ export default function Login() {
       navigate('/parent');
     } else if (userRole === 'provider') {
       navigate('/provider');
+    } else if (userRole === 'child') {
+      navigate('/child-homepage');
     } else {
       navigate('/home');
     }
