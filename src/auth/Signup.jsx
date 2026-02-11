@@ -58,6 +58,10 @@ export default function Signup() {
       return;
     }
 
+    console.log('Signup API Response:', response);
+    console.log('Response status:', response.status_code);
+    console.log('Response user:', response.user);
+
     if ((role === 'user' || role === 'parent') && numericAge < 14) {
       setError(
         'Users and parents must be at least 14 years old. Please adjust the age or choose a different role.'
@@ -233,4 +237,5 @@ export default function Signup() {
       </div>
     </section>
   );
+
 }
