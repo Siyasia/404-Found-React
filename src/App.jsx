@@ -2,7 +2,8 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 
-import Home from './pages/Home.jsx';
+import Home from './pages/UserHomepage.jsx';
+import ChildHomepage from './Child/ChildHomepage.jsx';
 import Features from './pages/Features.jsx';
 import Shop from './pages/Shop.jsx';
 import BuildHabit from './pages/BuildHabit.jsx';
@@ -23,6 +24,7 @@ export default function App() {
 
         {/* Main app */}
         <Route path="/home" element={<Home />} />
+        <Route path="/child-homepage" element={<ChildHomepage />} />
         <Route path="/features" element={<Features />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/build-habit" element={<BuildHabit />} />
