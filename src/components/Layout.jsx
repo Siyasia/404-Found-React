@@ -39,7 +39,7 @@ export default function Layout({ children }) {
                 <NavLink to="/break-habit" className="nav-link">Break Habit</NavLink>
               </>
             )}
-            <NavLink to="/about" className="nav-link">About</NavLink>
+            <NavLink to="/shop" className="nav-link">Shop</NavLink>
           </nav>
 
           {user && !onLoginPage && (
