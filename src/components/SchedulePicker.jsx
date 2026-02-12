@@ -88,7 +88,7 @@ export default function SchedulePicker({ value, onChange }) {
           <span>Start date</span>
           <input
             type="date"
-            value={schedule.startDate || toLocalISODate()}
+            value={schedule.startDate}
             onChange={(e) => update({ startDate: e.target.value })}
             className="schedule-control"
           />
