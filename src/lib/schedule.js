@@ -46,6 +46,7 @@ function formatMonthDay(iso) {
 
 // Inclusive date range check against start/end.
 export function isWithinRange(schedule, dateISO) {
+  if (!dateISO) return false;
   if (!schedule || !schedule.startDate) return false
   if (dateISO < schedule.startDate) return false
   if (schedule.endDate && dateISO > schedule.endDate) return false
