@@ -10,6 +10,16 @@ export const REPEAT = {
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const DAY_LABELS = DAY_NAMES.map((label, value) => ({ value, label }))
 
+// Common repeat options for schedule pickers - This is for rendering purposes
+export const REPEAT_OPTIONS = [
+  { value: REPEAT.DAILY, label: 'Daily' },
+  { value: REPEAT.WEEKDAYS, label: 'Weekdays (Mon-Fri)' },
+  { value: REPEAT.WEEKENDS, label: 'Weekends (Sat-Sun)' },
+  { value: REPEAT.CUSTOM_DOW, label: 'Custom days' },
+  { value: REPEAT.INTERVAL_DAYS, label: 'Every N days' }
+]
+
+
 function pad(num) {
   return num.toString().padStart(2, '0')
 }
