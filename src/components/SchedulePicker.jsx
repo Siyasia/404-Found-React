@@ -1,6 +1,5 @@
 import React from 'react'
-import { REPEAT, toLocalISODate } from '../lib/schedule.js'
-import { REPEAT, toLocalISODate, DAY_LABELS } from '../lib/schedule.js';
+import { REPEAT, toLocalISODate, DAY_LABELS, REPEAT_OPTIONS } from '../lib/schedule.js'
 
 export default function SchedulePicker({ value, onChange }) {
   const schedule = value || {
@@ -23,14 +22,6 @@ export default function SchedulePicker({ value, onChange }) {
     update({ daysOfWeek: Array.from(set).sort((a, b) => a - b) })
   }
 
-  const repeatOptions = [
-    { value: REPEAT.DAILY, label: 'Daily' },
-    { value: REPEAT.WEEKDAYS, label: 'Weekdays (Mon-Fri)' },
-    { value: REPEAT.WEEKENDS, label: 'Weekends (Sat-Sun)' },
-    { value: REPEAT.CUSTOM_DOW, label: 'Custom days' },
-    { value: REPEAT.INTERVAL_DAYS, label: 'Every N days' }
-  ]
-
   const showDays = schedule.repeat === REPEAT.CUSTOM_DOW
   const showInterval = schedule.repeat === REPEAT.INTERVAL_DAYS
 
@@ -43,7 +34,7 @@ export default function SchedulePicker({ value, onChange }) {
           onChange={(e) => update({ repeat: e.target.value })}
           className="schedule-control"
         >
-          {repeatOptions.map((opt) => (
+          {REPEAT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
