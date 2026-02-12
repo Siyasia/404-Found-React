@@ -21,7 +21,8 @@ export default function Layout({ children }) {
     navigate('/profile');
   }
 
-  const roleLabel = user ? ROLE_LABEL[user.role] || user.role : null;
+  // Only show a role label if user and user.role exist; prevents errors if user is missing
+  const roleLabel = user?.role ? ROLE_LABEL[user.role] || user.role : null;
   const homePath = isParent ? '/parent' : '/home';
 
   return (
