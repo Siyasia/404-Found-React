@@ -1,15 +1,6 @@
 import React from 'react'
 import { REPEAT, toLocalISODate } from '../lib/schedule.js'
-
-const DAY_LABELS = [
-  { value: 0, label: 'Sun' },
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' }
-]
+import { REPEAT, toLocalISODate, DAY_LABELS } from '../lib/schedule.js';
 
 export default function SchedulePicker({ value, onChange }) {
   const schedule = value || {
