@@ -157,7 +157,7 @@ export function computeBestStreak(task, maxLookbackDays = 365) {
   return best
 }
 
-export function formatScheduleLabel(schedule) {
+export function formatScheduleLabel(schedule, { customEmpty = 'Custom days' } = {}) {
   if (!schedule) return ''
   switch (schedule.repeat) {
     case REPEAT.DAILY:
@@ -175,7 +175,7 @@ export function formatScheduleLabel(schedule) {
     }
     case REPEAT.INTERVAL_DAYS: {
       const interval = Math.max(1, schedule.intervalDays || 1)
-      return interval === 1 ? 'Daily' : `Every ${interval} days`
+      return days.length ? days.join('/') : customEmpty
     }
     default:
       return ''
@@ -203,28 +203,8 @@ export function formatScheduleSummary(schedule, todayISO = toLocalISODate()) {
 }
 
 export function formatRepeatBadge(schedule) {
-  if (!schedule) return ''
-  switch (schedule.repeat) {
-    case REPEAT.DAILY:
-      return 'Daily'
-    case REPEAT.WEEKDAYS:
-      return 'Weekdays'
-    case REPEAT.WEEKENDS:
-      return 'Weekends'
-    case REPEAT.CUSTOM_DOW: {
-      const days = (schedule.daysOfWeek || [])
-        .slice()
-        .sort((a, b) => a - b)
-        .map((d) => DAY_NAMES[d])
-      return days.length ? days.join('/') : 'Custom'
-    }
-    case REPEAT.INTERVAL_DAYS: {
-      const interval = Math.max(1, schedule.intervalDays || 1)
-      return interval === 1 ? 'Daily' : `Every ${interval} days`
-    }
-    default:
-      return ''
-  }
+// reusing the the shared formatter but prefer a shorter empty-label for custom days
+return formatScheduleLabel(schedule, { customEmpty: 'Custom' })
 }
 
 export function formatNextDueLabel(schedule, todayISO = toLocalISODate()) {
