@@ -217,9 +217,15 @@ export class Child {
   }
 
   static from(obj) {
-    if (obj instanceof Child) return obj;
-    return new Child(obj || {});
+  // Return any child payload (instance, object, stringified JSON) when possible, or null if there was nothing.
+  if (obj instanceof Child) return obj;
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj === 'string') {
+    try { return new Child(JSON.parse(obj)); }
+    catch { return new Child({}); }
   }
+  return new Child(obj || {});
+}
 
   toJSON() {
     return { parentId: this.parentId, id: this.id, name: this.name, code: this.code, age: this.age };
@@ -232,4 +238,5 @@ export default {
   BreakHabit,
   FormedHabit,
   User,
+  Child,
 };
