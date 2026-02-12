@@ -17,9 +17,9 @@ export default function SchedulePicker({ value, onChange }) {
   }
 
   const toggleDay = (day) => {
-    const set = new Set(schedule.daysOfWeek || [])
-    set.has(day) ? set.delete(day) : set.add(day);
-    update({ daysOfWeek: Array.from(set).sort((a, b) => a - b) })
+    const daySet = new Set(schedule.daysOfWeek || [])
+    daySet.has(day) ? daySet.delete(day) : daySet.add(day)
+    update({ daysOfWeek: Array.from(daySet).sort((a, b) => a - b) })
   }
 
   const showDays = schedule.repeat === REPEAT.CUSTOM_DOW
