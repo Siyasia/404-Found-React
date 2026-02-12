@@ -64,6 +64,7 @@ export function isWithinRange(schedule, dateISO) {
   return true
 }
 
+// decides whether a task should occur on a given day, respecting its repeat pattern and start/end dates.
 export function isDueOnDate(schedule, dateISO) {
   if (!schedule) return false
   if (!isWithinRange(schedule, dateISO)) return false
@@ -79,8 +80,7 @@ export function isDueOnDate(schedule, dateISO) {
     case REPEAT.WEEKENDS:
       return dow === 0 || dow === 6
     case REPEAT.CUSTOM_DOW: {
-      const set = new Set(schedule.daysOfWeek || [])
-      return set.has(dow)
+    return schedule.daysOfWeek?.includes(dow) ?? false
     }
     case REPEAT.INTERVAL_DAYS: {
       const interval = Math.max(1, schedule.intervalDays || 1)
