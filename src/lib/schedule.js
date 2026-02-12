@@ -123,8 +123,8 @@ export function getPrevDueDate(schedule, fromDateISO = toLocalISODate(), maxLook
 
 // Compute current streak of consecutive due dates with completion, starting from today and looking backward.
 export function computeCurrentStreak(task, todayISO = toLocalISODate()) {
-  if (!task?.schedule || !task?.completionLog) return 0 //f a task doesn’t have a schedule or any completion history -  
-  const log = task.completionLog // -skip the streak calculation and just return zero.
+  if (!task?.schedule || !task?.completionLog) return 0 //f a task doesn’t have a schedule or any completion history, skip the streak calculation and just return zero.
+  const log = task.completionLog 
   const schedule = task.schedule
   let cursor = isDueOnDate(schedule, todayISO) ? todayISO : getPrevDueDate(schedule, todayISO)
   let streak = 0
@@ -136,9 +136,10 @@ export function computeCurrentStreak(task, todayISO = toLocalISODate()) {
   return streak
 }
 
+// Compute current streak of consecutive due dates with completion, counting back from today.
 export function computeBestStreak(task, maxLookbackDays = 365) {
-  if (!task?.schedule) return task?.stats?.bestStreak || 0
-  const log = task.completionLog || {}
+  if (!task?.schedule || !task?.completionLog) return task?.stats?.bestStreak || 0 // if there’s no schedule or no completion log, return the stored best streak
+  const log = task.completionLog
   const schedule = task.schedule
   const dates = Object.keys(log)
     .filter((d) => isDueOnDate(schedule, d))
