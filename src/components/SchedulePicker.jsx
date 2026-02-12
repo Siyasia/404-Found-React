@@ -19,11 +19,7 @@ export default function SchedulePicker({ value, onChange }) {
 
   const toggleDay = (day) => {
     const set = new Set(schedule.daysOfWeek || [])
-    if (set.has(day)) {
-      set.delete(day)
-    } else {
-      set.add(day)
-    }
+    set.has(day) ? set.delete(day) : set.add(day);
     update({ daysOfWeek: Array.from(set).sort((a, b) => a - b) })
   }
 
