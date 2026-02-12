@@ -2,6 +2,38 @@
 // These are intentionally small wrappers around plain objects so existing code
 // can continue to access properties directly while we get class semantics.
 
+//create a Schedule class to clearly define what a schedule looks like.
+export class Schedule {
+  constructor(props = {}) {
+    this.repeat = props.repeat ?? 'DAILY'
+    this.daysOfWeek = Array.isArray(props.daysOfWeek) ? props.daysOfWeek.slice() : []
+    this.intervalDays = Math.max(1, props.intervalDays || 1)
+    this.startDate = props.startDate ?? null
+    this.endDate = props.endDate ?? null
+  }
+
+  //safely create a Schedule from any input (object, string, etc.)
+  static from(obj) {
+    if (obj instanceof Schedule) return obj
+    if (obj === null || obj === undefined) return null
+    if (typeof obj === 'string') {
+      try { return new Schedule(JSON.parse(obj)) } catch { return new Schedule({}) }
+    }
+    return new Schedule(obj || {})
+  }
+
+  //make sure we always save or send schedules in the same format.
+  toJSON() {
+    return {
+      repeat: this.repeat,
+      daysOfWeek: this.daysOfWeek.slice(),
+      intervalDays: this.intervalDays,
+      startDate: this.startDate,
+      endDate: this.endDate
+    }
+  }
+}
+
 export class Task {
   constructor(props = {}) {
     // assign all known properties so code can read t.title, t.status, etc.
@@ -18,7 +50,7 @@ export class Task {
     this.frequency = props.frequency ?? null;
     this.streak = props.streak ?? 0;
     this.completedDates = Array.isArray(props.completedDates) ? props.completedDates.slice() : [];
-    this.schedule = props.schedule ?? null;
+    this.schedule = Schedule.from(props.schedule);
     this.lastCompletedOn = props.lastCompletedOn ?? null;
     this.status = props.status ?? 'pending';
     this.createdAt = props.createdAt ?? new Date().toISOString();
@@ -57,7 +89,7 @@ export class Task {
       replacements: this.replacements.slice(),
       frequency: this.frequency,
       streak: this.streak,
-      completedDates: this.completedDates.slice(),
+      schedule: this.schedule ? this.schedule.toJSON() : null,
       schedule: this.schedule,
       lastCompletedOn: this.lastCompletedOn,
       status: this.status,
@@ -94,7 +126,7 @@ export class BuildHabit {
   }
 
   toJSON() {
-    return { id: this.id, account_id: this.account_id, goal: this.goal, cue: this.cue, steps: this.steps.slice(), schedule: this.schedule, savedOn: this.savedOn };
+    return { id: this.id, account_id: this.account_id, goal: this.goal, cue: this.cue, steps: this.steps.slice(), schedule: this.schedule ? this.schedule.toJSON() : null, savedOn: this.savedOn };
   }
 }
 
@@ -106,7 +138,7 @@ export class BreakHabit {
     this.replacements = Array.isArray(props.replacements) ? props.replacements.slice() : [];
     this.microSteps = Array.isArray(props.microSteps) ? props.microSteps.slice() : [];
     this.savedOn = props.savedOn ?? null;
-    this.schedule = props.schedule ?? null;
+    this.schedule = Schedule.from(props.schedule);
   }
 
   static from(obj) {
@@ -114,8 +146,8 @@ export class BreakHabit {
     return new BreakHabit(obj || {});
   }
 
-  toJSON() {
-    return { id: this.id, account_id: this.account_id, habit: this.habit, replacements: this.replacements.slice(), microSteps: this.microSteps.slice(), savedOn: this.savedOn, schedule: this.schedule };
+toJSON() {
+    return { id: this.id, account_id: this.account_id, habit: this.habit, replacements: this.replacements.slice(), microSteps: this.microSteps.slice(), savedOn: this.savedOn, schedule: this.schedule ? this.schedule.toJSON() : null };
   }
 }
 
