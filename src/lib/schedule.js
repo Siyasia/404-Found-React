@@ -19,6 +19,7 @@ export const REPEAT_OPTIONS = [
   { value: REPEAT.INTERVAL_DAYS, label: 'Every N days' }
 ]
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24
 
 function pad(num) {
   return num.toString().padStart(2, '0')
@@ -85,7 +86,7 @@ export function isDueOnDate(schedule, dateISO) {
     case REPEAT.INTERVAL_DAYS: {
       const interval = Math.max(1, schedule.intervalDays || 1)
       const start = toLocalDate(schedule.startDate)
-      const diffDays = Math.floor((date - start) / (1000 * 60 * 60 * 24))
+      const diffDays = Math.floor((date - start) / MS_PER_DAY)
       return diffDays >= 0 && diffDays % interval === 0
     }
     default:
@@ -222,7 +223,7 @@ export function formatNextDueLabel(schedule, todayISO = toLocalISODate()) {
 
   const today = isoToLocalDate(todayISO)
   const nextDate = isoToLocalDate(next)
-  const diffDays = Math.floor((nextDate - today) / (1000 * 60 * 60 * 24))
+  const diffDays = Math.floor((date - start) / MS_PER_DAY)
 
   if (diffDays <= 7) {
     const dow = nextDate.toLocaleDateString('en-US', { weekday: 'short' })
