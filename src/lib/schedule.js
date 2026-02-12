@@ -7,7 +7,8 @@ export const REPEAT = {
   INTERVAL_DAYS: 'INTERVAL_DAYS'
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+export const DAY_LABELS = DAY_NAMES.map((label, value) => ({ value, label }))
 
 function pad(num) {
   return num.toString().padStart(2, '0')
