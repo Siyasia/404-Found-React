@@ -4,7 +4,7 @@ import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
 import { buildHabitCreate, buildHabitList, buildHabitDelete } from '../lib/api/habits.js';
-import { BuildHabit as BuildHabitModel } from '../models';
+import { BuildHabit as BuildHabitModel, Schedule } from '../models';  
 import SchedulePicker from '../components/SchedulePicker.jsx';
 import { toLocalISODate } from '../lib/schedule.js';
 
@@ -38,6 +38,7 @@ export default function BuildHabit() {
   const [cue, setCue] = useState('');
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
+  //Change to always keep the schedule in state as a plain object, not a Schedule instance
   const [schedule, setSchedule] = useState({
     repeat: 'DAILY',
     startDate: toLocalISODate(),
@@ -136,9 +137,9 @@ export default function BuildHabit() {
       account_id: user?.id ?? null,
       goal: goal.trim(),
       cue: cue.trim(),
-      steps,
+      steps,   
       savedOn: new Date().toISOString(),
-      schedule,
+      schedule: Schedule.from(schedule),
       reward:
         rewardChoice === 'custom'
           ? rewardText.trim()
@@ -170,7 +171,10 @@ export default function BuildHabit() {
 
   // Load a saved plan into the form for editing
   const loadPlanForEdit = (plan) => {
-    const safeSchedule = plan?.schedule || {};
+    // convert schedule to a plain object before setting state
+    const safeSchedule = plan?.schedule
+      ? (typeof plan.schedule.toJSON === 'function' ? plan.schedule.toJSON() : { ...plan.schedule })
+      : {};
     setGoal(plan?.goal || '');
     setCue(plan?.cue || '');
     setSteps(plan?.steps || []);
