@@ -5,6 +5,16 @@ import { ROLE } from '../Roles/roles.js';
 export default function Profile() {
   const { user, setUser } = useUser();
 
+  //If  user is not logged in, prompt to log in
+  if (!user) {
+    return (
+      <section className="container">
+        <h1>Profile</h1>
+        <p><a href="/login">You need to log in first</a></p>
+      </section>
+    );
+  }
+
   const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
   const palette = user?.palette || 'gold';
 
@@ -17,16 +27,6 @@ export default function Profile() {
     const palette = event.target.value;
     setUser({ ...user, palette });
   };
-
-  if (!user) {
-    return (
-      <section className="container">
-        <h1>Profile</h1>
-        <p className="sub hero">You need to log in first.</p>
-        <p><a href="/login">Go to login page</a></p>
-      </section>
-    );
-  }
 
   return (
     <section className="container">
