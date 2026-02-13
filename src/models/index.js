@@ -228,9 +228,7 @@ export class GameProfile {
 
   async setCoinCount(newCoins) {
     this.coins = newCoins;
-    await updateGameProfile({
-      coins: this.coins,
-    })
+    await updateGameProfile(this);
   }
 
   async addToInventory(item, equipped = false) {
@@ -238,9 +236,7 @@ export class GameProfile {
       id: item.id,
       equipped: equipped,
     })
-    await updateGameProfile({
-      inventory: this.inventory,
-    })
+    await updateGameProfile(this);
   }
 
   async toggleItem(itemId) {
@@ -250,9 +246,7 @@ export class GameProfile {
       }
       return field;
     });
-    await updateGameProfile({
-      inventory: this.inventory,
-    })
+    await updateGameProfile(this);
   }
 
   static from(obj) {
@@ -261,6 +255,7 @@ export class GameProfile {
   }
 
   toJSON() {
+    console.log('Serializing GameProfile with id:', this.id, 'coins:', this.coins, 'inventory:', this.inventory);
     return {
       id: this.id,
       coins: this.coins,
