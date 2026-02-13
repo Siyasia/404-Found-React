@@ -2,6 +2,15 @@
 // These are intentionally small wrappers around plain objects so existing code
 // can continue to access properties directly while we get class semantics.
 
+// Task type constants
+export const TASK_TYPE_SIMPLE = 'simple';
+export const TASK_TYPE_BUILD_HABIT = 'build-habit';
+export const TASK_TYPE_BREAK_HABIT = 'break-habit';
+
+// Task status constants
+export const TASK_STATUS_PENDING = 'pending';
+export const TASK_STATUS_DONE = 'done'
+
 //create a Schedule class to clearly define what a schedule looks like.
 export class Schedule {
   constructor(props = {}) {
