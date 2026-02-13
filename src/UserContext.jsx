@@ -49,7 +49,7 @@ export function UserProvider({ children }) {
         }
 
         // Only fetch from backend if no local user exists
-        if (!localUser) {
+        if (localUser) return;
           const fetched = await userGet();
           console.debug('userGet returned:', fetched);
           if (fetched) {
@@ -63,7 +63,6 @@ export function UserProvider({ children }) {
               setUser(payload);
             } else {
               console.warn('No user payload extracted from userGet:', fetched);
-            }
           }
         }
       } catch (err) {
