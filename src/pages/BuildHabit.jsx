@@ -182,7 +182,7 @@ const [schedule, setSchedule] = useState({
     setSteps(plan?.steps || []);
     setNewStep('');
     setSchedule({
-      repeat: safeSchedule.repeat || 'DAILY',
+      repeat: safeSchedule.repeat || REPEAT.DAILY,
       startDate: safeSchedule.startDate || toLocalISODate(),
       endDate: safeSchedule.endDate || '',
     });
