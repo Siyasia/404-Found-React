@@ -118,6 +118,7 @@ export class BuildHabit {
     this.steps = Array.isArray(props.steps) ? props.steps.slice() : [];
     this.schedule = props.schedule ?? null;
     this.savedOn = props.savedOn ?? null;
+    this.reward = props.reward ?? '';
   }
 
   static from(obj) {
@@ -125,8 +126,17 @@ export class BuildHabit {
     return new BuildHabit(obj || {});
   }
 
-  toJSON() {
-    return { id: this.id, account_id: this.account_id, goal: this.goal, cue: this.cue, steps: this.steps.slice(), schedule: this.schedule ? this.schedule.toJSON() : null, savedOn: this.savedOn };
+ toJSON() {
+    return {
+      id: this.id,
+      account_id: this.account_id,
+      goal: this.goal,
+      cue: this.cue,
+      steps: this.steps.slice(),
+      schedule: this.schedule ? this.schedule.toJSON() : null,
+      savedOn: this.savedOn,
+      reward: this.reward
+    };
   }
 }
 
@@ -139,6 +149,7 @@ export class BreakHabit {
     this.microSteps = Array.isArray(props.microSteps) ? props.microSteps.slice() : [];
     this.savedOn = props.savedOn ?? null;
     this.schedule = Schedule.from(props.schedule);
+    this.reward = props.reward ?? '';
   }
 
   static from(obj) {
@@ -146,8 +157,17 @@ export class BreakHabit {
     return new BreakHabit(obj || {});
   }
 
-toJSON() {
-    return { id: this.id, account_id: this.account_id, habit: this.habit, replacements: this.replacements.slice(), microSteps: this.microSteps.slice(), savedOn: this.savedOn, schedule: this.schedule ? this.schedule.toJSON() : null };
+  toJSON() {
+    return {
+      id: this.id,
+      account_id: this.account_id,
+      habit: this.habit,
+      replacements: this.replacements.slice(),
+      microSteps: this.microSteps.slice(),
+      savedOn: this.savedOn,
+      schedule: this.schedule ? this.schedule.toJSON() : null,
+      reward: this.reward
+    };
   }
 }
 
