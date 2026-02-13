@@ -2,6 +2,8 @@
 // These are intentionally small wrappers around plain objects so existing code
 // can continue to access properties directly while we get class semantics.
 
+import {updateGameProfile} from "../lib/api/game.js";
+
 export class Task {
   constructor(props = {}) {
     // assign all known properties so code can read t.title, t.status, etc.
@@ -212,6 +214,86 @@ export class Child {
 
   toJSON() {
     return { parentId: this.parentId, id: this.id, name: this.name, code: this.code, age: this.age };
+  }
+}
+
+export class GameProfile {
+  constructor(props = {}) {
+    this.id = props.id ?? null; // should also always be same as userId
+    this.coins = props.coins ?? 0;
+    // array of objects, representing the user's inventory of items/fields in the game
+    // format of { id: int, equipped: bool }, where id corresponds to a GameItem id and equipped indicates whether it's currently active
+    this.inventory = Array.isArray(props.inventory) ? props.inventory.slice() : [];
+  }
+
+  async setCoinCount(newCoins) {
+    this.coins = newCoins;
+    await updateGameProfile({
+      coins: this.coins,
+    })
+  }
+
+  async addToInventory(item, equipped = false) {
+    this.inventory.push({
+      id: item.id,
+      equipped: equipped,
+    })
+    await updateGameProfile({
+      inventory: this.inventory,
+    })
+  }
+
+  async toggleItem(itemId) {
+    this.inventory = this.inventory.map((field) => {
+      if (field.id === itemId) {
+        return { ...field, equipped: !field.equipped };
+      }
+      return field;
+    });
+    await updateGameProfile({
+      inventory: this.inventory,
+    })
+  }
+
+  static from(obj) {
+    if (obj instanceof GameProfile) return obj;
+    return new GameProfile(obj || {});
+  }
+
+  toJSON() {
+    console.log('Serializing GameProfile with id:', this.id, 'coins:', this.coins, 'inventory:', this.inventory);
+    return {
+      id: this.id,
+      coins: this.coins,
+      inventory: this.inventory.map((field) => ({id: field.id, equipped: field.equipped})),
+    };
+  }
+}
+
+export class GameItem {
+  constructor(props = {}) {
+    this.id = props.id ?? null;
+    this.name = props.name ?? '';
+    this.path = props.path ?? '';
+    this.price = props.price ?? 0;
+    this.placement = props.placement ?? null;
+    this.type = props.type ?? null;
+  }
+
+  static from(obj) {
+    if (obj instanceof GameItem) return obj;
+    return new GameItem(obj || {});
+  }
+
+  toJSON() {
+    return {
+      id: this.id,
+      name: this.name,
+      path: this.path,
+      price: this.price,
+      placement: this.placement,
+      type: this.type,
+    };
   }
 }
 

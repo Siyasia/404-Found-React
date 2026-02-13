@@ -112,8 +112,51 @@ export async function postJSON(url, body, { headers, timeout } = {}) {
 	}
 }
 
+export async function patchJSON(url, body, { headers, timeout } = {}) {
+	const to = timeout || DEFAULT_TIMEOUT
+	const t = timeoutSignal(to)
+	try {
+		const res = await fetch(`${BASE_URL}${url}`, {
+			method: 'PATCH',
+			headers: buildHeaders(headers),
+			body: body == null ? null : JSON.stringify(body),
+			signal: t.signal,
+			credentials: "include"
+		})
+
+		if (!res.ok) {
+			const contentType = res.headers.get('content-type') || ''
+			const isJSON = contentType.includes('application/json')
+			const text = await res.text()
+			let errorData = text
+			if (isJSON && text) {
+				try { errorData = JSON.parse(text) } catch (e) { /* ignore */ }
+			}
+			return {
+				status: res.status,
+				data: errorData
+			}
+		}
+
+		return {
+						status: res.status,
+						data: await parseResponse(res)
+				}
+	} catch (err) {
+		if (err.name === 'AbortError') {
+			const e = new Error('Request timed out')
+			e.cause = err
+			throw e
+		}
+		throw err
+	} finally {
+		t.clear()
+	}
+}
+
 export default {
 	getJSON,
-	postJSON
+	postJSON,
+	patchJSON
 }
 
