@@ -166,6 +166,7 @@ export default function BreakHabit() {
       plan.replacements,
       plan.microSteps,
       new Date().getTime(),
+      plan.reward
     ).then((response) => {
       console.log('[BreakHabit] Saved plan response', response);
     }).catch((error) => {
