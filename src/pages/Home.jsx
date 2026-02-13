@@ -9,13 +9,13 @@ import {
   canCreateProviderTasks,
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
-import { Task, FormedHabit } from '../models';
+import { Task, FormedHabit, TASK_STATUS_PENDING, TASK_STATUS_DONE } from '../models';
 import { taskList, taskUpdate, taskCreate } from '../lib/api/tasks.js';
 import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
 import { userGet } from '../lib/api/authentication.js';
 import SchedulePicker from '../components/SchedulePicker.jsx';
-import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate, computeCurrentStreak, computeBestStreak } from '../lib/schedule.js';
+import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate, computeCurrentStreak, computeBestStreak, REPEAT } from '../lib/schedule.js';
 import TaskCard from '../components/TaskCard.jsx';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
@@ -56,7 +56,7 @@ export default function Home() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskNotes, setNewTaskNotes] = useState('');
   const [newTaskSchedule, setNewTaskSchedule] = useState({
-    repeat: 'DAILY',
+    repeat: REPEAT.DAILY,
     startDate: toLocalISODate(),
     endDate: '',
   });
@@ -73,7 +73,7 @@ export default function Home() {
   function updateTaskCounts() {
     const getCounts = (arr) => {
       const total = arr.length;
-      const done = arr.filter((t) => t.status === 'done').length;
+      cconst done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
       const pending = total - done;
       return { total, done, pending };
     };
@@ -223,7 +223,7 @@ export default function Home() {
 
     const log = { ...(task.completionLog || {}) };
     const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
-    const status = doneToday ? 'pending' : 'done';
+   const status = doneToday ? TASK_STATUS_PENDING : TASK_STATUS_DONE;
 
     if (doneToday) {
       delete log[todayISO];
@@ -277,7 +277,7 @@ export default function Home() {
         title,
         notes,
         taskType: 'simple',
-        status: 'pending',
+        status: TASK_STATUS_PENDING,
         createdAt: new Date().toISOString(),
         createdById: user?.id || null,
         createdByName: user?.name || 'You',
@@ -388,7 +388,7 @@ export default function Home() {
     if (!task) return task;
     const log = task.completionLog || {};
     const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
-    return Task.from({ ...task, status: doneToday ? 'done' : 'pending' });
+     return Task.from({ ...task, status: doneToday ? TASK_STATUS_DONE : TASK_STATUS_PENDING });
   };
 
   const loadScheduleCache = () => {
