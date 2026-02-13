@@ -261,6 +261,7 @@ export class GameProfile {
   }
 
   toJSON() {
+    console.log('Serializing GameProfile with id:', this.id, 'coins:', this.coins, 'inventory:', this.inventory);
     return {
       id: this.id,
       coins: this.coins,
