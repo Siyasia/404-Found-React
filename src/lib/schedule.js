@@ -7,6 +7,15 @@ export const REPEAT = {
   INTERVAL_DAYS: 'INTERVAL_DAYS'
 }
 
+// Capitalized repeat labels for display
+export const REPEAT_LABELS = {
+  [REPEAT.DAILY]: 'Daily',
+  [REPEAT.WEEKDAYS]: 'Weekdays',
+  [REPEAT.WEEKENDS]: 'Weekends',
+  [REPEAT.CUSTOM_DOW]: 'Custom days',
+  [REPEAT.INTERVAL_DAYS]: 'Every N days'
+};
+
 export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const DAY_LABELS = DAY_NAMES.map((label, value) => ({ value, label }))
 
