@@ -4,6 +4,7 @@ import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
 import { buildHabitCreate, buildHabitList, buildHabitDelete } from '../lib/api/habits.js';
+import { REPEAT } from '../lib/schedule.js';
 import { BuildHabit as BuildHabitModel, Schedule } from '../models';  
 import SchedulePicker from '../components/SchedulePicker.jsx';
 import { toLocalISODate } from '../lib/schedule.js';
@@ -39,8 +40,8 @@ export default function BuildHabit() {
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
   //Change to always keep the schedule in state as a plain object, not a Schedule instance
-  const [schedule, setSchedule] = useState({
-    repeat: 'DAILY',
+const [schedule, setSchedule] = useState({
+    repeat: REPEAT.DAILY, // default to daily for simplicity, but users can change it
     startDate: toLocalISODate(),
     endDate: '',
   });
@@ -86,7 +87,7 @@ export default function BuildHabit() {
     setCue('');
     setSteps([]);
     setNewStep('');
-    setSchedule({ repeat: 'DAILY', startDate: toLocalISODate(), endDate: '' });
+    setSchedule({ repeat: REPEAT.DAILY, startDate: toLocalISODate(), endDate: '' });
     setRewardChoice('coins');
     setRewardText('');
   };
