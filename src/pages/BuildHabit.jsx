@@ -152,6 +152,7 @@ export default function BuildHabit() {
       plan.cue,
       plan.steps,
       new Date().getTime(),
+      plan.reward
     ).then((response) => {
       console.log('[BuildHabit] Saved plan response', response);
     }).catch((error) => {
