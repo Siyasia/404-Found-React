@@ -4,6 +4,7 @@ import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
 import { breakHabitCreate, breakHabitGet, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
+import { REPEAT } from '../lib/schedule.js';
 import { BreakHabit as BreakHabitModel } from '../models';
 import SchedulePicker from '../components/SchedulePicker.jsx';
 import { toLocalISODate } from '../lib/schedule.js';
@@ -40,7 +41,7 @@ export default function BreakHabit() {
   const [microSteps, setMicroSteps] = useState([]);
   const [newMicroStep, setNewMicroStep] = useState('');
   const [schedule, setSchedule] = useState({
-    repeat: 'DAILY',
+    repeat: REPEAT.DAILY,
     startDate: toLocalISODate(),
     endDate: '',
   });
@@ -87,7 +88,7 @@ export default function BreakHabit() {
     setNewReplacement('');
     setMicroSteps([]);
     setNewMicroStep('');
-    setSchedule({ repeat: 'DAILY', startDate: toLocalISODate(), endDate: '' });
+    setSchedule({ repeat: REPEAT.DAILY, startDate: toLocalISODate(), endDate: '' });
     setRewardChoice('coins');
     setRewardText('');
   };
@@ -193,7 +194,7 @@ export default function BreakHabit() {
     setMicroSteps(plan?.microSteps || []);
     setNewMicroStep('');
     setSchedule({
-      repeat: safeSchedule.repeat || 'DAILY',
+      repeat: safeSchedule.repeat || REPEAT.DAILY,
       startDate: safeSchedule.startDate || toLocalISODate(),
       endDate: safeSchedule.endDate || '',
     });
