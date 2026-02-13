@@ -19,7 +19,7 @@ export async function getGameProfile() {
 
 export async function createGameProfile(gameProfile) {
   const json = gameProfile.toJSON();
-  const info = await postJSON('/game/profile/create', json);
+  const info = await postJSON('/game/profile', json);
   return new CreateGameProfileResponse(info.status, info.data);
 }
 
