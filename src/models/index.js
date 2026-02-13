@@ -228,7 +228,9 @@ export class GameProfile {
 
   async setCoinCount(newCoins) {
     this.coins = newCoins;
-    await updateGameProfile(this);
+    await updateGameProfile({
+      coins: this.coins,
+    })
   }
 
   async addToInventory(item, equipped = false) {
@@ -236,7 +238,9 @@ export class GameProfile {
       id: item.id,
       equipped: equipped,
     })
-    await updateGameProfile(this);
+    await updateGameProfile({
+      inventory: this.inventory,
+    })
   }
 
   async toggleItem(itemId) {
@@ -246,7 +250,9 @@ export class GameProfile {
       }
       return field;
     });
-    await updateGameProfile(this);
+    await updateGameProfile({
+      inventory: this.inventory,
+    })
   }
 
   static from(obj) {
