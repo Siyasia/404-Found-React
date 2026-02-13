@@ -23,6 +23,7 @@ export default function Profile() {
       <section className="container">
         <h1>Profile</h1>
         <p className="sub hero">You need to log in first.</p>
+        <p><a href="/login">Go to login page</a></p>
       </section>
     );
   }
