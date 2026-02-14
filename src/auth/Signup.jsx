@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import { signupAdult, signupChild } from '../lib/api/authentication.js';
+import {loginChild, signupAdult, signupChild} from '../lib/api/authentication.js';
+import {createGameProfile} from "../lib/api/game.js";
+import {GameProfile} from "../models/index.js";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -15,6 +17,17 @@ export default function Signup() {
   const [role, setRole] = useState('');
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
+
+  async function makeGameProfile (userId) {
+    console.log('Creating game profile for new user...');
+    const profile = new GameProfile({id: userId, coins: 0, inventory: []});
+    const gameProfileResponse = await createGameProfile(profile);
+    if (gameProfileResponse.status_code !== 200) {
+      console.error('Failed to create game profile:', gameProfileResponse);
+    } else {
+      console.log('Game profile created successfully:', gameProfileResponse.profile);
+    }
+  }
 
   const handleSignUp = async (event) => {
     event.preventDefault();
@@ -35,6 +48,7 @@ export default function Signup() {
         return;
       }
 
+      await makeGameProfile();
       setUser({ ...child, role: 'child' });
       navigate('/home');
       return;
@@ -92,9 +106,10 @@ export default function Signup() {
     // };
 
     setUser(response.user);
-    
+    await makeGameProfile(response.user.id);
+
     // Navigate based on user role
-    const userRole = response.user.role || response.user.type;
+    const userRole = response.user.role;
     console.log('User signed up with role:', userRole, 'Full user:', response.user);
     
     if (userRole === 'parent') {

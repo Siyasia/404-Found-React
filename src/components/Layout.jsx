@@ -57,6 +57,7 @@ export default function Layout({ children }) {
                 {/* <NavLink to="/about" className="nav-link">About</NavLink> */}
               </>
             )}
+            <NavLink to="/shop" className="nav-link">Shop</NavLink>
           </nav>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }} />

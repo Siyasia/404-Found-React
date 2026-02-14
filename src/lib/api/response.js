@@ -1,4 +1,4 @@
-import { User, BuildHabit, BreakHabit, FormedHabit, Task, Child } from "../../models";
+import {User, BuildHabit, BreakHabit, FormedHabit, Task, Child, GameItem, GameProfile} from "../../models";
 
 class Response {
     constructor(status, json_data) {
@@ -111,14 +111,39 @@ export class ChildLoginResponse extends Response {
     }
 }
 
+export class GetGameProfileResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        this.game_profile = json_data.game_profile ? GameProfile.from(json_data.game_profile) : null;
+    }
+}
+
+export class GetItemResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        this.item = json_data.item ? GameItem.from(json_data.item) : null;
+    }
+}
+
+export class GetItemListResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        this.items = Array.isArray(json_data.items)
+            ? json_data.items.map((item_json) => GameItem.from(item_json))
+            : [];
+    }
+}
+
 export const CreateBuildHabitResponse = CreateResponse;
 export const CreateBreakHabitResponse = CreateResponse;
 export const CreateTaskResponse = CreateResponse;
 export const CreateFormedHabitResponse = CreateResponse;
 export const CreateChildResponse = CreateResponse;
+export const CreateGameProfileResponse = CreateResponse;
 export const UpdateBuildHabitResponse = CreateResponse;
 export const UpdateBreakHabitResponse = CreateResponse;
 export const UpdateFormedHabitResponse = CreateResponse;
 export const UpdateTaskResponse = CreateResponse;
 export const UpdateUserResponse = CreateResponse;
+export const UpdateGameProfileResponse = CreateResponse;
 export const DeleteResponse = Response;
