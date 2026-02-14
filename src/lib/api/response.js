@@ -102,14 +102,12 @@ export class ListChildResponse extends Response {
 export class GetChildResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
-        this.child = json_data.child ? Child.from(json_data.child) : null;
     }
 }
 
 export class ChildLoginResponse extends Response {
     constructor(status, json_data) {
-        super(status, json_data);
-        this.child = json_data.child ? Child.from(json_data.child) : null;        
+        super(status, json_data);      
     }
 }
 

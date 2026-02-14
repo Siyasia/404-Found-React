@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
-import { buildHabitCreate, buildHabitList } from '../lib/api/habits.js';
-import { BuildHabit as BuildHabitModel } from '../models';
+import { buildHabitCreate, buildHabitList, buildHabitDelete } from '../lib/api/habits.js';
+import { REPEAT } from '../lib/schedule.js';
+import { BuildHabit as BuildHabitModel, Schedule } from '../models';  
+import SchedulePicker from '../components/SchedulePicker.jsx';
+import { toLocalISODate } from '../lib/schedule.js';
 
 const STORAGE_KEY = 'ns.buildPlan.v1';
+const STEP_STATUS_KEY = 'ns.buildSteps.status.v1';
 
 export default function BuildHabit() {
   const { user } = useUser();
@@ -35,28 +39,87 @@ export default function BuildHabit() {
   const [cue, setCue] = useState('');
   const [steps, setSteps] = useState([]);
   const [newStep, setNewStep] = useState('');
-  const [savedPlan, setSavedPlan] = useState(null);
+  //Change to always keep the schedule in state as a plain object, not a Schedule instance
+const [schedule, setSchedule] = useState({
+    repeat: REPEAT.DAILY, // default to daily for simplicity, but users can change it
+    startDate: toLocalISODate(),
+    endDate: '',
+  });
+  const [rewardChoice, setRewardChoice] = useState('coins');
+  const [rewardText, setRewardText] = useState('');
+  const [savedPlans, setSavedPlans] = useState([]);
   const [success, setSuccess] = useState('');
+  const [notice, setNotice] = useState('');
+  const [stepStatus, setStepStatus] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STEP_STATUS_KEY)) || {};
+    } catch {
+      return {};
+    }
+  });
 
+  // Persist step completion status to local storage
+  const persistStepStatus = (next) => {
+    setStepStatus(next);
+    localStorage.setItem(STEP_STATUS_KEY, JSON.stringify(next));
+  };
+
+  // Generate a unique key for a plan to track step completion status
+  const planKey = (plan, idx = 0) => (plan?.id ? `id:${plan.id}` : `local:${plan?.goal || idx}`);
+
+  // Toggle completion status of a step for a given plan
+  const toggleStepDone = (plan, idx, planIdx = 0) => {
+    const key = planKey(plan, planIdx);
+    setStepStatus((prev) => {
+      const currentPlan = prev[key] || {};
+      const nextPlan = { ...currentPlan, [idx]: !currentPlan[idx] };
+      if (!nextPlan[idx]) delete nextPlan[idx];
+      const next = { ...prev, [key]: nextPlan };
+      persistStepStatus(next);
+      return next;
+    });
+  };
+
+  // Reset the form to initial state
+  const resetForm = () => {
+    setStep(1);
+    setGoal('');
+    setCue('');
+    setSteps([]);
+    setNewStep('');
+    setSchedule({ repeat: REPEAT.DAILY, startDate: toLocalISODate(), endDate: '' });
+    setRewardChoice('coins');
+    setRewardText('');
+  };
+
+  // Load saved plans from backend or local storage on mount
   useEffect(() => {
     async function func() {
 
       const all = await buildHabitList();
-      // todo: show all instead of first
-      const stored = all.habits[0];
-      if (stored) {
+      const remotePlans = Array.isArray(all?.habits) ? all.habits.slice(0, 5) : [];
+
+      if (remotePlans.length > 0) {
+        setSavedPlans(remotePlans);
+        return;
+      }
+
+      // fallback to local storage when backend has no schedule yet
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
         try {
-          setSavedPlan(stored);
-          setGoal(stored.goal || '');
-          setCue(stored.cue || '');
-          setSteps(stored.steps || []);
+          const parsed = JSON.parse(cached);
+          const plans = Array.isArray(parsed) ? parsed : [parsed];
+          const sliced = plans.slice(0, 5);
+          setSavedPlans(sliced);
         } catch {
-          // ignore bad JSON
+          // ignore
         }
       }
     } func();
   }, []);
 
+  // Add a new step to the steps list
   const handleAddStep = () => {
     const trimmed = newStep.trim();
     if (!trimmed) return;
@@ -64,17 +127,24 @@ export default function BuildHabit() {
     setNewStep('');
   };
 
+  // Remove a step by index
   const handleRemoveStep = (index) => {
     setSteps((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Save the habit plan to backend and local storage, then reset the form
   const handleSave = async () => {
     const plan = new BuildHabitModel({
       account_id: user?.id ?? null,
       goal: goal.trim(),
       cue: cue.trim(),
-      steps,
+      steps,   
       savedOn: new Date().toISOString(),
+      schedule: Schedule.from(schedule),
+      reward:
+        rewardChoice === 'custom'
+          ? rewardText.trim()
+          : '50 coins bonus on completion',
     });
 
     // Call backend API (best-effort) and persist locally as a fallback
@@ -83,18 +153,71 @@ export default function BuildHabit() {
       plan.cue,
       plan.steps,
       new Date().getTime(),
+      plan.reward
     ).then((response) => {
       console.log('[BuildHabit] Saved plan response', response);
     }).catch((error) => {
       console.error('[BuildHabit] Error saving plan', error);
     });
 
-    setSavedPlan(plan);
+    // Update local state and storage
+    setSavedPlans((prev) => {
+      const next = [plan, ...prev].slice(0, 5);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
     setSuccess('Habit plan saved successfully.');
+    resetForm();
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  const totalSteps = 3;
+  // Load a saved plan into the form for editing
+  const loadPlanForEdit = (plan) => {
+    // convert schedule to a plain object before setting state
+    const safeSchedule = plan?.schedule
+      ? (typeof plan.schedule.toJSON === 'function' ? plan.schedule.toJSON() : { ...plan.schedule })
+      : {};
+    setGoal(plan?.goal || '');
+    setCue(plan?.cue || '');
+    setSteps(plan?.steps || []);
+    setNewStep('');
+    setSchedule({
+      repeat: safeSchedule.repeat || REPEAT.DAILY,
+      startDate: safeSchedule.startDate || toLocalISODate(),
+      endDate: safeSchedule.endDate || '',
+    });
+    const reward = plan?.reward || '';
+    if (!reward || reward.includes('50 coins')) {
+      setRewardChoice('coins');
+      setRewardText('');
+    } else {
+      setRewardChoice('custom');
+      setRewardText(reward);
+    }
+    setStep(1);
+  };
+
+  // Delete a plan from backend and local storage
+  const handleDelete = async (index, plan) => {
+    try {
+      if (plan?.id) {
+        await buildHabitDelete(plan.id);
+      }
+    } catch (err) {
+      console.error('[BuildHabit] Error deleting plan', err);
+    } finally {
+      setSavedPlans((prev) => {
+        const next = prev.filter((_, i) => i !== index);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+      setNotice('Deleted habit plan');
+      setTimeout(() => setNotice(''), 2200);
+    }
+  };
+
+  //  Calculate progress percentage for the progress bar
+  const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
   return (
@@ -105,6 +228,7 @@ export default function BuildHabit() {
       </p>
 
       <Toast message={success} type="success" onClose={() => setSuccess('')} />
+      <Toast message={notice} type="info" onClose={() => setNotice('')} />
       <div
         className="card"
         style={{ marginTop: '1.5rem', maxWidth: '780px' }}
@@ -207,6 +331,11 @@ export default function BuildHabit() {
               Break this habit into tiny, specific actions you can actually do every time the cue happens.
             </p>
 
+            <div style={{ margin: '1rem 0' }}>
+              <h3 style={{ marginBottom: '0.25rem' }}>Schedule</h3>
+              <SchedulePicker value={schedule} onChange={setSchedule} />
+            </div>
+
             <div className="stacked-input">
               <input
                 type="text"
@@ -262,12 +391,86 @@ export default function BuildHabit() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleSave}
+                onClick={() => setStep(4)}
                 disabled={
                   !goal.trim() ||
                   !cue.trim() ||
                   steps.length === 0
                 }
+              >
+                Next: Rewards
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 4: Rewards */}
+        {step === 4 && (
+          <>
+            <h2>Step 4: Pick a reward</h2>
+            <p className="sub">
+              You automatically earn 20 coins for each completed habit step. Choose a bigger reward for finishing the habit—if you skip choosing, you will get 50 coins instead.
+            </p>
+
+            <div className="stacked-input" style={{ alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="radio"
+                  name="rewardChoice"
+                  value="coins"
+                  checked={rewardChoice === 'coins'}
+                  onChange={() => setRewardChoice('coins')}
+                />
+                <span>Keep coin bonus (50 coins on completion)</span>
+              </label>
+            </div>
+
+            <div className="stacked-input" style={{ alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                <input
+                  type="radio"
+                  name="rewardChoice"
+                  value="custom"
+                  checked={rewardChoice === 'custom'}
+                  onChange={() => setRewardChoice('custom')}
+                />
+                <span style={{ flex: 1 }}>Set a custom reward</span>
+              </label>
+            </div>
+
+            {rewardChoice === 'custom' && (
+              <label className="auth-label" style={{ marginTop: '0.75rem' }}>
+                Describe your reward
+                <input
+                  type="text"
+                  value={rewardText}
+                  onChange={(e) => setRewardText(e.target.value)}
+                  placeholder="Example: Movie night, new book, extra screen time"
+                />
+              </label>
+            )}
+
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setStep(3)}
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={rewardChoice === 'custom' && !rewardText.trim()}
               >
                 Save plan
               </button>
@@ -276,31 +479,83 @@ export default function BuildHabit() {
         )}
       </div>
 
-      {savedPlan && (
+      {savedPlans.length > 0 && (
         <div
           className="card"
           style={{ marginTop: '1.5rem', maxWidth: '780px' }}
         >
-          <h2>Your saved plan</h2>
-          <p>
-            <strong>Habit goal:</strong> {savedPlan.goal}
-          </p>
-          {savedPlan.cue && (
-            <p>
-              <strong>Cue:</strong> {savedPlan.cue}
-            </p>
-          )}
+          <h2>Your saved plans (max 5)</h2>
+          <p className="sub">Newest first.</p>
+          {savedPlans.map((plan, planIdx) => (
+            <div
+              key={`plan-${planIdx}-${plan.goal}`}
+              style={{
+                padding: '0.75rem 0',
+                borderTop: planIdx === 0 ? 'none' : '1px solid var(--border-color, #e5e7eb)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                <div>
+                  <p><strong>Habit goal:</strong> {plan.goal}</p>
+                  {plan.cue && (
+                    <p><strong>Cue:</strong> {plan.cue}</p>
+                  )}
+                  {plan.schedule?.startDate && (
+                    <p className="sub">Starts {plan.schedule.startDate}{plan.schedule.endDate ? `, ends ${plan.schedule.endDate}` : ''}</p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => loadPlanForEdit(plan)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleDelete(planIdx, plan)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
 
-          {savedPlan.steps?.length > 0 && (
-            <>
-              <p className="sub">Tiny steps:</p>
-              <ol>
-                {savedPlan.steps.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
-                ))}
-              </ol>
-            </>
-          )}
+              {plan.steps?.length > 0 && (
+                <>
+                  <p className="sub">Tiny steps (check off as you go):</p>
+                  <ol>
+                    {plan.steps.map((item, idx) => {
+                      const key = planKey(plan, planIdx);
+                      const done = !!(stepStatus[key] && stepStatus[key][idx]);
+                      return (
+                        <li
+                          key={`${item}-${idx}`}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={done}
+                            onChange={() => toggleStepDone(plan, idx, planIdx)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span
+                            style={{
+                              textDecoration: done ? 'line-through' : 'none',
+                              opacity: done ? 0.6 : 1,
+                            }}
+                          >
+                            {item}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </section>

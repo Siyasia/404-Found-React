@@ -3,13 +3,15 @@ import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 
 import Home from './pages/Home.jsx';
+// HomeGate was removed; use Home for the main landing
+import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import Shop from './pages/Shop.jsx';
 import BuildHabit from './pages/BuildHabit.jsx';
 import BreakHabit from './pages/BreakHabit.jsx';
+import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
-import Profile from './pages/Profile.jsx';
 
 import Login from './auth/Login.jsx';
 import Signup from './auth/Signup.jsx';
@@ -27,7 +29,8 @@ export default function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/build-habit" element={<BuildHabit />} />
         <Route path="/break-habit" element={<BreakHabit />} />
-        <Route path="/parent" element={<ParentDashboard />} />
+        <Route path="/parent" element={<ParentHomepage />} />
+        <Route path="/parent/dashboard" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />

@@ -4,6 +4,47 @@
 
 import {updateGameProfile} from "../lib/api/game.js";
 
+// Task type constants
+export const TASK_TYPE_SIMPLE = 'simple';
+export const TASK_TYPE_BUILD_HABIT = 'build-habit';
+export const TASK_TYPE_BREAK_HABIT = 'break-habit';
+
+// Task status constants
+export const TASK_STATUS_PENDING = 'pending';
+export const TASK_STATUS_DONE = 'done'
+
+//create a Schedule class to clearly define what a schedule looks like.
+export class Schedule {
+  constructor(props = {}) {
+    this.repeat = props.repeat ?? 'DAILY'
+    this.daysOfWeek = Array.isArray(props.daysOfWeek) ? props.daysOfWeek.slice() : []
+    this.intervalDays = Math.max(1, props.intervalDays || 1)
+    this.startDate = props.startDate ?? null
+    this.endDate = props.endDate ?? null
+  }
+
+  //safely create a Schedule from any input (object, string, etc.)
+  static from(obj) {
+    if (obj instanceof Schedule) return obj
+    if (obj === null || obj === undefined) return null
+    if (typeof obj === 'string') {
+      try { return new Schedule(JSON.parse(obj)) } catch { return new Schedule({}) }
+    }
+    return new Schedule(obj || {})
+  }
+
+  //make sure we always save or send schedules in the same format.
+  toJSON() {
+    return {
+      repeat: this.repeat,
+      daysOfWeek: this.daysOfWeek.slice(),
+      intervalDays: this.intervalDays,
+      startDate: this.startDate,
+      endDate: this.endDate
+    }
+  }
+}
+
 export class Task {
   constructor(props = {}) {
     // assign all known properties so code can read t.title, t.status, etc.
@@ -20,6 +61,8 @@ export class Task {
     this.frequency = props.frequency ?? null;
     this.streak = props.streak ?? 0;
     this.completedDates = Array.isArray(props.completedDates) ? props.completedDates.slice() : [];
+    this.schedule = Schedule.from(props.schedule);
+    this.lastCompletedOn = props.lastCompletedOn ?? null;
     this.status = props.status ?? 'pending';
     this.createdAt = props.createdAt ?? new Date().toISOString();
     this.createdById = props.createdById ?? null;
@@ -57,7 +100,9 @@ export class Task {
       replacements: this.replacements.slice(),
       frequency: this.frequency,
       streak: this.streak,
-      completedDates: this.completedDates.slice(),
+      schedule: this.schedule ? this.schedule.toJSON() : null,
+      schedule: this.schedule,
+      lastCompletedOn: this.lastCompletedOn,
       status: this.status,
       createdAt: this.createdAt,
       createdById: this.createdById,
@@ -82,6 +127,9 @@ export class BuildHabit {
     this.goal = props.goal ?? '';
     this.cue = props.cue ?? '';
     this.steps = Array.isArray(props.steps) ? props.steps.slice() : [];
+    this.schedule = props.schedule ?? null;
+    this.savedOn = props.savedOn ?? null;
+    this.reward = props.reward ?? '';
   }
 
   static from(obj) {
@@ -89,8 +137,17 @@ export class BuildHabit {
     return new BuildHabit(obj || {});
   }
 
-  toJSON() {
-    return { id: this.id, account_id: this.account_id, goal: this.goal, cue: this.cue, steps: this.steps.slice() };
+ toJSON() {
+    return {
+      id: this.id,
+      account_id: this.account_id,
+      goal: this.goal,
+      cue: this.cue,
+      steps: this.steps.slice(),
+      schedule: this.schedule ? this.schedule.toJSON() : null,
+      savedOn: this.savedOn,
+      reward: this.reward
+    };
   }
 }
 
@@ -102,6 +159,8 @@ export class BreakHabit {
     this.replacements = Array.isArray(props.replacements) ? props.replacements.slice() : [];
     this.microSteps = Array.isArray(props.microSteps) ? props.microSteps.slice() : [];
     this.savedOn = props.savedOn ?? null;
+    this.schedule = Schedule.from(props.schedule);
+    this.reward = props.reward ?? '';
   }
 
   static from(obj) {
@@ -110,7 +169,16 @@ export class BreakHabit {
   }
 
   toJSON() {
-    return { id: this.id, account_id: this.account_id, habit: this.habit, replacements: this.replacements.slice(), microSteps: this.microSteps.slice(), savedOn: this.savedOn };
+    return {
+      id: this.id,
+      account_id: this.account_id,
+      habit: this.habit,
+      replacements: this.replacements.slice(),
+      microSteps: this.microSteps.slice(),
+      savedOn: this.savedOn,
+      schedule: this.schedule ? this.schedule.toJSON() : null,
+      reward: this.reward
+    };
   }
 }
 
@@ -161,7 +229,9 @@ export class User {
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
     this.type = this.role; // i think these should be the same?
-    this.theme = props.theme ?? 'pink';
+    this.themeMode = props.themeMode ?? props.theme ?? 'light';
+    this.palette = props.palette ?? 'gold';
+    this.theme = this.themeMode; // legacy alias
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
     // explicit common extras
@@ -187,7 +257,9 @@ export class User {
       role: this.role,
       createdAt: this.createdAt,
       type: this.type,
-      theme: this.theme,
+      theme: this.themeMode,
+      themeMode: this.themeMode,
+      palette: this.palette,
       profilePic: this.profilePic,
       stats: this.stats,
       code: this.code,
@@ -208,9 +280,15 @@ export class Child {
   }
 
   static from(obj) {
-    if (obj instanceof Child) return obj;
-    return new Child(obj || {});
+  // Return any child payload (instance, object, stringified JSON) when possible, or null if there was nothing.
+  if (obj instanceof Child) return obj;
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj === 'string') {
+    try { return new Child(JSON.parse(obj)); }
+    catch { return new Child({}); }
   }
+  return new Child(obj || {});
+}
 
   toJSON() {
     return { parentId: this.parentId, id: this.id, name: this.name, code: this.code, age: this.age };
@@ -303,4 +381,5 @@ export default {
   BreakHabit,
   FormedHabit,
   User,
+  Child,
 };
