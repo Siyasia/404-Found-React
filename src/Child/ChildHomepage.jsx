@@ -1,4 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { 
+  Task, 
+  FormedHabit, 
+  TASK_TYPE_SIMPLE, 
+  TASK_TYPE_BUILD_HABIT, 
+  TASK_TYPE_BREAK_HABIT, 
+  TASK_STATUS_PENDING, 
+  TASK_STATUS_DONE 
+} from '../models';
 import EmptyState from '../components/EmptyState.jsx';
 import ThemeModal from './ThemeModal.jsx';
 import { useUser } from '../UserContext.jsx';
@@ -22,9 +31,9 @@ export default function ChildHome() {
   const [buildTasks, setBuildTasks] = useState([]);
   const [breakTasks, setBreakTasks] = useState([]);
   const [taskCounts, setTaskCounts] = useState({
-    build: { total: 0, done: 0, pending: 0 },
-    break: { total: 0, done: 0, pending: 0 },
-    simple: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_BUILD_HABIT]: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_BREAK_HABIT]: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_SIMPLE]: { total: 0, done: 0, pending: 0 },
   });
   const [tasksLoading, setTasksLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('simple');
@@ -79,24 +88,24 @@ export default function ChildHome() {
     setThemeChoice(user?.theme || 'pink');
   }, [user]);
   useEffect(() => {
-    const getCounts = (arr) => {
+   const done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
       const total = arr.length;
       const done = arr.filter((t) => t.status === 'done').length;
       const pending = total - done;
       return { total, done, pending };
     };
 
-    const simple = tasks.filter((t) => (t.taskType || 'simple') === 'simple');
-    const build = tasks.filter((t) => (t.taskType || 'simple') === 'build-habit');
-    const breaking = tasks.filter((t) => (t.taskType || 'simple') === 'break-habit');
+    const simple = tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_SIMPLE);
+    const build = tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BUILD_HABIT);
+    const breaking = tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BREAK_HABIT);
 
-    setSimpleTasks(simple);
+   setSimpleTasks(simple);
     setBuildTasks(build);
     setBreakTasks(breaking);
     setTaskCounts({
-      simple: getCounts(simple),
-      build: getCounts(build),
-      break: getCounts(breaking),
+      [TASK_TYPE_SIMPLE]: getCounts(simple),
+      [TASK_TYPE_BUILD_HABIT]: getCounts(build),
+      [TASK_TYPE_BREAK_HABIT]: getCounts(breaking),
     });
   }, [tasks]);
 
@@ -234,9 +243,9 @@ export default function ChildHome() {
 
           <div style={{ display: 'flex', gap: '.4rem', marginBottom: '12px', flexWrap: 'wrap' }}>
             {[
-              { key: 'simple', label: 'Simple', count: taskCounts.simple.total },
-              { key: 'build', label: 'Build', count: taskCounts.build.total },
-              { key: 'break', label: 'Break', count: taskCounts.break.total },
+              { key: TASK_TYPE_SIMPLE, label: 'Simple', count: taskCounts[TASK_TYPE_SIMPLE].total },
+              { key: TASK_TYPE_BUILD_HABIT, label: 'Build', count: taskCounts[TASK_TYPE_BUILD_HABIT].total },
+              { key: TASK_TYPE_BREAK_HABIT, label: 'Break', count: taskCounts[TASK_TYPE_BREAK_HABIT].total },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -268,7 +277,7 @@ export default function ChildHome() {
               />
             ) : (
               <>
-                {activeTab === 'simple' && (
+                {activeTab === TASK_TYPE_SIMPLE && (
                   <ul style={{ paddingLeft: 0, margin: 0 }}>
                     {simpleTasks
                       .slice(0, 8)
@@ -287,15 +296,15 @@ export default function ChildHome() {
                         >
                           <input
                             type="checkbox"
-                            checked={task.status === 'done'}
+                            checked={task.status === TASK_STATUS_DONE}
                             onChange={() => handleToggleMyTaskStatus(task.id)}
                             style={{ cursor: 'pointer' }}
                           />
                           <div
                             style={{
                               flex: 1,
-                              textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                              opacity: task.status === 'done' ? 0.6 : 1,
+                              textDecoration: task.status === TASK_STATUS_DONE ? 'line-through' : 'none',
+                              opacity: task.status === TASK_STATUS_DONE ? 0.6 : 1,
                             }}
                           >
                             {task.title}
@@ -305,18 +314,18 @@ export default function ChildHome() {
                               fontSize: '.7rem',
                               padding: '.05rem .3rem',
                               borderRadius: '4px',
-                              background: task.status === 'done' ? '#d1fae5' : '#dbeafe',
-                              color: task.status === 'done' ? '#065f46' : '#1e3a8a',
+                              background: task.status === TASK_STATUS_DONE ? '#d1fae5' : '#dbeafe',
+                              color: task.status === TASK_STATUS_DONE ? '#065f46' : '#1e3a8a',
                             }}
                           >
-                            {task.status === 'done' ? '✓' : '◇'}
+                            {task.status === TASK_STATUS_DONE ? '✓' : '◇'}
                           </span>
                         </li>
                       ))}
                   </ul>
                 )}
 
-                {activeTab === 'build' && (
+                {activeTab === TASK_TYPE_BUILD_HABIT && (
                   <ul style={{ paddingLeft: 0, margin: 0 }}>
                     {buildTasks
                       .slice(0, 6)
@@ -335,15 +344,15 @@ export default function ChildHome() {
                         >
                           <input
                             type="checkbox"
-                            checked={task.status === 'done'}
+                            checked={task.status === TASK_STATUS_DONE}
                             onChange={() => handleToggleMyTaskStatus(task.id)}
                             style={{ cursor: 'pointer', marginTop: '.2rem' }}
                           />
                           <div style={{ flex: 1 }}>
                             <div
                               style={{
-                                textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                                opacity: task.status === 'done' ? 0.6 : 1,
+                                textDecoration: task.status === TASK_STATUS_DONE ? 'line-through' : 'none',
+                                opacity: task.status === TASK_STATUS_DONE ? 0.6 : 1,
                                 fontWeight: 500,
                               }}
                             >
@@ -358,7 +367,7 @@ export default function ChildHome() {
                   </ul>
                 )}
 
-                {activeTab === 'break' && (
+                {activeTab === TASK_TYPE_BREAK_HABIT && (
                   <ul style={{ paddingLeft: 0, margin: 0 }}>
                     {breakTasks
                       .slice(0, 6)
@@ -377,15 +386,15 @@ export default function ChildHome() {
                         >
                           <input
                             type="checkbox"
-                            checked={task.status === 'done'}
+                            checked={task.status === TASK_STATUS_DONE}
                             onChange={() => handleToggleMyTaskStatus(task.id)}
                             style={{ cursor: 'pointer', marginTop: '.2rem' }}
                           />
                           <div style={{ flex: 1 }}>
                             <div
                               style={{
-                                textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                                opacity: task.status === 'done' ? 0.6 : 1,
+                                textDecoration: task.status === TASK_STATUS_DONE ? 'line-through' : 'none',
+                                opacity: task.status === TASK_STATUS_DONE ? 0.6 : 1,
                                 fontWeight: 500,
                               }}
                             >
@@ -417,9 +426,10 @@ export default function ChildHome() {
             height: 'fit-content',
           }}
         >
-          <StatTile label="Tasks" value={taskCounts.simple.total} sub={`${taskCounts.simple.pending} pending`} />
-          <StatTile label="Build" value={taskCounts.build.total} sub={`${taskCounts.build.pending} pending`} />
-          <StatTile label="Break" value={taskCounts.break.total} sub={`${taskCounts.break.pending} pending`} />
+          <StatTile label="Tasks" value={taskCounts[TASK_TYPE_SIMPLE].total} sub={`${taskCounts[TASK_TYPE_SIMPLE].pending} pending`} />
+          <StatTile label="Build" value={taskCounts[TASK_TYPE_BUILD_HABIT].total} sub={`${taskCounts[TASK_TYPE_BUILD_HABIT].pending} pending`} />
+          <StatTile label="Break" value={taskCounts[TASK_TYPE_BREAK_HABIT].total} sub={`${taskCounts[TASK_TYPE_BREAK_HABIT].pending} pending`} />
+          
           <div
             style={{
               background: 'white',
