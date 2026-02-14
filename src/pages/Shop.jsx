@@ -1,23 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { useUser } from '../UserContext.jsx';
-import { ROLE } from '../Roles/roles.js';
-import { userUpdate } from '../lib/api/user.js';
+import { useGameProfile } from '../components/useGameProfile.js';
+import { GameItem } from '../models/index.js';
 
 export default function Shop() {
 
-  const { user, setUser } = useUser();
-
-  const [coins, setCoins] = React.useState(200); // Example coin balance
-  const [inventory, setInventory] = React.useState([]); // User's purchased items
+  const { profile, saveProfile, loading, error } = useGameProfile();
   const [modal, setModal] = React.useState(null); // For showing item details or purchase confirmation
 
+  if (loading) return <p>Loading...</p>;
+
   //list of example items
+  
   const items = [
     { id: 1, name: 'Potion', price: 50, image: '/images/potion.png' },
     { id: 2, name: 'Sword', price: 150, image: '/images/sword.png' },
     { id: 3, name: 'Shield', price: 120, image: '/images/shield.png' },
-    { id: 4, name: 'Helmet', price: 80, image: '/images/helmet.png' }
+    { id: 4, name: 'Helmet', price: 80, image: '/images/helmet.png' },
+    { id: 5, name: 'get coins', price: 0, image: '/images/helmet.png' }
   ];
+  //TODO: create list of items in the database and display those instead
 
   const showModal = (message, type = 'info') => {
     setModal(message, type);
@@ -27,24 +28,40 @@ export default function Shop() {
     setModal(null);
   };
 
-  //function to handle buying an item
-  const buyItem = (item) => {
-    if (inventory.find(i => i.id === item.id)) {
+  //function to handle buying items
+  async function buyItem(item) {
+
+    //holds profile information to be updated after buying item
+    const updated = { ...profile };
+
+    //temporary solution to add coins to user's game profile
+    if (item.name === 'get coins') {
+      updated.coins += 200;
+    }
+    if (profile.inventory.find(i => i.id === item.id)) {
       showModal(`You already own a(n) ${item.name}.`);
       return;
     }
-    if (coins >= item.price) {
-      setCoins(coins - item.price);
-      //keep inventory sorted by id for easier management
-      const newInventory = [...inventory, item];
-      newInventory.sort((a, b) => a.id - b.id);
-      setInventory(newInventory);
+    //if they do not own the item and have enough money, buy item
+    if (profile.coins >= item.price && item.name !== 'get coins') {
+      updated.coins -= item.price;
+      updated.inventory.push({
+        id: item.id,
+        equipped: false,
+      })
       showModal(`You bought a(n) ${item.name}!`);
-    } else {
+      //sort the user's inventory by ID
+      updated.inventory.sort((a, b) => a.id - b.id);
+    }
+    else {
       showModal('Not enough coins.');
     }
+
+    //update user's profile with item and coin info
+    await saveProfile(updated);
   };
 
+  //TODO: display items from inventory correctly
   return (
     <section className="container" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', paddingTop: '2rem', flexGrow: 1, gap: '1.5rem', paddingLeft: '0rem', paddingRight: '0rem' }}>
 
@@ -53,7 +70,7 @@ export default function Shop() {
         <strong>Here, you can trade your coins for items.</strong>
 
         <div className="coin-balance" style={{ marginBottom: '1.5rem', fontSize: '1rem' }}>
-          <p><strong>Your Coins:</strong> {coins}</p>
+          <p><strong>Your Coins:</strong>{profile.coins}</p>
         </div>
 
         <div className="items" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -79,11 +96,11 @@ export default function Shop() {
       
       <div className="card" style={{ width: '300px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h3>Your Inventory</h3>
-        {inventory.length === 0 ? (
+        {profile.inventory.length === 0 ? (
           <p>You don't have any items yet. Try buying some from the shop!</p>
         ) : (
           <div className="inventory" style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
-            {inventory.map(item => (
+            {profile.inventory.map(item => (
               <div key={item.id} className="inventory-item" style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', width: '100px', textAlign: 'center' }}>
                 <img src={item.image} alt={item.name} style={{ width: '75px', height: '75px' }} />
                 <h4>{item.name}</h4>
