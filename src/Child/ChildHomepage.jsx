@@ -11,7 +11,6 @@ import {
 import EmptyState from '../components/EmptyState.jsx';
 import ThemeModal from './ThemeModal.jsx';
 import { useUser } from '../UserContext.jsx';
-import { Task } from '../models';
 import { taskList, taskUpdate } from '../lib/api/tasks.js';
 import { userGet } from '../lib/api/authentication.js';
 import { userUpdate } from '../lib/api/user.js';
@@ -88,9 +87,9 @@ export default function ChildHome() {
     setThemeChoice(user?.theme || 'pink');
   }, [user]);
   useEffect(() => {
-   const done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
+   const getCounts = (arr) => {
+      const done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
       const total = arr.length;
-      const done = arr.filter((t) => t.status === 'done').length;
       const pending = total - done;
       return { total, done, pending };
     };
