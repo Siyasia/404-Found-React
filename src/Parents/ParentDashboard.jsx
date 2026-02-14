@@ -312,8 +312,8 @@ const normalizeTab = (tab) => {
   const childIdSet = new Set(children.map((c) => String(c.id)));
   const childCodeSet = new Set(children.map((c) => c.code).filter(Boolean));
   const tasksForChildren = tasks.filter((t) => {
-    const assigneeId = t.assigneeId ?? t.assignee_id ?? t.childId;
-    const assigneeCode = t.childCode ?? t.child_code;
+    const assigneeId = t.assigneeId;
+    const assigneeCode = t.childCode;
     const idMatch = assigneeId && childIdSet.has(String(assigneeId));
     const codeMatch = assigneeCode && childCodeSet.has(assigneeCode);
     return idMatch || codeMatch;
