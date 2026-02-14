@@ -32,17 +32,16 @@ export default function ParentDashboard() {
   const isParent = user?.role === ROLE.PARENT;
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const normalizeTab = (tab) => {
+const normalizeTab = (tab) => {
     if (!tab) return 'children';
+    const key = tab.toLowerCase().replaceAll('-', '');
     const map = {
       children: 'children',
       assign: 'assign',
-      'my-tasks': 'my-tasks',
       mytasks: 'my-tasks',
-      myTasks: 'my-tasks',
       approvals: 'approvals',
     };
-    return map[tab] || 'children';
+    return map[key] || 'children';
   };
 
   const initialTab = normalizeTab(searchParams.get('tab'));
