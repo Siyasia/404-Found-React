@@ -9,7 +9,15 @@ import {
   canCreateProviderTasks,
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
-import { Task, FormedHabit, TASK_STATUS_PENDING, TASK_STATUS_DONE } from '../models';
+import { 
+  Task, 
+  FormedHabit, 
+  TASK_TYPE_SIMPLE, 
+  TASK_TYPE_BUILD_HABIT, 
+  TASK_TYPE_BREAK_HABIT, 
+  TASK_STATUS_PENDING, 
+  TASK_STATUS_DONE 
+} from '../models';
 import { taskList, taskUpdate, taskCreate } from '../lib/api/tasks.js';
 import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
@@ -50,7 +58,11 @@ export default function Home() {
   const [buildTasks, setBuildTasks] = useState([]);
   const [breakTasks, setBreakTasks] = useState([]);
   // this absolutely blows but whatever :D
-  const [taskCounts, setTaskCounts] = useState({"build": {total: 0, done: 0, pending: 0}, "break": {total: 0, done: 0, pending: 0}, "simple": {total: 0, done: 0, pending: 0}});
+  const [taskCounts, setTaskCounts] = useState({ // default to 0 counts for each type to avoid undefined issues in rendering
+    [TASK_TYPE_BUILD_HABIT]: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_BREAK_HABIT]: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_SIMPLE]: { total: 0, done: 0, pending: 0 }
+  });
   const [tasksLoading, setTasksLoading] = useState(true);
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -73,19 +85,21 @@ export default function Home() {
   function updateTaskCounts() {
     const getCounts = (arr) => {
       const total = arr.length;
-      cconst done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
+      const done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
       const pending = total - done;
       return { total, done, pending };
     };
-    setSimpleTasks(tasks.filter((t) => (t.taskType || 'simple') === 'simple'));
-    setBuildTasks(tasks.filter((t) => (t.taskType || 'simple') === 'build-habit'));
-    setBreakTasks(tasks.filter((t) => (t.taskType || 'simple') === 'break-habit'));
+
+    // categorize tasks by type for both list and counts
+    setSimpleTasks(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_SIMPLE));
+    setBuildTasks(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BUILD_HABIT));
+    setBreakTasks(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BREAK_HABIT));
     setTaskCounts({
-      "simple": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'simple')),
-      "build": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'build-habit')),
-      "break": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'break-habit')),
+      [TASK_TYPE_SIMPLE]: getCounts(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_SIMPLE)),
+      [TASK_TYPE_BUILD_HABIT]: getCounts(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BUILD_HABIT)),
+      [TASK_TYPE_BREAK_HABIT]: getCounts(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BREAK_HABIT)),
     });
-  };
+  }
 
   const buildTaskSummaryText = (name, userTasks) => {
     const safeName = name?.trim() || 'there';
@@ -223,7 +237,7 @@ export default function Home() {
 
     const log = { ...(task.completionLog || {}) };
     const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
-   const status = doneToday ? TASK_STATUS_PENDING : TASK_STATUS_DONE;
+    const status = doneToday ? TASK_STATUS_PENDING : TASK_STATUS_DONE;
 
     if (doneToday) {
       delete log[todayISO];
@@ -276,7 +290,7 @@ export default function Home() {
         assigneeName: user?.name || 'You',
         title,
         notes,
-        taskType: 'simple',
+        taskType: TASK_TYPE_SIMPLE,
         status: TASK_STATUS_PENDING,
         createdAt: new Date().toISOString(),
         createdById: user?.id || null,
@@ -370,11 +384,8 @@ export default function Home() {
   if (hour >= 12 && hour < 17) greetingPart = 'afternoon';
   if (hour >= 17) greetingPart = 'evening';
 
-
-
-
-
-  const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'build' | 'break'
+  const [activeTab, setActiveTab] = useState(TASK_TYPE_SIMPLE); 
+  // TASK_TYPE_SIMPLE | TASK_TYPE_BUILD_HABIT | TASK_TYPE_BREAK_HABIT
 
   const friendlyFrequency = (freq) => {
     if (!freq) return 'No schedule set';
@@ -566,7 +577,7 @@ export default function Home() {
 
             <div className="tabList" aria-label="Task categories">
               <button type="button" className="btn tabButton tabButtonActive" disabled>
-                Simple ({taskCounts.simple.total})
+                Simple ({taskCounts[TASK_TYPE_SIMPLE].total})
               </button>
             </div>
 
@@ -590,7 +601,7 @@ export default function Home() {
                         <TaskCard task={task}>
                           <input
                             type="checkbox"
-                            checked={task.status === 'done'}
+                            checked={task.status === TASK_STATUS_DONE}
                             onChange={() => handleToggleMyTaskStatus(task.id)}
                             className="taskCheckbox"
                           />
@@ -685,18 +696,18 @@ export default function Home() {
           <div className="statsGrid">
             <div className="statCard">
               <div className="statLabel">Tasks</div>
-              <div className="statValue">{taskCounts.simple.total}</div>
-              <div className="statSub">{taskCounts.simple.pending} pending</div>
+              <div className="statValue">{taskCounts[TASK_TYPE_SIMPLE].total}</div>
+              <div className="statSub">{taskCounts[TASK_TYPE_SIMPLE].pending} pending</div>
             </div>
             <div className="statCard">
               <div className="statLabel">Build</div>
-              <div className="statValue">{taskCounts.build.total}</div>
-              <div className="statSub">{taskCounts.build.pending} pending</div>
+              <div className="statValue">{taskCounts[TASK_TYPE_BUILD_HABIT].total}</div>
+              <div className="statSub">{taskCounts[TASK_TYPE_BUILD_HABIT].pending} pending</div>
             </div>
             <div className="statCard">
               <div className="statLabel">Break</div>
-              <div className="statValue">{taskCounts.break.total}</div>
-              <div className="statSub">{taskCounts.break.pending} pending</div>
+              <div className="statValue">{taskCounts[TASK_TYPE_BREAK_HABIT].total}</div>
+              <div className="statSub">{taskCounts[TASK_TYPE_BREAK_HABIT].pending} pending</div>
             </div>
             <div className="statCard statAction">
               {canCreate ? (
