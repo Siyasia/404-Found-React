@@ -187,7 +187,7 @@ export function formatScheduleLabel(schedule, { customEmpty = 'Custom days' } = 
     }
     case REPEAT.INTERVAL_DAYS: {
       const interval = Math.max(1, schedule.intervalDays || 1)
-      return days.length ? days.join('/') : customEmpty
+      return `Every ${interval} day${interval === 1 ? '' : 's'}`
     }
     default:
       return ''
@@ -232,7 +232,7 @@ export function formatNextDueLabel(schedule, todayISO = toLocalISODate()) {
 
   const today = isoToLocalDate(todayISO)
   const nextDate = isoToLocalDate(next)
-  const diffDays = Math.floor((date - start) / MS_PER_DAY)
+  const diffDays = Math.floor((nextDate - today) / MS_PER_DAY)
 
   if (diffDays <= 7) {
     const dow = nextDate.toLocaleDateString('en-US', { weekday: 'short' })
