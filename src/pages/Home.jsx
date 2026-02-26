@@ -1,23 +1,36 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import ThemeModal from '../Child/ThemeModal.jsx';
 import {
   canCreateOwnTasks,
   canAssignTasksToChildren,
   canCreateProviderTasks,
   canAcceptProviderTasks,
 } from '../Roles/roles.js';
-import ThemeModal from '../Child/ThemeModal.jsx';
-import { Task, FormedHabit } from '../models';
-import { taskList, taskUpdate } from '../lib/api/tasks.js';
+import { 
+  Task, 
+  FormedHabit, 
+  TASK_TYPE_SIMPLE, 
+  TASK_TYPE_BUILD_HABIT, 
+  TASK_TYPE_BREAK_HABIT, 
+  TASK_STATUS_PENDING, 
+  TASK_STATUS_DONE 
+} from '../models';
+import { taskList, taskUpdate, taskCreate } from '../lib/api/tasks.js';
 import { buildHabitDelete, buildHabitList, formedHabitList, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
 import { userUpdate } from '../lib/api/user.js';
 import { userGet } from '../lib/api/authentication.js';
+import SchedulePicker from '../components/SchedulePicker.jsx';
+import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate, computeCurrentStreak, computeBestStreak, REPEAT } from '../lib/schedule.js';
+import TaskCard from '../components/TaskCard.jsx';
 
 const BUILD_KEY = 'ns.buildPlan.v1';
 const BREAK_KEY = 'ns.breakPlan.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
 const FORMED_KEY = 'ns.habitsFormed.v1';
+const TASK_SCHEDULE_KEY = 'ns.taskSchedule.v1';
 
 export default function Home() {
   /*
@@ -45,31 +58,48 @@ export default function Home() {
   const [buildTasks, setBuildTasks] = useState([]);
   const [breakTasks, setBreakTasks] = useState([]);
   // this absolutely blows but whatever :D
-  const [taskCounts, setTaskCounts] = useState({"build": {total: 0, done: 0, pending: 0}, "break": {total: 0, done: 0, pending: 0}, "simple": {total: 0, done: 0, pending: 0}});
+  const [taskCounts, setTaskCounts] = useState({ // default to 0 counts for each type to avoid undefined issues in rendering
+    [TASK_TYPE_BUILD_HABIT]: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_BREAK_HABIT]: { total: 0, done: 0, pending: 0 },
+    [TASK_TYPE_SIMPLE]: { total: 0, done: 0, pending: 0 }
+  });
   const [tasksLoading, setTasksLoading] = useState(true);
+
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskNotes, setNewTaskNotes] = useState('');
+  const [newTaskSchedule, setNewTaskSchedule] = useState({
+    repeat: REPEAT.DAILY,
+    startDate: toLocalISODate(),
+    endDate: '',
+  });
+  const [newTaskError, setNewTaskError] = useState('');
+  const [newTaskSaving, setNewTaskSaving] = useState(false);
 
   const [formedHabits, setFormedHabits] = useState(null);
   const [formedLoading, setFormedLoading] = useState(true);
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [themeChoice, setThemeChoice] = useState(user?.theme || 'pink');
+  const todayISO = useMemo(() => toLocalISODate(), []);
 
   function updateTaskCounts() {
     const getCounts = (arr) => {
       const total = arr.length;
-      const done = arr.filter((t) => t.status === 'done').length;
+      const done = arr.filter((t) => t.status === TASK_STATUS_DONE).length;
       const pending = total - done;
       return { total, done, pending };
     };
-    setSimpleTasks(tasks.filter((t) => (t.taskType || 'simple') === 'simple'));
-    setBuildTasks(tasks.filter((t) => (t.taskType || 'simple') === 'build-habit'));
-    setBreakTasks(tasks.filter((t) => (t.taskType || 'simple') === 'break-habit'));
+
+    // categorize tasks by type for both list and counts
+    setSimpleTasks(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_SIMPLE));
+    setBuildTasks(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BUILD_HABIT));
+    setBreakTasks(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BREAK_HABIT));
     setTaskCounts({
-      "simple": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'simple')),
-      "build": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'build-habit')),
-      "break": getCounts(tasks.filter((t) => (t.taskType || 'simple') === 'break-habit')),
+      [TASK_TYPE_SIMPLE]: getCounts(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_SIMPLE)),
+      [TASK_TYPE_BUILD_HABIT]: getCounts(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BUILD_HABIT)),
+      [TASK_TYPE_BREAK_HABIT]: getCounts(tasks.filter((t) => (t.taskType || TASK_TYPE_SIMPLE) === TASK_TYPE_BREAK_HABIT)),
     });
-  };
+  }
 
   const buildTaskSummaryText = (name, userTasks) => {
     const safeName = name?.trim() || 'there';
@@ -138,7 +168,8 @@ export default function Home() {
           Array.isArray(storedTasks.tasks)
         ) {
           // storedTasks.tasks may already contain Task instances from the response wrapper
-          setTasks(storedTasks.tasks.map((t) => Task.from(t)));
+          const withSchedules = mergeSchedules(storedTasks.tasks.map((t) => Task.from(t)));
+          setTasks(withSchedules);
         } else {
           // mark as loaded but empty on error or no data
           setTasks([]);
@@ -201,13 +232,92 @@ export default function Home() {
 
   const handleToggleMyTaskStatus = async (taskId) => {
 
-    let task = tasks.find((t) => t.id === taskId);
-    let updatedTask = structuredClone(task);
-    updatedTask.status = updatedTask.status === 'done' ? 'pending' : 'done';
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
 
-    await taskUpdate({ id: taskId, status: updatedTask.status })
+    const log = { ...(task.completionLog || {}) };
+    const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
+    const status = doneToday ? TASK_STATUS_PENDING : TASK_STATUS_DONE;
 
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+    if (doneToday) {
+      delete log[todayISO];
+    } else {
+      log[todayISO] = true;
+    }
+
+    const updatedTask = {
+      ...task,
+      status,
+      lastCompletedOn: doneToday ? null : todayISO,
+      completionLog: log,
+    };
+
+    if (task.schedule) {
+      const currentStreak = computeCurrentStreak(updatedTask, todayISO);
+      const bestStreak = Math.max(computeBestStreak(updatedTask), task.stats?.bestStreak || 0, currentStreak);
+      updatedTask.stats = { ...(task.stats || {}), currentStreak, bestStreak };
+    }
+
+    await taskUpdate({
+      id: taskId,
+      status: updatedTask.status,
+      lastCompletedOn: updatedTask.lastCompletedOn,
+      completionLog: updatedTask.completionLog,
+      stats: updatedTask.stats,
+    });
+
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? withTodayStatus(updatedTask) : t)));
+  };
+
+  const handleAddSimpleTask = async (event) => {
+    event.preventDefault();
+    if (newTaskSaving) return;
+
+    const title = newTaskTitle.trim();
+    const notes = newTaskNotes.trim();
+
+    if (!title) {
+      setNewTaskError('Please enter a task name.');
+      return;
+    }
+
+    setNewTaskError('');
+    setNewTaskSaving(true);
+
+    try {
+      const baseTask = new Task({
+        assigneeId: user?.id || null,
+        assigneeName: user?.name || 'You',
+        title,
+        notes,
+        taskType: TASK_TYPE_SIMPLE,
+        status: TASK_STATUS_PENDING,
+        createdAt: new Date().toISOString(),
+        createdById: user?.id || null,
+        createdByName: user?.name || 'You',
+        createdByRole: user?.role || 'user',
+        schedule: newTaskSchedule,
+        completionLog: {},
+      });
+
+      const response = await taskCreate(baseTask);
+      const payload = typeof baseTask.toJSON === 'function' ? baseTask.toJSON() : baseTask;
+      const createdTask = withTodayStatus({
+        ...payload,
+        ...(response && response.id ? { id: response.id } : {}),
+      });
+
+      persistSchedule(createdTask.id, newTaskSchedule);
+      setTasks((prev) => [...prev, createdTask]);
+      setNewTaskTitle('');
+      setNewTaskNotes('');
+      setNewTaskSchedule({ repeat: 'DAILY', startDate: toLocalISODate(), endDate: '' });
+    } catch (err) {
+      console.error('Error creating task', err);
+      setNewTaskError('Could not add task. Please try again.');
+    } finally {
+      setNewTaskSaving(false);
+    }
   };
 
   /*
@@ -274,11 +384,8 @@ export default function Home() {
   if (hour >= 12 && hour < 17) greetingPart = 'afternoon';
   if (hour >= 17) greetingPart = 'evening';
 
-
-
-
-
-  const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'build' | 'break'
+  const [activeTab, setActiveTab] = useState(TASK_TYPE_SIMPLE); 
+  // TASK_TYPE_SIMPLE | TASK_TYPE_BUILD_HABIT | TASK_TYPE_BREAK_HABIT
 
   const friendlyFrequency = (freq) => {
     if (!freq) return 'No schedule set';
@@ -286,6 +393,117 @@ export default function Home() {
     if (freq === 'weekdays') return 'Weekdays';
     if (freq === 'weekends') return 'Weekends';
     return freq;
+  };
+
+  const withTodayStatus = (task) => {
+    if (!task) return task;
+    const log = task.completionLog || {};
+    const doneToday = !!log[todayISO] || task.lastCompletedOn === todayISO;
+     return Task.from({ ...task, status: doneToday ? TASK_STATUS_DONE : TASK_STATUS_PENDING });
+  };
+
+  const loadScheduleCache = () => {
+    try {
+      return JSON.parse(localStorage.getItem(TASK_SCHEDULE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const persistSchedule = (taskId, schedule) => {
+    if (!taskId || !schedule) return;
+    const cache = loadScheduleCache();
+    cache[taskId] = schedule;
+    localStorage.setItem(TASK_SCHEDULE_KEY, JSON.stringify(cache));
+  };
+
+  const mergeSchedules = (list) => {
+    const cache = loadScheduleCache();
+    return (list || []).map((t) => {
+      const schedule = t.schedule || cache[t.id] || null;
+      return withTodayStatus({ ...t, schedule });
+    });
+  };
+
+  const scheduleBadges = (task) => {
+    if (!task?.schedule) return null;
+    const s = task.schedule;
+    const badges = [];
+    const label = formatScheduleLabel(s);
+    if (label) badges.push(label);
+    const todayIso = toLocalISODate();
+    if (s.startDate && s.startDate > todayIso) {
+      badges.push(`Starts ${new Date(`${s.startDate}T00:00:00`).toLocaleDateString()}`);
+    }
+    if (s.endDate) {
+      badges.push(`Ends ${new Date(`${s.endDate}T00:00:00`).toLocaleDateString()}`);
+    }
+
+    return (
+      <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginTop: '.2rem' }}>
+        {badges.map((text, idx) => (
+          <span
+            key={`${task.id}-sch-${idx}`}
+            style={{
+              fontSize: '.7rem',
+              padding: '.1rem .4rem',
+              borderRadius: '999px',
+              background: '#eef2ff',
+              color: '#4338ca',
+              border: '1px solid #e0e7ff'
+            }}
+          >
+            {text}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const categorizeTask = (task) => {
+    if (!task?.schedule) return { bucket: 'unscheduled', nextDue: null };
+    const s = task.schedule;
+    const dueToday = isDueOnDate(s, todayISO) && task.lastCompletedOn !== todayISO;
+    if (dueToday) return { bucket: 'due', nextDue: todayISO };
+
+    const nextDue = getNextDueDate(s, todayISO);
+    if (nextDue) {
+      const diffDays = Math.floor((new Date(`${nextDue}T00:00:00`) - new Date(`${todayISO}T00:00:00`)) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 7) return { bucket: 'upcoming', nextDue };
+      return { bucket: 'later', nextDue };
+    }
+    return { bucket: 'later', nextDue: null };
+  };
+
+  const splitTasks = (list) => {
+    const due = [];
+    const upcoming = [];
+    const later = [];
+
+    (list || []).forEach((t) => {
+      const info = categorizeTask(t);
+      if (info.bucket === 'due') {
+        due.push(t);
+      } else if (info.bucket === 'upcoming') {
+        upcoming.push({ ...t, nextDue: info.nextDue });
+      } else if (info.bucket === 'later') {
+        later.push({ ...t, nextDue: info.nextDue });
+      } else {
+        // unscheduled tasks behave like due today if still pending
+        if ((t.status || 'pending') !== 'done') {
+          due.push(t);
+        }
+      }
+    });
+
+    upcoming.sort((a, b) => new Date(`${a.nextDue}T00:00:00`) - new Date(`${b.nextDue}T00:00:00`));
+    later.sort((a, b) => {
+      const aDate = a.nextDue ? new Date(`${a.nextDue}T00:00:00`) : new Date(`${todayISO}T00:00:00`).getTime() + 365 * 24 * 60 * 60 * 1000;
+      const bDate = b.nextDue ? new Date(`${b.nextDue}T00:00:00`) : new Date(`${todayISO}T00:00:00`).getTime() + 365 * 24 * 60 * 60 * 1000;
+      return aDate - bDate;
+    });
+
+    return { due, upcoming, later };
   };
 
   const daysAgo = (dateStr) => {
@@ -316,432 +534,262 @@ export default function Home() {
     (h) => !h.userId || h.userId === user?.id
   );
 
+  const roleEmoji = user?.role === 'child'
+    ? '⭐'
+    : user?.role === 'user'
+      ? '🍎'
+      : '';
+
   return (
-    <section className="container">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-        <h1 style={{ marginBottom: '.25rem' }}>Good {greetingPart}, {user?.name || 'there'}</h1>
-        {user?.role === 'child' && (
-          <button
-            type="button"
-            aria-label="Theme settings"
-            onClick={() => setThemeOpen(true)}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontSize: '1.15rem',
-              opacity: .35,
-              padding: '.25rem .35rem',
-              borderRadius: '.5rem'
-            }}
-            title="Settings"
-          >
-            🎨
-          </button>
-        )}
-      </div>
-      <p className="sub hero">Here's what's on your plate today.</p>
-
-      {/* Summary strip */}
-      <div style={{ marginTop: '1rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-            <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Tasks today</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{taskCounts.simple.total}</div>
-            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{taskCounts.simple.pending} pending · {taskCounts.simple.done} done</div>
-          </div>
-          <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-            <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Habits to build</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{taskCounts.build.total}</div>
-            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{taskCounts.build.pending} pending · {taskCounts.build.done} done</div>
-          </div>
-          <div style={{ flex: '1 1 220px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-            <div style={{ fontSize: '.75rem', letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7280' }}>Habits to break</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{taskCounts.break.total}</div>
-            <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{taskCounts.break.pending} pending · {taskCounts.break.done} done</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Role-based overview card */}
-      {user && (canCreate || showParentActions || showProviderActions || showParentApproval) && (
-        <div className="card" style={{ marginTop: '1.5rem', maxWidth: '780px' }}>
-          {canCreate && (
-            <>
-              <h2>Your habits</h2>
-            </>
-          )}
-
-          {showParentActions && (
-            <>
-              <h2 style={{ marginTop: canCreate ? '1.5rem' : 0 }}>Parent tools</h2>
-              <Link to="/parent" className="btn btn-ghost" style={{ marginTop: '.75rem' }}>
-                Open parent dashboard
-              </Link>
-            </>
-          )}
-
-          {showProviderActions && (
-            <>
-              <h2 style={{ marginTop: (canCreate || showParentActions) ? '1.5rem' : 0 }}>Provider tools</h2>
-              <Link to="/provider" className="btn btn-ghost" style={{ marginTop: '.75rem' }}>
-                Open provider dashboard
-              </Link>
-            </>
-          )}
-
-          {showParentApproval && (
-            <>
-              <h2 style={{ marginTop: (canCreate || showParentActions || showProviderActions) ? '1.5rem' : 0 }}>
-                Tasks waiting for your approval
-              </h2>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Tasks for the current user */}
-      <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
-        <h2>Your tasks for today</h2>
-
-        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', margin: '.5rem 0 1rem' }}>
-          <button
-            type="button"
-            onClick={speakTaskSummary}
-            disabled={!supportsTTS}
-            aria-label="Read a summary of my assigned tasks"
-            style={{
-              padding: '.6rem .9rem',
-              borderRadius: '10px',
-              border: '1px solid #e5e7eb',
-              background: 'white',
-              cursor: supportsTTS ? 'pointer' : 'not-allowed',
-              fontWeight: 600,
-            }}
-          >
-            🔊 Read task summary
-          </button>
-
-          {!supportsTTS && (
-            <span style={{ fontSize: '.85rem', color: '#6b7280' }}>
-              TTS not supported in this browser
-            </span>
-          )}
-        </div>
-
-        {tasksLoading ? (
-          <div className="sub" style={{ marginTop: '.5rem' }}>Loading tasks…</div>
-        ) : tasks.length === 0 ? (
-          <div className="sub" style={{ marginTop: '.5rem' }}>
-            You don&apos;t have any tasks assigned yet.
-            <div style={{ marginTop: '.25rem' }}>
-              If you&apos;re a parent, you can add tasks in the <Link to="/parent">Parent dashboard</Link>.
-            </div>
-            <div style={{ marginTop: '.25rem' }}>
-              You can also start a <Link to="/build-habit">Build habit</Link> or <Link to="/break-habit">Break habit</Link> plan below.
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '.5rem', marginTop: '.75rem' }}>
-              {[
-                { key: 'simple', label: 'Simple tasks', count: taskCounts.simple.total },
-                { key: 'build', label: 'Build habits', count: taskCounts.build.total },
-                { key: 'break', label: 'Break habits', count: taskCounts.break.total },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  className="btn"
-                  style={{
-                    padding: '.5rem .75rem',
-                    borderRadius: '999px',
-                    border: activeTab === tab.key ? '1px solid #4f46e5' : '1px solid #e5e7eb',
-                    background: activeTab === tab.key ? '#eef2ff' : 'white',
-                    color: '#111827',
-                  }}
-                >
-                  {tab.label} ({tab.count})
-                </button>
-              ))}
-            </div>
-
-            {/* List by active tab */}
-            <div style={{ marginTop: '.75rem' }}>
-              {activeTab === 'simple' && (
-                <ul>
-                  {simpleTasks
-                    .slice()
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .map((task) => (
-                      <li key={task.id} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        gap: '.75rem', padding: '.5rem .25rem', borderBottom: '1px solid #f3f4f6'
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600 }}>{task.title}</div>
-                          <div style={{ fontSize: '.85rem', color: '#6b7280' }}>
-                            {task.notes || '-'}
-                            <span style={{ marginLeft: '.5rem', opacity: 0.8 }}>{daysAgo(task.createdAt)}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <span style={{
-                            display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
-                            background: task.status === 'done' ? '#d1fae5' : '#dbeafe',
-                            color: task.status === 'done' ? '#065f46' : '#1e3a8a'
-                          }}>
-                            {task.status === 'done' ? 'Done' : 'Pending'}
-                          </span>
-                        </div>
-                        <div>
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={task.status === 'done'}
-                              onChange={() => handleToggleMyTaskStatus(task.id)}
-                            />
-                            <span style={{ fontSize: '.9rem' }}>Mark done</span>
-                          </label>
-                        </div>
-                      </li>
-                    ))}
-                </ul>
-              )}
-
-              {activeTab === 'build' && (
-                <ul>
-                  {buildTasks
-                    .slice()
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .map((task) => {
-                      const steps = Array.isArray(task.steps) ? task.steps : [];
-                      return (
-                        <li key={task.id} style={{
-                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                          gap: '.75rem', padding: '.5rem .25rem', borderBottom: '1px solid #f3f4f6'
-                        }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600 }}>{task.title}</div>
-                            {task.notes && <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{task.notes}</div>}
-                            <div style={{ fontSize: '.8rem', color: '#6b7280', marginTop: '.15rem' }}>{daysAgo(task.createdAt)}</div>
-                            {steps.length > 0 && (
-                              <div style={{ marginTop: '.35rem' }}>
-                                <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Steps</div>
-                                <ol style={{ margin: '.25rem 0 0 1rem', maxHeight: '8rem', overflow: 'auto' }}>
-                                  {steps.map((s, idx) => (<li key={idx} style={{ margin: '.1rem 0' }}>{s}</li>))}
-                                </ol>
-                              </div>
-                            )}
-                            <div style={{ fontSize: '.85rem', color: '#6b7280', marginTop: '.35rem' }}>
-                              Schedule: {friendlyFrequency(task.frequency)}
-                            </div>
-                          </div>
-                          <div>
-                            <span style={{
-                              display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
-                              background: task.status === 'done' ? '#d1fae5' : '#dbeafe',
-                              color: task.status === 'done' ? '#065f46' : '#1e3a8a'
-                            }}>
-                              {task.status === 'done' ? 'Done' : 'Pending'}
-                            </span>
-                          </div>
-                          <div>
-                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
-                              <input
-                                type="checkbox"
-                                checked={task.status === 'done'}
-                                onChange={() => handleToggleMyTaskStatus(task.id)}
-                              />
-                              <span style={{ fontSize: '.9rem' }}>Mark done</span>
-                            </label>
-                          </div>
-                        </li>
-                      );
-                    })}
-                </ul>
-              )}
-
-              {activeTab === 'break' && (
-                <ul>
-                  {breakTasks
-                    .slice()
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .map((task) => {
-                      const reps = Array.isArray(task.replacements) ? task.replacements : [];
-                      return (
-                        <li key={task.id} style={{
-                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                          gap: '.75rem', padding: '.5rem .25rem', borderBottom: '1px solid #f3f4f6'
-                        }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600 }}>{task.habitToBreak || task.title}</div>
-                            {task.notes && <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{task.notes}</div>}
-                            <div style={{ fontSize: '.8rem', color: '#6b7280', marginTop: '.15rem' }}>{daysAgo(task.createdAt)}</div>
-                            {reps.length > 0 && (
-                              <div style={{ marginTop: '.35rem' }}>
-                                <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Try instead</div>
-                                <ul style={{ margin: '.25rem 0 0 1rem', maxHeight: '8rem', overflow: 'auto', listStyle: 'disc' }}>
-                                  {reps.map((r, idx) => (<li key={idx} style={{ margin: '.1rem 0' }}>{r}</li>))}
-                                </ul>
-                              </div>
-                            )}
-                            <div style={{ fontSize: '.85rem', color: '#6b7280', marginTop: '.35rem' }}>
-                              Schedule: {friendlyFrequency(task.frequency)}
-                            </div>
-                          </div>
-                          <div>
-                            <span style={{
-                              display: 'inline-block', fontSize: '.75rem', padding: '.1rem .5rem', borderRadius: '999px',
-                              background: task.status === 'done' ? '#d1fae5' : '#fee2e2',
-                              color: task.status === 'done' ? '#065f46' : '#991b1b'
-                            }}>
-                              {task.status === 'done' ? 'Done' : 'Pending'}
-                            </span>
-                          </div>
-                          <div>
-                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
-                              <input
-                                type="checkbox"
-                                checked={task.status === 'done'}
-                                onChange={() => handleToggleMyTaskStatus(task.id)}
-                              />
-                              <span style={{ fontSize: '.9rem' }}>Mark done</span>
-                            </label>
-                          </div>
-                        </li>
-                      );
-                    })}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* My plans */}
-      {canCreate && (
-        <>
-          <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
-            <h2>Your habit plans</h2>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem', flexWrap: 'wrap' }}>
-              {/* Build plan tile */}
-              <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-                <h3 style={{ margin: 0 }}>Build a habit</h3>
-                {buildPlan ? (
-                  <>
-                    <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{buildPlan.goal || 'No goal set'}</div>
-
-                    {buildStepsPreview.length > 0 ? (
-                      <div style={{ marginTop: '.35rem' }}>
-                        <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>First steps</div>
-                        <ol style={{ margin: '.25rem 0 0 1rem' }}>
-                          {buildStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
-                        </ol>
-                      </div>
-                    ) : (
-                      <div className="sub" style={{ marginTop: '.35rem' }}>No steps added yet.</div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
-                      <Link to="/build-habit" className="btn btn-ghost">View / edit plan</Link>
-
-                      <button type="button" className="btn" onClick={completeBuildPlan}>
-                        Mark complete
-                      </button>
-
-                      <button type="button" className="btn btn-ghost" onClick={deleteBuildPlan}>
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="sub" style={{ marginTop: '.35rem' }}>No build-habit plan yet.</div>
-                    <Link to="/build-habit" className="btn" style={{ marginTop: '.5rem' }}>Create build-habit plan</Link>
-                  </>
-                )}
-              </div>
-
-              {/* Break plan tile */}
-              <div style={{ flex: '1 1 340px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem' }}>
-                <h3 style={{ margin: 0 }}>Break a habit</h3>
-                {breakPlan ? (
-                  <>
-                    <div style={{ marginTop: '.35rem', fontWeight: 600 }}>{breakPlan.habit || 'No habit set'}</div>
-
-                    {breakStepsPreview.length > 0 ? (
-                      <div style={{ marginTop: '.35rem' }}>
-                        <div style={{ fontSize: '.8rem', fontWeight: 600, color: '#374151' }}>Try instead</div>
-                        <ol style={{ margin: '.25rem 0 0 1rem' }}>
-                          {breakStepsPreview.map((s, idx) => (<li key={idx}>{s}</li>))}
-                        </ol>
-                      </div>
-                    ) : (
-                      <div className="sub" style={{ marginTop: '.35rem' }}>No replacements added yet.</div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
-                      <Link to="/break-habit" className="btn btn-ghost">View / edit plan</Link>
-
-                      <button type="button" className="btn" onClick={completeBreakPlan}>
-                        Mark complete
-                      </button>
-
-                      <button type="button" className="btn btn-ghost" onClick={deleteBreakPlan}>
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="sub" style={{ marginTop: '.35rem' }}>No break-habit plan yet.</div>
-                    <Link to="/break-habit" className="btn" style={{ marginTop: '.5rem' }}>Create break-habit plan</Link>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Habits formed */}
-          <div className="card" style={{ marginTop: '1.5rem', maxWidth: '100%' }}>
-            <h2>Habits formed</h2>
-
-            {formedForUser.length === 0 ? (
-              <div className="sub" style={{ marginTop: '.5rem' }}>
-                Nothing here yet. Mark a plan complete to add it.
-              </div>
-            ) : (
-              <ul style={{ marginTop: '.75rem', paddingLeft: 0, listStyle: 'none', display: 'grid', gap: '.75rem' }}>
-                {formedForUser.map((h) => (
-                  <li
-                    key={h.id}
-                    style={{
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '.75rem',
-                      padding: '1rem',
-                      background: 'white'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'baseline' }}>
-                      <div style={{ fontWeight: 700 }}>{h.title}</div>
-                      <span style={{ fontSize: '.8rem', color: '#6b7280' }}>
-                        {h.completedAt ? new Date(h.completedAt).toLocaleDateString() : ''}
-                      </span>
-                    </div>
-
-                    <div style={{ marginTop: '.35rem', fontSize: '.85rem', color: '#6b7280' }}>
-                      Type: {h.type === 'build' ? 'Build a habit' : 'Break a habit'}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+    <div className="homePage">
+      <div className="homeLayout">
+        <header className="homeHeader">
+          <div className="homeHeaderTop">
+            <h1 className="homeTitle">Good {greetingPart}, {user?.name || 'there'}</h1>
+            {user?.role === 'child' && (
+              <button
+                type="button"
+                aria-label="Theme settings"
+                onClick={() => setThemeOpen(true)}
+                className="themeButton"
+                title="Settings"
+              >
+                🎨
+              </button>
             )}
           </div>
-        </>
-      )}
+          <p className="homeSub">Here's what's on your plate today.</p>
+        </header>
+
+        <section className="homeLeft">
+          <div className="card todayCard">
+            <div className="todayHeader">
+              <h2 className="sectionTitle">Today</h2>
+              <button
+                type="button"
+                onClick={speakTaskSummary}
+                disabled={!supportsTTS}
+                className="btn todayReadButton"
+              >
+                🔊 Read
+              </button>
+            </div>
+
+            <div className="tabList" aria-label="Task categories">
+              <button type="button" className="btn tabButton tabButtonActive" disabled>
+                Simple ({taskCounts[TASK_TYPE_SIMPLE].total})
+              </button>
+            </div>
+
+            <div className="taskList">
+              {tasksLoading ? (
+                <div className="mutedText">Loading…</div>
+              ) : tasks.length === 0 ? (
+                <EmptyState
+                  icon="📋"
+                  title="No tasks"
+                  description="Create a habit plan"
+                  buttonLabel="Build"
+                  buttonLink="/build-habit"
+                />
+              ) : (
+                <>
+                  {(() => {
+                    const groups = splitTasks(simpleTasks);
+                    const renderItem = (task) => (
+                      <li key={task.id} className="taskListItem">
+                        <TaskCard task={task}>
+                          <input
+                            type="checkbox"
+                            checked={task.status === TASK_STATUS_DONE}
+                            onChange={() => handleToggleMyTaskStatus(task.id)}
+                            className="taskCheckbox"
+                          />
+                        </TaskCard>
+                      </li>
+                    );
+
+                    return (
+                      <div className="taskGroup">
+                        {groups.due.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Due Today</div>
+                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.upcoming.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Upcoming (next 7 days)</div>
+                            <ul className="taskListGroup">{groups.upcoming.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.later.length > 0 && (
+                          <>
+                            <div className="taskGroupTitle">Starts Later</div>
+                            <ul className="taskListGroup">{groups.later.map(renderItem)}</ul>
+                          </>
+                        )}
+                        {groups.due.length === 0 && groups.upcoming.length === 0 && groups.later.length === 0 && (
+                          <div className="mutedText">No tasks scheduled.</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+              </>
+            )}
+            </div>
+          </div>
+
+          {user?.role !== 'child' && (
+            <div className="card addTaskCard">
+              <div className="addTaskHeader">
+                <h2 className="sectionTitle">Add a task</h2>
+                <span className="mutedText">Simple tasks for you</span>
+              </div>
+
+              <form onSubmit={handleAddSimpleTask} className="addTaskForm">
+                <label className="fieldLabel">
+                  <span className="fieldTitle">Task name</span>
+                  <input
+                    type="text"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    placeholder="Example: Read for 20 minutes"
+                    className="textInput"
+                  />
+                </label>
+
+                <label className="fieldLabel">
+                  <span className="fieldTitle">Notes (optional)</span>
+                  <textarea
+                    rows={3}
+                    value={newTaskNotes}
+                    onChange={(e) => setNewTaskNotes(e.target.value)}
+                    placeholder="Add details or reminders"
+                    className="textInput"
+                    style={{ fontFamily: 'inherit' }}
+                  />
+                </label>
+
+                <div className="scheduleBox">
+                  <div className="fieldTitle">Schedule</div>
+                  <SchedulePicker value={newTaskSchedule} onChange={setNewTaskSchedule} />
+                </div>
+
+                {newTaskError && (
+                  <div className="errorText">{newTaskError}</div>
+                )}
+
+                <button
+                  type="submit"
+                  className="btn addTaskButton"
+                  disabled={newTaskSaving}
+                >
+                  {newTaskSaving ? 'Adding…' : 'Add task'}
+                </button>
+              </form>
+            </div>
+          )}
+        </section>
+
+        <aside className="homeRight">
+          <div className="statsGrid">
+            <div className="statCard">
+              <div className="statLabel">Tasks</div>
+              <div className="statValue">{taskCounts[TASK_TYPE_SIMPLE].total}</div>
+              <div className="statSub">{taskCounts[TASK_TYPE_SIMPLE].pending} pending</div>
+            </div>
+            <div className="statCard">
+              <div className="statLabel">Build</div>
+              <div className="statValue">{taskCounts[TASK_TYPE_BUILD_HABIT].total}</div>
+              <div className="statSub">{taskCounts[TASK_TYPE_BUILD_HABIT].pending} pending</div>
+            </div>
+            <div className="statCard">
+              <div className="statLabel">Break</div>
+              <div className="statValue">{taskCounts[TASK_TYPE_BREAK_HABIT].total}</div>
+              <div className="statSub">{taskCounts[TASK_TYPE_BREAK_HABIT].pending} pending</div>
+            </div>
+            <div className="statCard statAction">
+              {canCreate ? (
+                <Link to="/build-habit" className="btn" style={{ width: '100%' }}>
+                  + New Plan
+                </Link>
+              ) : (
+                <span className="mutedText">Ready?</span>
+              )}
+            </div>
+          </div>
+
+          {canCreate && (
+            <div className="card plansCard">
+              <h2 className="sectionTitle">Your Plans</h2>
+
+              <div className="planRow planRowBuild">
+                <div>
+                  <div className="planTitle"> Build</div>
+                  {buildPlan ? (
+                    <div className="planSub">{buildPlan.goal || 'No goal'}</div>
+                  ) : (
+                    <div className="planSub mutedText">Start a habit</div>
+                  )}
+                </div>
+                <div className="planActions">
+                  <Link to="/build-habit" className="btn btn-ghost planButton">
+                    {buildPlan ? 'Edit' : 'Create'}
+                  </Link>
+                  {buildPlan && (
+                    <button type="button" className="btn planButton" onClick={completeBuildPlan}>
+                      Done
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="planRow planRowBreak">
+                <div>
+                  <div className="planTitle"> Break</div>
+                  {breakPlan ? (
+                    <div className="planSub">{breakPlan.habit || 'No habit'}</div>
+                  ) : (
+                    <div className="planSub mutedText">Replace a habit</div>
+                  )}
+                </div>
+                <div className="planActions">
+                  <Link to="/break-habit" className="btn btn-ghost planButton">
+                    {breakPlan ? 'Edit' : 'Create'}
+                  </Link>
+                  {breakPlan && (
+                    <button type="button" className="btn planButton" onClick={completeBreakPlan}>
+                      Done
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {canCreate && (
+            <div className="card masteredCard">
+              <h2 className="sectionTitle">Mastered 🏆</h2>
+
+              {formedForUser.length === 0 ? (
+                <EmptyState icon="⭐" title="Nothing yet" description="Complete a plan" buttonLabel="Start" buttonLink="/build-habit" />
+              ) : (
+                <ul className="masteredList">
+                  {formedForUser.slice(0, 6).map((h) => (
+                    <li key={h.id} className="masteredItem">
+                      <div className="masteredTitle">{h.title}</div>
+                      <div className="masteredMeta">
+                        {h.type === 'build' ? '📈' : '🚫'} {h.completedAt ? new Date(h.completedAt).toLocaleDateString() : ''}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </aside>
+      </div>
 
       <ThemeModal
         open={themeOpen}
@@ -750,6 +798,6 @@ export default function Home() {
         onClose={() => setThemeOpen(false)}
         onSave={saveChildTheme}
       />
-    </section>
+    </div>
   );
 }
