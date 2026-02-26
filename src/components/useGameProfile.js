@@ -17,10 +17,9 @@ export function useGameProfile() {
             //safely try to get the profile of current user
             try {
                 const prof = await getGameProfile();
-                console.log("getGameProfile(): ", prof);
-
+                console.log("prof.game_profile:", prof.game_profile);
                 if (prof.status_code === 200) {
-                    setProfile(GameProfile.from(prof.profile));
+                    setProfile(GameProfile.from(prof.game_profile));
                 }
                 else {
                     setError("Could not load profile");

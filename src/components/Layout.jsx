@@ -7,6 +7,7 @@ export default function Layout({ children }) {
   const { user, setUser } = useUser();
   const canCreate = user && canCreateOwnTasks(user);
   const isParent = user?.role === ROLE.PARENT;
+  const useGame = user?.role === ROLE.USER || user?.role === ROLE.CHILD;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -54,10 +55,14 @@ export default function Layout({ children }) {
                     <NavLink to="/break-habit" className="nav-link">Break Habit</NavLink>
                   </>
                 )}
+                {useGame && (
+                  <>
+                    <NavLink to="/shop" className="nav-link">Shop</NavLink>
+                  </>
+                )}
                 {/* <NavLink to="/about" className="nav-link">About</NavLink> */}
               </>
             )}
-            <NavLink to="/shop" className="nav-link">Shop</NavLink>
           </nav>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }} />

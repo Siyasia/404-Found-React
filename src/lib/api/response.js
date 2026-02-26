@@ -114,7 +114,7 @@ export class ChildLoginResponse extends Response {
 export class GetGameProfileResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
-        this.game_profile = json_data.game_profile ? GameProfile.from(json_data.game_profile) : null;
+        this.game_profile = json_data.profile ? GameProfile.from(json_data.profile) : null;
     }
 }
 
