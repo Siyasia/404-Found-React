@@ -25,7 +25,7 @@ export default function Signup() {
     if (gameProfileResponse.status_code !== 200) {
       console.error('Failed to create game profile:', gameProfileResponse);
     } else {
-      console.log('Game profile created successfully:', gameProfileResponse.profile);
+      console.log('Game profile created successfully:', gameProfileResponse.id);
     }
   }
 
