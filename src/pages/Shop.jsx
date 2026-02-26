@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useGameProfile } from '../components/useGameProfile.js';
-import { GameItem } from '../models/index.js';
+import { GameItem, GameProfile } from '../models/index.js';
 
 export default function Shop() {
 
   const { profile, saveProfile, loading, error } = useGameProfile();
   const [modal, setModal] = React.useState(null); // For showing item details or purchase confirmation
+  //used for current front-end item holding
+  const [inventory, setInventory] = React.useState([]); // User's purchased items
 
   if (loading) return <p>Loading...</p>;
 
@@ -32,31 +34,47 @@ export default function Shop() {
   async function buyItem(item) {
 
     //holds profile information to be updated after buying item
-    const updated = { ...profile };
+    const updated = new GameProfile({
+      id: profile.id,
+      coins: profile.coins,
+      inventory: profile.inventory
+    });
+    console.log("Current profile ID:", profile.id);
+    console.log("Saving profile ID:", updated.id);
 
     //temporary solution to add coins to user's game profile
     if (item.name === 'get coins') {
       updated.coins += 200;
+      showModal("You received 200 coins!");
+      await saveProfile(updated);
+      return;
     }
     if (profile.inventory.find(i => i.id === item.id)) {
       showModal(`You already own a(n) ${item.name}.`);
       return;
     }
     //if they do not own the item and have enough money, buy item
-    if (profile.coins >= item.price && item.name !== 'get coins') {
-      updated.coins -= item.price;
-      updated.inventory.push({
-        id: item.id,
-        equipped: false,
-      })
-      showModal(`You bought a(n) ${item.name}!`);
-      //sort the user's inventory by ID
-      updated.inventory.sort((a, b) => a.id - b.id);
-    }
-    else {
-      showModal('Not enough coins.');
+    if (profile.coins < item.price) {
+      showModal("Not enough coins.");
+      return;
     }
 
+    //used for current front end storage of inventory
+    const newInventory = [...inventory, item];
+    newInventory.sort((a, b) => a.id - b.id);
+    setInventory(newInventory);
+
+    //if passed all above cases, buy item
+    updated.coins -= item.price;
+    updated.inventory.push({
+      id: item.id,
+      equipped: false,
+    });
+
+    updated.inventory.sort((a, b) => a.id - b.id);
+    showModal(`You bought a(n) ${item.name}!`)
+
+    console.log("Saving profile ID:", updated.id);
     //update user's profile with item and coin info
     await saveProfile(updated);
   };
@@ -100,7 +118,7 @@ export default function Shop() {
           <p>You don't have any items yet. Try buying some from the shop!</p>
         ) : (
           <div className="inventory" style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
-            {profile.inventory.map(item => (
+            {inventory.map(item => (
               <div key={item.id} className="inventory-item" style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', width: '100px', textAlign: 'center' }}>
                 <img src={item.image} alt={item.name} style={{ width: '75px', height: '75px' }} />
                 <h4>{item.name}</h4>
