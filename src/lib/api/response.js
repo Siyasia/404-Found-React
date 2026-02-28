@@ -107,7 +107,8 @@ export class GetChildResponse extends Response {
 
 export class ChildLoginResponse extends Response {
     constructor(status, json_data) {
-        super(status, json_data);      
+        super(status, json_data);
+        this.child = json_data.child ? Child.from(json_data.child) : null;
     }
 }
 

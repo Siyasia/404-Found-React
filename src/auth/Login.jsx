@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { loginAdult, loginChild } from '../lib/api/authentication.js';
+import {createGameProfile, getGameProfile} from "../lib/api/game.js";
+import {GameProfile} from "../models/index.js";
 
 export default function Login() {
 
@@ -36,6 +38,18 @@ export default function Login() {
       const child = response.child;
 
       setUser({ ...child, role: 'child' });
+
+      try {
+        let resp = await getGameProfile()
+        const breakpoint = 1;
+      } catch (error) {
+        const breakpoint = 1;
+        if (error.status === 404) {
+          console.log('No game profile found for child, creating one...');
+          await createGameProfile(new GameProfile({id: child.code}));
+        }
+      }
+
       navigate('/home');
       return;
     }
