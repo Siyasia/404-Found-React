@@ -40,10 +40,8 @@ export default function Login() {
       setUser({ ...child, role: 'child' });
 
       try {
-        let resp = await getGameProfile()
-        const breakpoint = 1;
+        await getGameProfile()
       } catch (error) {
-        const breakpoint = 1;
         if (error.status === 404) {
           console.log('No game profile found for child, creating one...');
           await createGameProfile(new GameProfile({id: child.code}));
