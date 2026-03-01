@@ -386,6 +386,7 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState(TASK_TYPE_SIMPLE); 
   // TASK_TYPE_SIMPLE | TASK_TYPE_BUILD_HABIT | TASK_TYPE_BREAK_HABIT
+  const [activeView, setActiveView] = useState('timeline')
 
   const friendlyFrequency = (freq) => {
     if (!freq) return 'No schedule set';
@@ -496,6 +497,28 @@ export default function Home() {
       }
     });
 
+    // Sort 'due' for display: tasks with a timeOfDay first (ascending HH:MM), then untimed tasks.
+    // Stable tiebreaker: title, then createdAt timestamp.
+    due.sort((a, b) => {
+      const ta = a.timeOfDay || null;
+      const tb = b.timeOfDay || null;
+      if (ta && tb) {
+        if (ta < tb) return -1;
+        if (ta > tb) return 1;
+        // fallthrough to tiebreaker
+      } else if (ta && !tb) {
+        return -1;
+      } else if (!ta && tb) {
+        return 1;
+      }
+      // tie-break by title (locale), then createdAt
+      const titleCmp = (a.title || '').localeCompare(b.title || '');
+      if (titleCmp !== 0) return titleCmp;
+      const ca = new Date(a.createdAt || 0).getTime();
+      const cb = new Date(b.createdAt || 0).getTime();
+      return ca - cb;
+    });
+
     upcoming.sort((a, b) => new Date(`${a.nextDue}T00:00:00`) - new Date(`${b.nextDue}T00:00:00`));
     later.sort((a, b) => {
       const aDate = a.nextDue ? new Date(`${a.nextDue}T00:00:00`) : new Date(`${todayISO}T00:00:00`).getTime() + 365 * 24 * 60 * 60 * 1000;
@@ -597,15 +620,18 @@ export default function Home() {
                   {(() => {
                     const groups = splitTasks(simpleTasks);
                     const renderItem = (task) => (
-                      <li key={task.id} className="taskListItem">
-                        <TaskCard task={task}>
-                          <input
-                            type="checkbox"
-                            checked={task.status === TASK_STATUS_DONE}
-                            onChange={() => handleToggleMyTaskStatus(task.id)}
-                            className="taskCheckbox"
-                          />
-                        </TaskCard>
+                      <li key={task.id} className="taskListItem" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <TaskCard task={task}>
+                            <input
+                              type="checkbox"
+                              checked={task.status === TASK_STATUS_DONE}
+                              onChange={() => handleToggleMyTaskStatus(task.id)}
+                              className="taskCheckbox"
+                            />
+                          </TaskCard>
+                        </div>
+                        {/* time badge handled inside TaskCard; keep children area for checkbox */}
                       </li>
                     );
 
@@ -614,7 +640,22 @@ export default function Home() {
                         {groups.due.length > 0 && (
                           <>
                             <div className="taskGroupTitle">Due Today</div>
-                            <ul className="taskListGroup">{groups.due.map(renderItem)}</ul>
+                            {/* Show timed tasks first, then an "Anytime" divider above untimed tasks */}
+                            {(() => {
+                              const timed = groups.due.filter(t => t.timeOfDay);
+                              const untimed = groups.due.filter(t => !t.timeOfDay);
+                              return (
+                                <>
+                                  {timed.length > 0 && <ul className="taskListGroup">{timed.map(renderItem)}</ul>}
+                                  {untimed.length > 0 && (
+                                    <>
+                                      <div style={{ marginTop: 8, marginBottom: 6, fontSize: 13, color: '#6b7280' }}>Anytime</div>
+                                      <ul className="taskListGroup">{untimed.map(renderItem)}</ul>
+                                    </>
+                                  )}
+                                </>
+                              )
+                            })()}
                           </>
                         )}
                         {groups.upcoming.length > 0 && (

@@ -67,6 +67,8 @@ export default function SchedulePicker({ value, onChange }) {
           <input
             type="number"
             min="1"
+            id="schedule-interval"
+            name="scheduleInterval"
             value={schedule.intervalDays || 1}
             onChange={(e) => update({ intervalDays: Math.max(1, Number(e.target.value) || 1) })}
             className="schedule-control"
@@ -79,6 +81,8 @@ export default function SchedulePicker({ value, onChange }) {
           <span>Start date</span>
           <input
             type="date"
+            id="schedule-start-date"
+            name="scheduleStartDate"
             value={schedule.startDate}
             onChange={(e) => update({ startDate: e.target.value })}
             className="schedule-control"
@@ -88,6 +92,8 @@ export default function SchedulePicker({ value, onChange }) {
         <div className="schedule-field">
           <label className="schedule-checkbox">
             <input
+              id="schedule-no-end"
+              name="scheduleNoEnd"
               type="checkbox"
               checked={noEndDate}
               onChange={(e) => update({ endDate: e.target.checked ? '' : schedule.startDate })}
@@ -95,12 +101,17 @@ export default function SchedulePicker({ value, onChange }) {
             <span>No end date</span>
           </label>
           {!noEndDate && (
-            <input
-              type="date"
-              value={schedule.endDate || ''}
-              onChange={(e) => update({ endDate: e.target.value })}
-              className="schedule-control"
-            />
+            <label className="schedule-field">
+              <span>End date</span>
+              <input
+                id="schedule-end-date"
+                name="scheduleEndDate"
+                type="date"
+                value={schedule.endDate || ''}
+                onChange={(e) => update({ endDate: e.target.value })}
+                className="schedule-control"
+              />
+            </label>
           )}
         </div>
       </div>
