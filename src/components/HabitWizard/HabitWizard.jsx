@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { useCallback } from 'react';                // React core and hooks
 import PropTypes from 'prop-types';                        // Type checking for props
 import './HabitWizard.css';                                // Wizard styles
@@ -94,6 +95,9 @@ export default function HabitWizard({
             hasGoalEndDate={wizard.state.hasGoalEndDate}
             onHasGoalEndDateChange={wizard.setHasGoalEndDate}
             goalWindowError={wizard.state.errors.goalWindow}
+            coinsPerCompletion={WIZARD_CONFIG.COINS_PER_COMPLETION}
+            rewardGoalTitle={wizard.state.rewardGoalTitle}
+            rewardGoalCostCoins={wizard.state.rewardGoalCostCoins}
           />
         );
       case 'details':
