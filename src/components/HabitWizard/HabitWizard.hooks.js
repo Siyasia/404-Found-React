@@ -129,9 +129,6 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
 
       if (trimmedValue && trimmedValue.length >= 3) {
         newInferredType = inferGoalType(trimmedValue);
-        // Debug: show what inference produced for this title
-        // eslint-disable-next-line no-console
-        console.log('[HabitWizard] inferGoalType ->', newInferredType, 'for title:', trimmedValue);
       } else {
         newInferredType = null;
       }
@@ -199,14 +196,29 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       const newErrors = { ...prev.errors, taskForm: undefined };
 
       if (field === 'schedule') {
-        // When schedule changes, also update startDate/endDate from schedule if present
+        // When schedule changes, also mirror its start/end dates onto the task form.
         return {
           ...prev,
           taskForm: {
             ...prev.taskForm,
             schedule: value,
-            startDate: value.startDate || prev.taskForm.startDate || prev.goalStartDate,
-            endDate: value.endDate || prev.taskForm.endDate || '',
+            startDate: value?.startDate || prev.taskForm.startDate || prev.goalStartDate,
+            endDate: value?.endDate || '',
+          },
+          errors: newErrors,
+        };
+      }
+
+      if (field === 'startDate' || field === 'endDate') {
+        return {
+          ...prev,
+          taskForm: {
+            ...prev.taskForm,
+            [field]: value,
+            schedule: {
+              ...(prev.taskForm.schedule || defaultSchedule(prev.goalStartDate, prev.goalEndDate)),
+              [field]: value,
+            },
           },
           errors: newErrors,
         };
@@ -326,12 +338,12 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
         return { ...prev, errors: { ...prev.errors, ...stepErrors } };
       }
 
-      if (prev.currentStepIndex + 1 < 4) {
+      if (prev.currentStepIndex + 1 < totalSteps) {
         return { ...prev, currentStepIndex: prev.currentStepIndex + 1 };
       }
       return prev;
     });
-  }, []);
+  }, [totalSteps]);
 
   // Go to previous step
   const goBack = useCallback(() => {
@@ -345,9 +357,9 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
   const jumpToStep = useCallback((index) => {
     setState((prev) => ({
       ...prev,
-      currentStepIndex: Math.max(0, Math.min(3, index)),
+      currentStepIndex: Math.max(0, Math.min(totalSteps - 1, index)),
     }));
-  }, []);
+  }, [totalSteps]);
 
   // Final submission – build payload and call onSubmit
   const handleFinish = useCallback(
@@ -450,8 +462,17 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
   // Helper to check if a step is complete (used for navigation dot styling)
   const isStepComplete = useCallback(
     (stepKey) => {
-      if (stepKey === 'goal')
-        return Boolean(state.title.trim() && state.typeConfirmed && state.habitType);
+      if (stepKey === 'goal') {
+        const goalErrors = validateGoalStep(
+          state.title,
+          state.typeConfirmed,
+          state.habitType,
+          state.goalStartDate,
+          state.hasGoalEndDate,
+          state.goalEndDate
+        );
+        return Object.keys(goalErrors).length === 0;
+      }
       if (stepKey === 'details') {
         if (state.habitType === 'break') return state.replacements.length > 0;
         return Boolean(state.location.trim() || state.triggers.length || state.makeItEasier.length);
@@ -486,13 +507,57 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
     setGoalTitle,
     confirmType,
     setWhyItMatters: (value) => setState((prev) => ({ ...prev, whyItMatters: value })),
-    setGoalStartDate: (value) => setState((prev) => ({ ...prev, goalStartDate: value })),
-    setGoalEndDate: (value) => setState((prev) => ({ ...prev, goalEndDate: value })),
+    setGoalStartDate: (value) =>
+      setState((prev) => ({
+        ...prev,
+        goalStartDate: value,
+        taskForm:
+          prev.editingIndex === null
+            ? {
+                ...prev.taskForm,
+                startDate: value,
+                schedule: {
+                  ...(prev.taskForm.schedule || defaultSchedule(value, prev.goalEndDate)),
+                  startDate: value,
+                },
+              }
+            : prev.taskForm,
+        errors: { ...prev.errors, goalWindow: undefined },
+      })),
+    setGoalEndDate: (value) =>
+      setState((prev) => ({
+        ...prev,
+        goalEndDate: value,
+        taskForm:
+          prev.editingIndex === null
+            ? {
+                ...prev.taskForm,
+                endDate: value || '',
+                schedule: {
+                  ...(prev.taskForm.schedule || defaultSchedule(prev.goalStartDate, value)),
+                  endDate: value || '',
+                },
+              }
+            : prev.taskForm,
+        errors: { ...prev.errors, goalWindow: undefined },
+      })),
     setHasGoalEndDate: (value) =>
       setState((prev) => ({
         ...prev,
         hasGoalEndDate: value,
         goalEndDate: value ? prev.goalEndDate : '',
+        taskForm:
+          prev.editingIndex === null
+            ? {
+                ...prev.taskForm,
+                endDate: value ? prev.taskForm.endDate : '',
+                schedule: {
+                  ...(prev.taskForm.schedule || defaultSchedule(prev.goalStartDate, prev.goalEndDate)),
+                  endDate: value ? prev.taskForm.endDate : '',
+                },
+              }
+            : prev.taskForm,
+        errors: { ...prev.errors, goalWindow: undefined },
       })),
     setLocation: (value) => setState((prev) => ({ ...prev, location: value })),
     setTriggerInput: (value) => setState((prev) => ({ ...prev, triggerInput: value })),
