@@ -23,12 +23,12 @@ export async function createGameProfile(gameProfile) {
   return new CreateGameProfileResponse(info.status, info.data);
 }
 
+export async function getItemList() {
+  const info = await getJSON('/game/item/list');
+  return new GetItemListResponse(info.status, info.data);
+}
+
 export async function getItem(itemid) {
   const info = await getJSON('/game/item/' + itemid);
   return new GetItemResponse(info.status, info.data);
-}
-
-export async function getItemList() {
-  const info = await getJSON('/game/items');
-  return new GetItemListResponse(info.status, info.data);
 }
