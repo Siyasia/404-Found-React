@@ -101,7 +101,6 @@ export class Task {
       frequency: this.frequency,
       streak: this.streak,
       schedule: this.schedule ? this.schedule.toJSON() : null,
-      schedule: this.schedule,
       lastCompletedOn: this.lastCompletedOn,
       status: this.status,
       createdAt: this.createdAt,

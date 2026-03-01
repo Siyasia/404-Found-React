@@ -49,7 +49,7 @@ export default function Signup() {
       }
 
       await makeGameProfile();
-      setUser({ ...child, role: 'child' });
+      setUser({ ...response.user, role: 'child' });
       navigate('/home');
       return;
     }
