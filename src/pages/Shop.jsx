@@ -1,26 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useGameProfile } from '../components/useGameProfile.js';
-import { GameItem, GameProfile } from '../models/index.js';
+import { GameProfile } from '../models/index.js';
+import { useItems } from '../components/useItems.js';
+import { useInventory } from '../components/useInventory.js';
 
 export default function Shop() {
 
   const { profile, saveProfile, loading, error } = useGameProfile();
-  const [modal, setModal] = React.useState(null); // For showing item details or purchase confirmation
-  //used for current front-end item holding
-  const [inventory, setInventory] = React.useState([]); // User's purchased items
+  const { items, loading: itemLoading, error: itemError } = useItems();
+  const invItems = useInventory(profile, items);
+  const [modal, setModal] = React.useState(null); 
 
-  if (loading) return <p>Loading...</p>;
-
-  //list of example items
-  
-  const items = [
-    { id: 1, name: 'Potion', price: 50, image: '/images/potion.png' },
-    { id: 2, name: 'Sword', price: 150, image: '/images/sword.png' },
-    { id: 3, name: 'Shield', price: 120, image: '/images/shield.png' },
-    { id: 4, name: 'Helmet', price: 80, image: '/images/helmet.png' },
-    { id: 5, name: 'get coins', price: 0, image: '/images/helmet.png' }
-  ];
-  //TODO: create list of items in the database and display those instead
+  if (loading || itemLoading) return <p>Loading...</p>;
 
   const showModal = (message, type = 'info') => {
     setModal(message, type);
@@ -43,7 +34,7 @@ export default function Shop() {
     console.log("Saving profile ID:", updated.id);
 
     //temporary solution to add coins to user's game profile
-    if (item.name === 'get coins') {
+    if (item.name === 'coins') {
       updated.coins += 200;
       showModal("You received 200 coins!");
       await saveProfile(updated);
@@ -59,15 +50,15 @@ export default function Shop() {
       return;
     }
 
-    //used for current front end storage of inventory
-    const newInventory = [...inventory, item];
-    newInventory.sort((a, b) => a.id - b.id);
-    setInventory(newInventory);
-
     //if passed all above cases, buy item
     updated.coins -= item.price;
     updated.inventory.push({
       id: item.id,
+      name: item.id,
+      path: item.path,
+      price: item.path,
+      type: item.type,
+      placement: item.placement,
       equipped: false,
     });
 
@@ -112,13 +103,14 @@ export default function Shop() {
         </div>
       )}
       
-      <div className="card" style={{ width: '300px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div className="card" style={{ width: '400px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', flexWrap: 'wrap' }}>
         <h3>Your Inventory</h3>
-        {profile.inventory.length === 0 ? (
+        <br></br>
+        {invItems.length === 0 ? (
           <p>You don't have any items yet. Try buying some from the shop!</p>
         ) : (
-          <div className="inventory" style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
-            {inventory.map(item => (
+          <div className="inventory" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {invItems.map(item => (
               <div key={item.id} className="inventory-item" style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', width: '100px', textAlign: 'center' }}>
                 <img src={item.image} alt={item.name} style={{ width: '75px', height: '75px' }} />
                 <h4>{item.name}</h4>
