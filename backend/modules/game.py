@@ -80,6 +80,19 @@ def update_game_profile(profile: GameProfile, response: fastapi.Response, user: 
             return response
     return {"id": user.id}
 
+@router.get("/game/item/list")
+def list_game_items(response: fastapi.Response, user: UserInfo = Depends(state.require_user)):
+    with Database() as db:
+        if not db.try_execute(*SQLHelper.item_list()):
+            response.status_code = 500
+            return response
+        rows = db.cursor().fetchall()
+
+    out = []
+    for row in rows:
+        out.append(row_to_item(row))
+    response.status_code = 200
+    return {"items": out}
 
 @router.get("/game/item/{id}")
 def get_game_item(id: int, response: fastapi.Response, user: UserInfo = Depends(state.require_user)):
@@ -94,18 +107,3 @@ def get_game_item(id: int, response: fastapi.Response, user: UserInfo = Depends(
 
     response.status_code = 200
     return {"item": row_to_item(row)}
-
-
-@router.get("/game/item/list")
-def list_game_items(response: fastapi.Response, user: UserInfo = Depends(state.require_user)):
-    with Database() as db:
-        if not db.try_execute(*SQLHelper.item_list()):
-            response.status_code = 500
-            return response
-        rows = db.cursor().fetchall()
-
-    out = []
-    for row in rows:
-        out.append(row_to_item(row))
-    response.status_code = 200
-    return {"items": out}
