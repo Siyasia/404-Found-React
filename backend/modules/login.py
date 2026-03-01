@@ -1,4 +1,4 @@
-import json
+import hashlib
 import uuid
 import fastapi
 
@@ -15,6 +15,12 @@ def login(user: UserInfo, response: fastapi.Response):
     # todo: check pw against database
     key = uuid.uuid4().hex
     full_user = util.get_full_user(user)
+    if full_user is None:
+        response.status_code = 404
+        return {"error": "User not found"}
+    if full_user.password != util.hash_password(user.password):
+        response.status_code = 400
+        return {"error": "invalid credentials"}
     state.sessions[key] = full_user
     response.set_cookie(key="session_token", value=key)
     full_user.password = ""
@@ -46,7 +52,8 @@ def logout(response: fastapi.Response, session_token: str = fastapi.Cookie(None)
 def signup(user: UserInfo, response: fastapi.Response):
     with Database() as db:
         if not db.execute(*SQLHelper.user_check(user)).fetchone():
-            if db.try_execute(*SQLHelper.user_create(user)):
+            password = util.hash_password(user.password)
+            if db.try_execute(*SQLHelper.user_create(user, password)):
                 response.status_code = 200
                 db.write()
             else:

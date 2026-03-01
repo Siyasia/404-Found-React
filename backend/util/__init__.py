@@ -1,10 +1,11 @@
 import sqlite3
 from functools import wraps
+from typing import Optional
 
 from modules.datatypes import UserInfo, ChildInfo
 from state import SQLHelper
 from state.database import Database
-
+import hashlib
 
 def check_habit_ownership(habit_type):
     def decorator(func):
@@ -27,13 +28,13 @@ def check_habit_ownership(habit_type):
     return decorator
 
 
-def get_full_user(user: UserInfo) -> UserInfo:
+def get_full_user(user: UserInfo) -> Optional[UserInfo]:
     with Database() as db:
         if not db.try_execute(*SQLHelper.user_get_by_email(user.username)):
-            return user
+            return None
         row = db.cursor().fetchone()
     if row is None:
-        return user
+        return None
     return UserInfo.model_validate(dict(row))
 
 
@@ -41,3 +42,7 @@ def get_child_from_row(row: sqlite3.Row):
     if row is None:
         return None
     return ChildInfo.model_validate(dict(row))
+
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
