@@ -1,6 +1,7 @@
+import sqlite3
 from functools import wraps
 
-from modules.datatypes import UserInfo
+from modules.datatypes import UserInfo, ChildInfo
 from state import SQLHelper
 from state.database import Database
 
@@ -29,8 +30,14 @@ def check_habit_ownership(habit_type):
 def get_full_user(user: UserInfo) -> UserInfo:
     with Database() as db:
         if not db.try_execute(*SQLHelper.user_get_by_email(user.username)):
-            return None
+            return user
         row = db.cursor().fetchone()
     if row is None:
-        return None
+        return user
     return UserInfo.model_validate(dict(row))
+
+
+def get_child_from_row(row: sqlite3.Row):
+    if row is None:
+        return None
+    return ChildInfo.model_validate(dict(row))

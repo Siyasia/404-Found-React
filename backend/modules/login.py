@@ -12,10 +12,8 @@ router = fastapi.APIRouter()
 
 @router.post("/login")
 def login(user: UserInfo, response: fastapi.Response):
-    # Placeholder logic for user authentication
-    # todo: check against database
+    # todo: check pw against database
     key = uuid.uuid4().hex
-    # key = "test_session_token"  # todo: remove this hardcoded token in favor of `key = uuid.uuid4().hex`
     full_user = util.get_full_user(user)
     state.sessions[key] = full_user
     response.set_cookie(key="session_token", value=key)
@@ -25,16 +23,17 @@ def login(user: UserInfo, response: fastapi.Response):
 
 @router.post("/login/child")
 def login_child(child_info: ChildInfo, response: fastapi.Response):
-    key = "test_session_token"
+    key = uuid.uuid4().hex
     with Database() as db:
         row = db.execute(*SQLHelper.child_get_by_code(child_info.code)).fetchone()
-        if not row:
-            response.status_code = 404
-            return {"error": "Child not found"}
 
-        state.sessions[key] = child_info
-        response.set_cookie(key="session_token", value=key)
-        return { "success": True, "child": child_info.model_dump_json() }
+    full_child = util.get_child_from_row(row)
+    if full_child is None:
+        response.status_code = 404
+        return { "error": "child not found" }
+    state.sessions[key] = full_child
+    response.set_cookie(key="session_token", value=key)
+    return { "success": True, "child": full_child }
 
 @router.post("/logout")
 def logout(response: fastapi.Response, session_token: str = fastapi.Cookie(None)):
@@ -57,7 +56,7 @@ def signup(user: UserInfo, response: fastapi.Response):
             response.status_code = 400
             return {"error": "user already exists"}
 
-    key = uuid.uuid4().hex  # todo: remove this hardcoded token in favor of `key = uuid.uuid4().hex`
+    key = uuid.uuid4().hex
     full_user = util.get_full_user(user)
 
     state.sessions[key] = full_user
