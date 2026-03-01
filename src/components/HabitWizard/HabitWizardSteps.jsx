@@ -94,6 +94,25 @@ export function GoalStep({
       <ErrorText message={error} />
       {isValidatingTitle && <div className="muted hw-mt4">Validating title…</div>}
 
+      <div className="hw-examples-box hw-mt8">
+        <div className="hw-examples-label">
+          <span>✨</span>
+          <span>Need ideas? Try one of these examples:</span>
+        </div>
+        <div className="hw-examples-chips">
+          {examples.map((example) => (
+            <button
+              key={example}
+              type="button"
+              className="hw-example-chip"
+              onClick={() => onUseExample(example)}
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Type confirmation banners – shown when type is not yet confirmed */}
       {inferredType && !typeConfirmed && (
         <div className="hw-infer-banner hw-infer-required">
@@ -133,6 +152,52 @@ export function GoalStep({
         </div>
       )}
 
+      {/* Goal window */}
+      <div className="hw-section-card hw-mt12">
+        <div className="hw-section-card-title">
+          <span className="hw-section-icon">📅</span>Goal dates
+        </div>
+        <div className="muted">The goal is the big date range. Each action plan can have its own smaller date range inside it.</div>
+
+        <div className="hw-task-form-row hw-mt8">
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label htmlFor="hw-goal-start-date">Goal start date</label>
+            <input
+              id="hw-goal-start-date"
+              type="date"
+              className="hw-input"
+              value={goalStartDate || ''}
+              onChange={(e) => onGoalStartChange(e.target.value)}
+            />
+          </div>
+
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label htmlFor="hw-goal-end-date">Goal end date</label>
+            <input
+              id="hw-goal-end-date"
+              type="date"
+              className="hw-input"
+              value={goalEndDate || ''}
+              min={goalStartDate || undefined}
+              onChange={(e) => onGoalEndChange(e.target.value)}
+              disabled={!hasGoalEndDate}
+            />
+          </div>
+        </div>
+
+        <label className="hw-inline-actions hw-mt8" htmlFor="hw-goal-has-end-date">
+          <input
+            id="hw-goal-has-end-date"
+            type="checkbox"
+            checked={hasGoalEndDate}
+            onChange={(e) => onHasGoalEndDateChange(e.target.checked)}
+          />
+          <span>This goal has an end date</span>
+        </label>
+
+        <ErrorText message={goalWindowError} />
+      </div>
+
       {/* "Why it matters" field */}
       <div className="hw-section-card hw-mt12">
         <div className="hw-section-card-title">
@@ -146,15 +211,6 @@ export function GoalStep({
           onChange={(e) => onWhyChange(e.target.value)}
           placeholder="Optional, but helpful. e.g. I want more energy and less stress."
         />
-      </div>
-
-      {/* Reward summary (moved to dedicated Rewards step) */}
-      <div className="hw-reward-summary-box hw-mt8">
-        <div className="hw-reward-coins-row">✨ {coinsPerCompletion} coins</div>
-        <div className="muted">Earned for each completed action plan</div>
-        {rewardGoalTitle && (
-          <div className="hw-mt6">Saving for: <strong>{rewardGoalTitle}</strong> ({rewardGoalCostCoins} coins)</div>
-        )}
       </div>
     </div>
   );
@@ -525,7 +581,7 @@ export function ActionPlansStep({
           placeholder={goal.type === 'break' ? 'e.g. Read instead of scrolling' : 'e.g. Read 10 pages'}
         />
 
-        {/* Time and schedule row */}
+        {/* Time row */}
         <div className="hw-task-form-row hw-mt8">
           <div style={{ minWidth: 140, maxWidth: 220 }}>
             <label htmlFor="hw-task-time">Time (optional)</label>
@@ -537,18 +593,54 @@ export function ActionPlansStep({
               onChange={(e) => onTaskFormChange('timeOfDay', e.target.value)}
             />
           </div>
+        </div>
 
-          <div style={{ flex: 1 }}>
-            <label>Schedule for this action plan</label>
-            <Suspense fallback={<div className="muted hw-mt8">Loading schedule options…</div>}>
-              <SchedulePicker
-                id="hw-task-frequency"
-                value={scheduleValue}
-                onChange={(nextSchedule) => onTaskFormChange('schedule', nextSchedule)}
-              />
-            </Suspense>
-            {scheduleSummary && <div className="muted hw-mt8">{scheduleSummary}</div>}
+        {/* Action plan window */}
+        <div className="hw-section-card hw-mt8">
+          <div className="hw-section-card-title">
+            <span className="hw-section-icon">🗓️</span>Action plan dates
           </div>
+          <div className="muted">These dates must stay inside the goal window above.</div>
+
+          <div className="hw-task-form-row hw-mt8">
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <label htmlFor="hw-task-start-date">Action start date</label>
+              <input
+                id="hw-task-start-date"
+                type="date"
+                className="hw-input"
+                value={taskForm.startDate || goal.startDate || ''}
+                min={goal.startDate || undefined}
+                max={goal.endDate || undefined}
+                onChange={(e) => onTaskFormChange('startDate', e.target.value)}
+              />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <label htmlFor="hw-task-end-date">Action end date</label>
+              <input
+                id="hw-task-end-date"
+                type="date"
+                className="hw-input"
+                value={taskForm.endDate || ''}
+                min={taskForm.startDate || goal.startDate || undefined}
+                max={goal.endDate || undefined}
+                onChange={(e) => onTaskFormChange('endDate', e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="hw-mt8">
+          <label>Schedule for this action plan</label>
+          <Suspense fallback={<div className="muted hw-mt8">Loading schedule options…</div>}>
+            <SchedulePicker
+              id="hw-task-frequency"
+              value={scheduleValue}
+              onChange={(nextSchedule) => onTaskFormChange('schedule', nextSchedule)}
+            />
+          </Suspense>
+          {scheduleSummary && <div className="muted hw-mt8">{scheduleSummary}</div>}
         </div>
 
         {/* Cue input */}
@@ -560,8 +652,6 @@ export function ActionPlansStep({
           onChange={(e) => onTaskFormChange('cue', e.target.value)}
           placeholder="e.g. After dinner"
         />
-
-        {scheduleSummary && <div className="muted hw-mt8">{scheduleSummary}</div>}
 
         {/* Save button */}
         <div className="hw-mt12">
