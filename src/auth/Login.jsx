@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { loginAdult, loginChild } from '../lib/api/authentication.js';
-import {createGameProfile, getGameProfile} from "../lib/api/game.js";
-import {GameProfile} from "../models/index.js";
 
 export default function Login() {
 
@@ -26,28 +24,22 @@ export default function Login() {
 
     const trimmedCode = childCode.trim();
 
-  // ==== CHILD LOGIN FLOW (uses code) ====
+    //Sprint 5 addition: Login uses Username flow for children:
     if (trimmedCode) {
+      if (!trimmedCode.includes('#')) {
+        setError('You must provide a parent-generated code with a child username Ex: "SwordFish#12345"');
+        return;
+      }
 
       const response = await loginChild(trimmedCode);
 
       if (response.status_code !== 200) {
-        setError('No child account found for that code. Ask your parent to check the code.');
+        setError(response.error || 'No child account found for that username/code. Ask your parent to check it.');
         return;
       }
+
       const child = response.child;
-
       setUser({ ...child, role: 'child' });
-
-      try {
-        await getGameProfile()
-      } catch (error) {
-        if (error.status === 404) {
-          console.log('No game profile found for child, creating one...');
-          await createGameProfile(new GameProfile({id: child.code}));
-        }
-      }
-
       navigate('/home');
       return;
     }
@@ -142,12 +134,12 @@ export default function Login() {
             </label>
 
             <label className="auth-label">
-              Child code sign on
+              Child sign on (username#code)
               <input
                 type="text"
                 value={childCode}
                 onChange={(e) => setChildCode(e.target.value)}
-                placeholder="Enter the code your parent gave you"
+                placeholder='Example: SwordFish#12345'
               />
             </label>
 

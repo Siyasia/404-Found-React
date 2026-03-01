@@ -37,7 +37,11 @@ export default function Profile() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           <div>
             <p><strong>Name:</strong> {user.name}</p>
-            <p><strong>Email:</strong> {user.email}</p>
+            {user.role === ROLE.CHILD ? (
+              <p><strong>Username:</strong> {user.username}{user.code ? `#${user.code}` : ''}</p>
+            ) : (
+              <p><strong>Email:</strong> {user.email}</p>
+            )}
             <p><strong>Age:</strong> {user.age}</p>
             <p><strong>Role:</strong> {user.role === ROLE.PARENT ? 'Parent' : user.role === ROLE.PROVIDER ? 'Provider' : user.role === ROLE.CHILD ? 'Child' : 'User'}</p>
           </div>

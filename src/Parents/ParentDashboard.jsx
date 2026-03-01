@@ -56,6 +56,7 @@ const normalizeTab = (tab) => {
   const [childAge, setChildAge] = useState('');
   const [childError, setChildError] = useState('');
   const [childSuccess, setChildSuccess] = useState('');
+  const [childUsername, setChildUsername] = useState('');
 
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
@@ -132,15 +133,22 @@ const normalizeTab = (tab) => {
     setTasks(list);
   };
 
+  //Sprint 5 Change: Adding user name attributes to handleAddChild()
   const handleAddChild = async (e) => {
     e.preventDefault();
     setChildError('');
 
     const name = childName.trim();
     const ageNumber = Number(childAge);
+    const username = childUsername.trim();
 
-    if (!name || !childAge) {
-      setChildError('Please enter a name and age for the child.');
+    if (!name || !childAge || !username) {
+      setChildError('Please enter a name, username, and age for the child.');
+      return;
+    }
+
+    if (username.includes('*') || username.includes('#')) {
+      setChildError("Child username cannot contain '*' or '#'.");
       return;
     }
 
@@ -152,6 +160,7 @@ const normalizeTab = (tab) => {
     const newChild = Child.from({
       parentId: user.id,
       name,
+      username,
       age: ageNumber,
       code: generateChildCode(children),
       createdAt: new Date().getTime(),
@@ -164,8 +173,10 @@ const normalizeTab = (tab) => {
       const updated = [...children, newChild];
       saveChildren(updated)
       setChildName('');
+      setChildUsername('');
       setChildAge('');
-      setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
+      setChildSuccess(`Child ${name} has been created with the username ${username}#${newChild.code}`);
+      setChildUsername('');
       setTimeout(() => setChildSuccess(''), 3000);
     } else {
       setChildError('Failed to add child. Please try again.');
@@ -373,6 +384,18 @@ const normalizeTab = (tab) => {
                   value={childName}
                   onChange={(e) => setChildName(e.target.value)}
                   placeholder="Example: Paxton"
+                  required
+                  aria-required="true"
+                />
+              </label>
+
+              <label className="auth-label">
+                Child username <span aria-hidden="true" className="required-asterisk">*</span>
+                <input
+                  type="text"
+                  value={childUsername}
+                  onChange={(e) => setChildUsername(e.target.value)}
+                  placeholder="Example: SwordFish"
                   required
                   aria-required="true"
                 />

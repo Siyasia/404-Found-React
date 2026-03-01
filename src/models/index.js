@@ -101,6 +101,7 @@ export class Task {
       frequency: this.frequency,
       streak: this.streak,
       schedule: this.schedule ? this.schedule.toJSON() : null,
+      schedule: this.schedule,
       lastCompletedOn: this.lastCompletedOn,
       status: this.status,
       createdAt: this.createdAt,
@@ -268,29 +269,40 @@ export class User {
   }
 }
 
+//Sprint 5 change: Adding username to child object:
 export class Child {
   constructor(props = {}) {
     this.parentId = props.parentId ?? null;
     this.id = props.id ?? null;
     this.name = props.name ?? '';
+    this.username = props.username ?? '';
     this.code = props.code ?? '';
     this.age = props.age ?? null;
     this.createdAt = props.createdAt ?? null;
+    this.theme = props.theme ?? 'pink';
   }
 
   static from(obj) {
-  // Return any child payload (instance, object, stringified JSON) when possible, or null if there was nothing.
-  if (obj instanceof Child) return obj;
-  if (obj === null || obj === undefined) return null;
-  if (typeof obj === 'string') {
-    try { return new Child(JSON.parse(obj)); }
-    catch { return new Child({}); }
+    if (obj instanceof Child) return obj;
+    if (obj === null || obj === undefined) return null;
+    if (typeof obj === 'string') {
+      try { return new Child(JSON.parse(obj)); }
+      catch { return new Child({}); }
+    }
+    return new Child(obj || {});
   }
-  return new Child(obj || {});
-}
 
   toJSON() {
-    return { parentId: this.parentId, id: this.id, name: this.name, code: this.code, age: this.age };
+    return {
+      parentId: this.parentId,
+      id: this.id,
+      name: this.name,
+      username: this.username,
+      code: this.code,
+      age: this.age,
+      createdAt: this.createdAt,
+      theme: this.theme,
+    };
   }
 }
 

@@ -65,6 +65,24 @@ class Database:
         self.__connection.close()
 
     def create_tables(self):
+
+#Spring 5 Additions: Adding usernames to children.
+        self.__connection.execute(
+            "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, username TEXT, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
+        )
+
+        def ensure_column(table: str, column: str, col_def: str):
+            try:
+                cols = [r[1] for r in self.__connection.execute(f"PRAGMA table_info({table})").fetchall()]
+                if column not in cols:
+                    self.__connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+            except sqlite3.Error:
+                traceback.print_exc()
+
+        ensure_column("children", "username", "TEXT")
+
+        #End Sprint 5 Additions
+
         # Users table (matches backend `UserInfo` model)
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, password TEXT, name TEXT, age INTEGER, role TEXT, createdAt TEXT, type TEXT, theme TEXT, profilePic TEXT, stats TEXT, code TEXT, meta TEXT)"
@@ -85,9 +103,7 @@ class Database:
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS formed_habits (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, title TEXT, type TEXT, createdAt TEXT, details TEXT, completedAt TEXT, meta TEXT)"
         )
-        self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
-        )
+        
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS game_profiles (id INTEGER PRIMARY KEY, coins INTEGER, inventory TEXT)"
         )
@@ -109,48 +125,8 @@ class Database:
 
         pass
 
-        if create_item("item0", "/items/item0.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item0'")
-        if create_item("item1", "items/item1.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item1")
-        if create_item("item2", "items/item2.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item2")
-        if create_item("item3", "items/item3.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item3")
-        if create_item("item4", "items/item4.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item4")
-        if create_item("item5", "items/item5.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item5")
-        if create_item("item6", "items/item6.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item6")
-        if create_item("item7", "items/item7.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item7")
-        if create_item("item8", "items/item8.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item8")
-        if create_item("item9", "items/item9.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item9")
-        if create_item("item10", "items/item10.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item10")
-        if create_item("item11", "items/item11.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item11")
-        if create_item("item12", "items/item12.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item12")
-        if create_item("item13", "items/item13.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item13")
-        if create_item("item14", "items/item14.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item14")
-        if create_item("item15", "items/item15.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item15")
-        if create_item("item16", "items/item16.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item16")
-        if create_item("item17", "items/item17.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item17")
-        if create_item("item18", "items/item18.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item18")
-        if create_item("item19", "items/item19.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item19")
-        if create_item("coins", "items/coins.png", 0, "money", "money") is None:
-            print("Failed to create item 'coins")            
+        if create_item("Red Shirt", "/items/red_shirt.png", 100, "clothing", "body") is None:
+            print("Failed to create item 'Red Shirt'")
 
         """
         Usage:

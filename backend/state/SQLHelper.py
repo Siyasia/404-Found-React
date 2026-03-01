@@ -107,7 +107,7 @@ def user_check(info: UserInfo):
     query = "SELECT id FROM users WHERE username = ? OR email = ?"
     return query, (info.username, info.email)
 
-def user_create(info: UserInfo, password):
+def user_create(info: UserInfo):
     """Insert a full user record into the users table.
 
     All fields from the backend `UserInfo` model are persisted. Fields that
@@ -122,7 +122,7 @@ def user_create(info: UserInfo, password):
     return query, (
         info.email,
         info.email,
-        password,
+        info.password,
         info.name,
         info.age,
         info.role,
@@ -264,10 +264,18 @@ def child_task_list(child_code: int):
     query = "SELECT * FROM tasks WHERE assigneeId IN (SELECT children.id FROM children WHERE code = ?)"
     return query, (child_code,)
 
-
+#Sprint 5 Change: Including Username when creating child:
 def child_create(child: ChildInfo):
-    query = "INSERT INTO children (parentId, id, name, age, code, createdAt, theme) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    return query, (child.parentId, child.id, child.name, child.age, child.code, child.createdAt, child.theme)
+    query = "INSERT INTO children (parentId, id, name, username, age, code, createdAt, theme) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    return query, (child.parentId, child.id, child.name, child.username, child.age, child.code, child.createdAt, child.theme)
+
+def child_update(child, child_id):
+    query = "UPDATE children SET parentId = ?, name = ?, username = ?, age = ?, code = ?, createdAt = ?, theme = ? WHERE id = ?"
+    return query, (child.parentId, child.name, child.username, child.age, child.code, child.createdAt, child.theme, child_id)
+
+def child_get_by_username_code(username: str, code: str):
+    query = "SELECT * FROM children WHERE lower(username) = lower(?) AND code = ?"
+    return query, (username, code)
 
 def child_delete(child_id: int):
     query = "DELETE FROM children WHERE id = ?"
@@ -284,12 +292,6 @@ def child_list(parentId: int):
 def child_get_by_code(code: str):
     query = "SELECT * FROM children WHERE code = ?"
     return query, (code,)
-
-
-def child_update(child, child_id):
-    query = "UPDATE children SET parentId = ?, name = ?, age = ?, code = ?, createdAt = ?, theme = ? WHERE id = ?"
-    return query, (child.parentId, child.name, child.age, child.code, child.createdAt, child_id, child.theme)
-
 
 def formed_habit_list(userId):
     query = "SELECT * FROM formed_habits WHERE userId = ?"
