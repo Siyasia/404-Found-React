@@ -3,8 +3,14 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { canCreateOwnTasks } from '../Roles/roles.js';
 import Toast from '../components/Toast.jsx';
+import { breakHabitCreate, breakHabitGet, breakHabitList, breakHabitDelete } from '../lib/api/habits.js';
+import { REPEAT } from '../lib/schedule.js';
+import { BreakHabit as BreakHabitModel } from '../models';
+import SchedulePicker from '../components/SchedulePicker.jsx';
+import { toLocalISODate } from '../lib/schedule.js';
 
 const STORAGE_KEY = 'ns.breakPlan.v1';
+const STEP_STATUS_KEY = 'ns.breakSteps.status.v1';
 
 export default function BreakHabit() {
   const { user } = useUser();
@@ -34,24 +40,87 @@ export default function BreakHabit() {
   const [newReplacement, setNewReplacement] = useState('');
   const [microSteps, setMicroSteps] = useState([]);
   const [newMicroStep, setNewMicroStep] = useState('');
-  const [savedPlan, setSavedPlan] = useState(null);
+  const [schedule, setSchedule] = useState({
+    repeat: REPEAT.DAILY,
+    startDate: toLocalISODate(),
+    endDate: '',
+  });
+  const [rewardChoice, setRewardChoice] = useState('coins');
+  const [rewardText, setRewardText] = useState('');
+  const [savedPlans, setSavedPlans] = useState([]);
   const [success, setSuccess] = useState('');
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSavedPlan(parsed);
-        setHabit(parsed.habit || '');
-        setReplacements(parsed.replacements || []);
-        setMicroSteps(parsed.microSteps || []);
-      } catch {
-        // ignore bad JSON
-      }
+  const [notice, setNotice] = useState('');
+  const [stepStatus, setStepStatus] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STEP_STATUS_KEY)) || {};
+    } catch {
+      return {};
     }
+  });
+
+  // === Effects and handlers ===
+  const persistStepStatus = (next) => {
+    setStepStatus(next);
+    localStorage.setItem(STEP_STATUS_KEY, JSON.stringify(next));
+  };
+
+  // Generate a unique key for a plan to track step completion status
+  const planKey = (plan, idx = 0) => (plan?.id ? `id:${plan.id}` : `local:${plan?.habit || idx}`);
+
+  // Toggle completion status of a micro-step for a given plan
+  const toggleStepDone = (plan, idx, planIdx = 0, type = 'micro') => {
+    const key = `${planKey(plan, planIdx)}:${type}`;
+    setStepStatus((prev) => {
+      const currentPlan = prev[key] || {};
+      const nextPlan = { ...currentPlan, [idx]: !currentPlan[idx] };
+      if (!nextPlan[idx]) delete nextPlan[idx];
+      const next = { ...prev, [key]: nextPlan };
+      persistStepStatus(next);
+      return next;
+    });
+  };
+
+  // Reset the form to initial state after saving or when starting a new plan
+  const resetForm = () => {
+    setStep(1);
+    setHabit('');
+    setReplacements([]);
+    setNewReplacement('');
+    setMicroSteps([]);
+    setNewMicroStep('');
+    setSchedule({ repeat: REPEAT.DAILY, startDate: toLocalISODate(), endDate: '' });
+    setRewardChoice('coins');
+    setRewardText('');
+  };
+
+  // Load saved plans from backend or local storage on mount
+  useEffect(() => {
+    async function func() {
+
+      const all = await breakHabitList();
+      const remotePlans = Array.isArray(all?.habits) ? all.habits.slice(0, 5) : [];
+
+      if (remotePlans.length > 0) {
+        setSavedPlans(remotePlans);
+        return;
+      }
+
+      // fallback to local storage when backend has no schedule yet
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          const plans = Array.isArray(parsed) ? parsed : [parsed];
+          const sliced = plans.slice(0, 5);
+          setSavedPlans(sliced);
+        } catch {
+          // ignore
+        }
+      }
+    } func();
   }, []);
 
+  // Add/remove replacements and micro-steps in the form
   const handleAddReplacement = () => {
     const trimmed = newReplacement.trim();
     if (!trimmed) return;
@@ -59,10 +128,12 @@ export default function BreakHabit() {
     setNewReplacement('');
   };
 
+  // Remove a replacement by index
   const handleRemoveReplacement = (index) => {
     setReplacements((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Add a micro-step to the list
   const handleAddMicroStep = () => {
     const trimmed = newMicroStep.trim();
     if (!trimmed) return;
@@ -70,27 +141,98 @@ export default function BreakHabit() {
     setNewMicroStep('');
   };
 
+  // Remove a micro-step by index
   const handleRemoveMicroStep = (index) => {
     setMicroSteps((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Save the plan to backend and local storage, then reset the form
   const handleSave = () => {
-    const plan = {
+    const plan = new BreakHabitModel({
+      account_id: user?.id ?? null,
       habit: habit.trim(),
       replacements,
       microSteps,
       savedOn: new Date().toISOString(),
-    };
-    console.log('[BreakHabit] Save plan', plan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
-    setSavedPlan(plan);
+      schedule,
+      reward:
+        rewardChoice === 'custom'
+          ? rewardText.trim()
+          : '50 coins bonus on completion',
+    });
+
+    // Save to backend
+    breakHabitCreate(
+      plan.habit,
+      plan.replacements,
+      plan.microSteps,
+      new Date().getTime(),
+      plan.reward
+    ).then((response) => {
+      console.log('[BreakHabit] Saved plan response', response);
+    }).catch((error) => {
+      console.error('[BreakHabit] Error saving plan', error);
+    });
+
+    // Update local state and storage
+    setSavedPlans((prev) => {
+      const next = [plan, ...prev].slice(0, 5);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
     setSuccess('Break habit plan saved successfully.');
+    resetForm();
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  const totalSteps = 3;
+  // Load a saved plan into the form for editing
+  const loadPlanForEdit = (plan) => {
+    const safeSchedule = plan?.schedule || {};
+    setHabit(plan?.habit || '');
+    setReplacements(plan?.replacements || []);
+    setNewReplacement('');
+    setMicroSteps(plan?.microSteps || []);
+    setNewMicroStep('');
+    setSchedule({
+      repeat: safeSchedule.repeat || REPEAT.DAILY,
+      startDate: safeSchedule.startDate || toLocalISODate(),
+      endDate: safeSchedule.endDate || '',
+    });
+    const reward = plan?.reward || '';
+    if (!reward || reward.includes('50 coins')) {
+      setRewardChoice('coins');
+      setRewardText('');
+    } else {
+      setRewardChoice('custom');
+      setRewardText(reward);
+    }
+    setStep(1);
+  };
+
+  // Delete a plan from backend and local storage
+  const handleDelete = async (index, plan) => {
+    try {
+      if (plan?.id) {
+        await breakHabitDelete(plan.id);
+      }
+    } catch (err) {
+      console.error('[BreakHabit] Error deleting plan', err);
+    } finally {
+      setSavedPlans((prev) => {
+        const next = prev.filter((_, i) => i !== index);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+      setNotice('Deleted break-habit plan');
+      setTimeout(() => setNotice(''), 2200);
+    }
+  };
+
+  // Calculate progress percentage for the progress bar
+  const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
 
+  // === Render ===
   return (
     <section className="container">
       <h1>Break a Habit</h1>
@@ -99,6 +241,7 @@ export default function BreakHabit() {
       </p>
 
       <Toast message={success} type="success" onClose={() => setSuccess('')} />
+      <Toast message={notice} type="info" onClose={() => setNotice('')} />
       <div
         className="card"
         style={{ marginTop: '1.5rem', maxWidth: '780px' }}
@@ -225,6 +368,11 @@ export default function BreakHabit() {
               Break this change into tiny, specific actions you can actually do.
             </p>
 
+            <div style={{ margin: '1rem 0' }}>
+              <h3 style={{ marginBottom: '0.25rem' }}>Schedule</h3>
+              <SchedulePicker value={schedule} onChange={setSchedule} />
+            </div>
+
             <div className="stacked-input">
               <input
                 type="text"
@@ -280,12 +428,86 @@ export default function BreakHabit() {
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleSave}
+                onClick={() => setStep(4)}
                 disabled={
                   !habit.trim() ||
                   replacements.length === 0 ||
                   microSteps.length === 0
                 }
+              >
+                Next: Rewards
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 4: Rewards */}
+        {step === 4 && (
+          <>
+            <h2>Step 4: Pick a reward</h2>
+            <p className="sub">
+              You automatically earn 20 coins for each completed habit step. Choose a bigger reward for finishing—if you skip choosing, you will get 50 coins instead.
+            </p>
+
+            <div className="stacked-input" style={{ alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="radio"
+                  name="rewardChoice"
+                  value="coins"
+                  checked={rewardChoice === 'coins'}
+                  onChange={() => setRewardChoice('coins')}
+                />
+                <span>Keep coin bonus (50 coins on completion)</span>
+              </label>
+            </div>
+
+            <div className="stacked-input" style={{ alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                <input
+                  type="radio"
+                  name="rewardChoice"
+                  value="custom"
+                  checked={rewardChoice === 'custom'}
+                  onChange={() => setRewardChoice('custom')}
+                />
+                <span style={{ flex: 1 }}>Set a custom reward</span>
+              </label>
+            </div>
+
+            {rewardChoice === 'custom' && (
+              <label className="auth-label" style={{ marginTop: '0.75rem' }}>
+                Describe your reward
+                <input
+                  type="text"
+                  value={rewardText}
+                  onChange={(e) => setRewardText(e.target.value)}
+                  placeholder="Example: New game, outing, special treat"
+                />
+              </label>
+            )}
+
+            <div
+              style={{
+                marginTop: '1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setStep(3)}
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSave}
+                disabled={rewardChoice === 'custom' && !rewardText.trim()}
               >
                 Save plan
               </button>
@@ -294,37 +516,91 @@ export default function BreakHabit() {
         )}
       </div>
 
-      {savedPlan && (
+      {savedPlans.length > 0 && (
         <div
           className="card"
           style={{ marginTop: '1.5rem', maxWidth: '780px' }}
         >
-          <h2>Your saved plan</h2>
-          <p>
-            <strong>Habit to break:</strong> {savedPlan.habit}
-          </p>
+          <h2>Your saved plans (max 5)</h2>
+          <p className="sub">Newest first.</p>
+          {savedPlans.map((plan, planIdx) => (
+            <div
+              key={`break-plan-${planIdx}-${plan.habit}`}
+              style={{
+                padding: '0.75rem 0',
+                borderTop: planIdx === 0 ? 'none' : '1px solid var(--border-color, #e5e7eb)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                <div>
+                  <p><strong>Habit to break:</strong> {plan.habit}</p>
+                  {plan.schedule?.startDate && (
+                    <p className="sub">Starts {plan.schedule.startDate}{plan.schedule.endDate ? `, ends ${plan.schedule.endDate}` : ''}</p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => loadPlanForEdit(plan)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => handleDelete(planIdx, plan)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
 
-          {savedPlan.replacements?.length > 0 && (
-            <>
-              <p className="sub">Replacements:</p>
-              <ul>
-                {savedPlan.replacements.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
-                ))}
-              </ul>
-            </>
-          )}
+              {plan.replacements?.length > 0 && (
+                <>
+                  <p className="sub">Replacements:</p>
+                  <ul>
+                    {plan.replacements.map((item, idx) => (
+                      <li key={`${item}-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
 
-          {savedPlan.microSteps?.length > 0 && (
-            <>
-              <p className="sub">Tiny steps:</p>
-              <ol>
-                {savedPlan.microSteps.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
-                ))}
-              </ol>
-            </>
-          )}
+              {plan.microSteps?.length > 0 && (
+                <>
+                  <p className="sub">Tiny steps (check off as you go):</p>
+                  <ol>
+                    {plan.microSteps.map((item, idx) => {
+                      const key = `${planKey(plan, planIdx)}:micro`;
+                      const done = !!(stepStatus[key] && stepStatus[key][idx]);
+                      return (
+                        <li
+                          key={`${item}-${idx}`}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={done}
+                            onChange={() => toggleStepDone(plan, idx, planIdx, 'micro')}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span
+                            style={{
+                              textDecoration: done ? 'line-through' : 'none',
+                              opacity: done ? 0.6 : 1,
+                            }}
+                          >
+                            {item}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </section>

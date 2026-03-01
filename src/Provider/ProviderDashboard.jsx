@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import { Task } from '../models';
+import { taskCreate, taskList } from '../lib/api/tasks.js';
 
 const TASKS_KEY = 'ns.childTasks.v1';
 
@@ -18,26 +20,15 @@ export default function ProviderDashboard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(TASKS_KEY);
-      if (stored) {
-        setTasks(JSON.parse(stored));
+    async function func() {
+      const stored = await taskList();
+      if (stored.status_code === 200) {
+        setTasks(Array.isArray(stored.tasks) ? stored.tasks : []);
       }
-    } catch {
-      setTasks([]);
-    }
+    } func();
   }, []);
 
-  const saveTasks = (list) => {
-    setTasks(list);
-    try {
-      localStorage.setItem(TASKS_KEY, JSON.stringify(list));
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleSubmit = (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
@@ -49,72 +40,51 @@ export default function ProviderDashboard() {
       return;
     }
 
-    // CHILD TARGET (needs approval by parent)
+    let needsApproval = false;
+    let name = null;
+    let code = null;
+
     if (targetType === 'child') {
-      const code = childCode.trim();
+      needsApproval = true;
+      code = childCode.trim();
       if (!code) {
         setError('Please enter a child code.');
-        return;
       }
-
-      const newTask = {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        assigneeId: null,
-        assigneeName: null,
-        childCode: code,
-        targetType: 'child',
-        targetName: null,
-        title: trimmedTitle,
-        notes: trimmedNotes,
-        status: 'pending',
-        needsApproval: true,
-        createdAt: new Date().toISOString(),
-        createdById: user?.id,
-        createdByName: user?.name || 'Provider',
-        createdByRole: 'provider',
-      };
-
-      const updated = [...tasks, newTask];
-      saveTasks(updated);
-      setChildCode('');
-      setTitle('');
-      setNotes('');
-      return;
+    } else if (targetType === 'adult') {
+        needsApproval = false;
+        name = adultName.trim();
+        if (!name) {
+          setError('Please enter the adult’s name.');
+        }
     }
 
-    // ADULT TARGET (parent / normal user by name, no approval step)
-    if (targetType === 'adult') {
-      const trimmedAdultName = adultName.trim();
-      if (!trimmedAdultName) {
-        setError('Please enter the adult’s name.');
-        return;
-      }
+    const newTask = new Task({
+      assigneeId: null,
+      assigneeName: name,
+      childCode: code,
+      targetType,
+      targetName: name,
+      title: trimmedTitle,
+      notes: trimmedNotes,
+      status: 'pending',
+      needsApproval,
+      createdAt: new Date().getTime(),
+      createdById: user?.id,
+      createdByName: user?.name || 'Provider',
+      createdByRole: 'provider',
+    });
 
-      const newTask = {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        assigneeId: null,          // we don't know their id, match by name later
-        assigneeName: trimmedAdultName,
-        childCode: null,
-        targetType: 'adult',
-        targetName: trimmedAdultName,
-        title: trimmedTitle,
-        notes: trimmedNotes,
-        status: 'pending',
-        needsApproval: false,      // goes straight to the user
-        createdAt: new Date().toISOString(),
-        createdById: user?.id,
-        createdByName: user?.name || 'Provider',
-        createdByRole: 'provider',
-      };
-
-      const updated = [...tasks, newTask];
-      saveTasks(updated);
+    let response = await taskCreate(newTask);
+    if (response.status_code === 200) {
+      const added = response.task ? response.task : newTask;
+      setTasks((prev) => [...prev, added]); // functional updater to avoid stale closure
       setAdultName('');
       setTitle('');
       setNotes('');
-      return;
+    } else {
+      setError('Failed to create task. Please try again.');
     }
-  };
+  }
 
   const myTasks = tasks.filter(
     (t) => t.createdByRole === 'provider' && t.createdById === user?.id

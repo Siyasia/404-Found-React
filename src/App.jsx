@@ -1,18 +1,21 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Layout from './Components/Layout.jsx';
+import Layout from './components/Layout.jsx';
 
-import Home from './Pages/Home.jsx';
-import Features from './Pages/Features.jsx';
-import About from './Pages/About.jsx';
-import BuildHabit from './Pages/BuildHabit.jsx';
-import BreakHabit from './Pages/BreakHabit.jsx';
+import Home from './pages/Home.jsx';
+import Profile from './pages/Profile.jsx';
+import Features from './pages/Features.jsx';
+import Shop from './pages/Shop.jsx';
+import BuildHabit from './pages/BuildHabit.jsx';
+import BreakHabit from './pages/BreakHabit.jsx';
+import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
-import Profile from './Pages/Profile.jsx';
+import HabitWizardPage from './pages/HabitWizardPage.jsx'; // Temporary page for testing the Habit Wizard component
 
-import Login from './Auth/Login.jsx';
-import Signup from './Auth/Signup.jsx';
+
+import Login from './auth/Login.jsx';
+import Signup from './auth/Signup.jsx';
 
 export default function App() {
   return (
@@ -24,10 +27,12 @@ export default function App() {
         {/* Main app */}
         <Route path="/home" element={<Home />} />
         <Route path="/features" element={<Features />} />
-        <Route path="/about" element={<About />} />
+        <Route path="/shop" element={<Shop />} />
         <Route path="/build-habit" element={<BuildHabit />} />
         <Route path="/break-habit" element={<BreakHabit />} />
-        <Route path="/parent" element={<ParentDashboard />} />
+        <Route path="/habit" element={<HabitWizardPage />} />
+        <Route path="/parent" element={<ParentHomepage />} />
+        <Route path="/parent/dashboard" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />

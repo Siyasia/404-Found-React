@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
+import { loginAdult, loginChild } from '../lib/api/authentication.js';
+import {createGameProfile, getGameProfile} from "../lib/api/game.js";
+import {GameProfile} from "../models/index.js";
 
 export default function Login() {
 
@@ -17,7 +20,7 @@ export default function Login() {
 
   // Profile selection UI removed; always show manual login form
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
@@ -25,22 +28,26 @@ export default function Login() {
 
   // ==== CHILD LOGIN FLOW (uses code) ====
     if (trimmedCode) {
-      let children = [];
-      try {
-        const raw = localStorage.getItem('ns.children.v1');
-        if (raw) children = JSON.parse(raw) || [];
-      } catch {
-      children = [];
-      }
 
-      const child = children.find((c) => c.code === trimmedCode);
+      const response = await loginChild(trimmedCode);
 
-      if (!child) {
+      if (response.status_code !== 200) {
         setError('No child account found for that code. Ask your parent to check the code.');
         return;
       }
+      const child = response.child;
 
       setUser({ ...child, role: 'child' });
+
+      try {
+        await getGameProfile()
+      } catch (error) {
+        if (error.status === 404) {
+          console.log('No game profile found for child, creating one...');
+          await createGameProfile(new GameProfile({id: child.code}));
+        }
+      }
+
       navigate('/home');
       return;
     }
@@ -51,20 +58,35 @@ export default function Login() {
       return;
     }
 
-    // NOTE: since you said auth isn’t “real” yet, we’ll keep this permissive.
-    // If you later want real local auth, we’ll look up accounts in localStorage.
-    const newUser = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-      email,
-      password,
-      name: (email.split('@')[0] || 'User'),
-      age: '50',
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    };
+    const response = await loginAdult(email, password);
 
-    setUser(newUser);
-    navigate('/home');
+    console.log('📨 Login API Response:', response);
+    console.log('📊 Response status:', response.status_code);
+    console.log('👤 Response user:', response.user);
+
+    if (response.status_code !== 200) {
+      const errorMsg = response.error
+        || (response.status_code === 400 || response.status_code === 404
+          ? 'No account found for that email. Please sign up first.'
+          : 'Failed to login. Please try again.');
+      setError(errorMsg);
+      return;
+    }
+
+
+    setUser(response.user);
+    
+    // Navigate based on user role
+    const userRole = response.user.role || response.user.type;
+    console.log('User logged in with role:', userRole, 'Full user:', response.user);
+    
+    if (userRole === 'parent') {
+      navigate('/parent');
+    } else if (userRole === 'provider') {
+      navigate('/provider');
+    } else {
+      navigate('/home');
+    }
   };
 
 

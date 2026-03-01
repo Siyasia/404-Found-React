@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
+import {loginChild, signupAdult, signupChild} from '../lib/api/authentication.js';
+import {createGameProfile} from "../lib/api/game.js";
+import {GameProfile} from "../models/index.js";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -15,7 +18,18 @@ export default function Signup() {
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
 
-  const handleSignUp = (event) => {
+  async function makeGameProfile (userId) {
+    console.log('Creating game profile for new user...');
+    const profile = new GameProfile({id: userId, coins: 0, inventory: []});
+    const gameProfileResponse = await createGameProfile(profile);
+    if (gameProfileResponse.status_code !== 200) {
+      console.error('Failed to create game profile:', gameProfileResponse);
+    } else {
+      console.log('Game profile created successfully:', gameProfileResponse.id);
+    }
+  }
+
+  const handleSignUp = async (event) => {
     event.preventDefault();
     setError('');
 
@@ -25,27 +39,17 @@ export default function Signup() {
 
     // ==== CHILD SIGNUP (code-only) ====
     if (role === 'child') {
-      if (!trimmedCode) {
-        setError('Please enter the child code provided by your parent.');
+
+      // Account has been created at this point, so it's actually a login rather than a signup
+      const response = await loginChild(trimmedCode);
+
+      if (response.status !== 200) {
+        setError('No child account found for that code. Ask your parent to check the code.');
         return;
       }
 
-      let children = [];
-      try {
-        const raw = localStorage.getItem('ns.children.v1');
-        if (raw) children = JSON.parse(raw) || [];
-      } catch {
-        children = [];
-      }
-
-      const child = children.find((c) => c.code === trimmedCode);
-
-      if (!child) {
-        setError('No child account found for that code. Ask your parent to check it.');
-        return;
-      }
-
-      setUser({ ...child, role: 'child' });
+      await makeGameProfile();
+      setUser({ ...response.user, role: 'child' });
       navigate('/home');
       return;
     }
@@ -74,19 +78,47 @@ export default function Signup() {
       );
       return;
     }
+    const response = await signupAdult(age, name, role, email, password);
+    // response = await signupAdult(email, password);
 
-    const newUser = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-      password,
-      email,
-      name: trimmedName,
-      age: numericAge,
-      role,
-      createdAt: new Date().toISOString(),
-    };
+    console.log('📨 Signup API Response:', response);
+    console.log('📊 Response status:', response.status_code);
+    console.log('👤 Response user:', response.user);
 
-    setUser(newUser);
-    navigate('/home');
+    if (response.status_code !== 200 || !response.user) {
+      // Extract error message from backend response
+      const errorMsg = response.error 
+        || (typeof response.data === 'object' && response.data?.error) 
+        || (typeof response.data === 'object' && response.data?.detail)
+        || 'Failed to signup. Email may be associated with another account.';
+      setError(errorMsg);
+      return;
+    }
+
+    // const newUser = {
+    //   id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
+    //   email,
+    //   password,
+    //   name: (email.split('@')[0] || 'User'),
+    //   age: '50',
+    //   role: 'user',
+    //   createdAt: new Date().toISOString(),
+    // };
+
+    setUser(response.user);
+    await makeGameProfile(response.user.id);
+
+    // Navigate based on user role
+    const userRole = response.user.role;
+    console.log('User signed up with role:', userRole, 'Full user:', response.user);
+    
+    if (userRole === 'parent') {
+      navigate('/parent');
+    } else if (userRole === 'provider') {
+      navigate('/provider');
+    } else {
+      navigate('/home');
+    }
   };
 
   return (
