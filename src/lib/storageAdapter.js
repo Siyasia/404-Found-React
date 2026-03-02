@@ -1,6 +1,6 @@
-// Centralized localStorage adapter.
-// This file is the single place that accesses `localStorage` directly.
-// All functions are async to match the common async usage patterns.
+// LOCAL STORAGE ADAPTER — temporary implementation only.
+// When backend is ready , will delete this file entirely.
+// All api/ modules will replace their getItem/setItem calls with fetch() directly.
 
 export const KEYS = {
   GOALS: 'ns.goals.v1',
