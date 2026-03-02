@@ -5,6 +5,7 @@ async function safeReadGoals() {
   return Array.isArray(list) ? list : []
 }
 
+// CRUD operations for goals, using localStorage as the backend.
 export async function goalCreate(goal) {
   try {
     const list = await safeReadGoals()
@@ -18,6 +19,8 @@ export async function goalCreate(goal) {
   }
 }
 
+// Note: goalGet, goalList, goalUpdate, and goalDelete all follow a similar pattern of: 
+// 1) read the full list of goals, 2) find/update/delete the relevant item, 3) write back the full list.
 export async function goalGet(id) {
   try {
     const list = await safeReadGoals()
@@ -64,4 +67,5 @@ export async function goalDelete(id) {
   }
 }
 
+// Export all functions as a default object for easier imports
 export default { goalCreate, goalGet, goalList, goalUpdate, goalDelete }

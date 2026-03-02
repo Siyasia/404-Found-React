@@ -2,6 +2,14 @@
 // This file is the single place that accesses `localStorage` directly.
 // All functions are async to match the common async usage patterns.
 
+export const KEYS = {
+  GOALS: 'ns.goals.v1',
+  ACTION_PLANS: 'ns.actionPlans.v1',
+  STREAKS: 'ns.streaks.v1',
+  BADGES: 'ns.badges.v1',
+}
+
+// Helper to read goals with safety checks
 export async function getItem(key) {
   if (typeof window === 'undefined' || !window.localStorage) return null;
   try {
@@ -13,6 +21,7 @@ export async function getItem(key) {
   }
 }
 
+// Helper to write goals with safety checks
 export async function setItem(key, value) {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
@@ -22,6 +31,7 @@ export async function setItem(key, value) {
   }
 }
 
+// Helper to remove an item from storage
 export async function removeItem(key) {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
