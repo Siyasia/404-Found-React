@@ -25,7 +25,7 @@ import { userGet } from '../lib/api/authentication.js';
 import SchedulePicker from '../components/SchedulePicker.jsx';
 import { formatScheduleLabel, toLocalISODate, isDueOnDate, getNextDueDate, computeCurrentStreak, computeBestStreak, REPEAT } from '../lib/schedule.js';
 import TaskCard from '../components/TaskCard.jsx';
-// NC: ( new chnage ) Import GoalCard and APIs for goals/action plans to show wizard-created habits
+// NC: Import GoalCard and APIs for goals/action plans to show wizard-created habits
 import GoalCard from '../components/GoalCard.jsx';
 import { goalList } from '../lib/api/goals.js';
 import { actionPlanList } from '../lib/api/actionPlans.js';
@@ -81,7 +81,7 @@ export default function Home() {
 
   const [formedHabits, setFormedHabits] = useState(null);
   const [formedLoading, setFormedLoading] = useState(true);
-  // NC: ( new chnage ) Hold wizard-created goals and their action plans for transitional rendering
+  // NC: Hold wizard-created goals and their action plans for transitional rendering
   const [goals, setGoals] = useState([]);
   const [actionPlans, setActionPlans] = useState([]);
 
@@ -213,15 +213,45 @@ export default function Home() {
       } finally {
         setFormedLoading(false);
       }
-      // NC: ( new chnage ) fetch wizard-created goals and action plans in the same useEffect to avoid additional mounts
+      // NC: fetch wizard-created goals and action plans in the same useEffect to avoid additional mounts
       try {
         const goalResp = await goalList();
         const actionResp = await actionPlanList();
-        // NC: ( new chnage ) Debug logs to surface API responses in the browser console
+        // NC:  Debug logs to surface API responses in the browser console
         console.log('[Home] goalList response:', goalResp);
         console.log('[Home] actionPlanList response:', actionResp);
-        if (goalResp && goalResp.data) setGoals(goalResp.data);
-        if (actionResp && actionResp.data) setActionPlans(actionResp.data);
+        // NC: Scope returned goals/action plans to the current user before storing in state
+        if (goalResp && goalResp.data) {
+          const rawGoals = Array.isArray(goalResp.data) ? goalResp.data : [];
+          const scopedGoals = rawGoals.filter((g) => {
+            // Keep goals assigned to this user, or goals created by this user, or unassigned goals created by this user
+            try {
+              return (
+                (g.assigneeId != null && String(g.assigneeId) === String(user?.id)) ||
+                (g.createdById != null && String(g.createdById) === String(user?.id)) ||
+                (g.assigneeId == null && g.createdById == null && String(user?.id) === String(user?.id))
+              );
+            } catch (e) {
+              return false;
+            }
+          });
+          setGoals(scopedGoals);
+        }
+        if (actionResp && actionResp.data) {
+          const rawAP = Array.isArray(actionResp.data) ? actionResp.data : [];
+          const scopedAP = rawAP.filter((p) => {
+            try {
+              return (
+                (p.assigneeId != null && String(p.assigneeId) === String(user?.id)) ||
+                (p.createdById != null && String(p.createdById) === String(user?.id)) ||
+                (p.assigneeId == null && p.createdById == null && String(user?.id) === String(user?.id))
+              );
+            } catch (e) {
+              return false;
+            }
+          });
+          setActionPlans(scopedAP);
+        }
       } catch (err) {
         console.error('Error fetching goals/action plans:', err);
         setGoals([]);
@@ -753,11 +783,11 @@ export default function Home() {
             </div>
           )}
 
-            {/* NC: ( new chnage ) Display wizard-created goals for the current user under 'Your Habits' */}
+            {/* NC: Display wizard-created goals for the current user under 'Your Habits' */}
             {goals && goals.length > 0 && user && (
-              // NC: ( new chnage ) Compute and log the filtered goals for the current user to help debug why none may appear
+              // NC: Compute and log the filtered goals for the current user to help debug why none may appear
               (() => {
-                // NC: ( new chnage ) Treat unassigned goals (assigneeId==null) as visible to the creator/user
+                // NC: Treat unassigned goals (assigneeId==null) as visible to the creator/user
                 const myGoals = goals.filter((g) => (g.assigneeId == null) || String(g.assigneeId) === String(user?.id));
                 console.log('[Home] myGoals for user', user?.id, myGoals);
                 return (
@@ -799,7 +829,7 @@ export default function Home() {
               <div className="statValue">{taskCounts[TASK_TYPE_BREAK_HABIT].total}</div>
               <div className="statSub">{taskCounts[TASK_TYPE_BREAK_HABIT].pending} pending</div>
             </div>
-            {/* NC: ( new chnage ) Show count of active goals from the new wizard-backed system */}
+            {/* NC: Show count of active goals from the new wizard-backed system */}
             <div className="statCard">
               <div className="statLabel">Goals</div>
               <div className="statValue">{goals.length}</div>
