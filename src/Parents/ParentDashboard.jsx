@@ -8,6 +8,8 @@ import Toast from '../components/Toast.jsx';
 import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
 import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
 import { Child } from '../models/index.js';
+import { goalCreate, actionPlanCreate } from '../lib/api'
+import mapWizardPayload from '../lib/mapWizardPayload.js'
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -62,6 +64,7 @@ const normalizeTab = (tab) => {
   const [taskNotes, setTaskNotes] = useState('');
   const [taskError, setTaskError] = useState('');
   const [taskSuccess, setTaskSuccess] = useState('');
+  const [wizardSaving, setWizardSaving] = useState(false);
 
   useEffect( () => {
     async function func(){
@@ -235,6 +238,50 @@ const normalizeTab = (tab) => {
     saveTasks(updated);
     setTaskTitle('');
     setTaskNotes('');
+  };
+
+  // Handle Habit Wizard submit: map payload, create goal, then create action plans
+  const handleWizardSubmit = async (payload) => {
+    setWizardSaving(true);
+    try {
+      const mapped = mapWizardPayload(payload);
+      const { goal, actionPlans } = mapped;
+
+      const goalResp = await goalCreate(goal);
+      if (!goalResp || goalResp.status_code !== 200) {
+        const msg = (goalResp && goalResp.error) ? String(goalResp.error) : 'Failed to create goal';
+        setTaskError(msg);
+        return;
+      }
+
+      const goalId = goalResp.data && goalResp.data.id ? goalResp.data.id : goalResp.data && goalResp.data._id ? goalResp.data._id : null;
+
+      for (const plan of actionPlans) {
+        plan.goalId = goalId;
+        // ensure assignee fields are set
+        plan.assigneeId = plan.assigneeId || goal.assigneeId || user?.id || null;
+        plan.assigneeName = plan.assigneeName || goal.assigneeName || user?.name || '';
+        // create action plan
+        // eslint-disable-next-line no-await-in-loop
+        await actionPlanCreate(plan);
+      }
+
+      // reload tasks so parent's my-tasks tab updates
+      try {
+        const storedTasks = await taskList();
+        if (storedTasks.status_code === 200) setTasks(storedTasks.tasks);
+      } catch (err) {
+        console.error('[ParentDashboard] Failed to reload tasks after wizard submit', err);
+      }
+
+      setTaskSuccess('Habit created and assigned successfully.');
+      setTimeout(() => setTaskSuccess(''), 3000);
+    } catch (err) {
+      console.error('[ParentDashboard] handleWizardSubmit error', err);
+      setTaskError('Unexpected error creating habit.');
+    } finally {
+      setWizardSaving(false);
+    }
   };
 
   const handleToggleTaskStatus = (taskId) => {
