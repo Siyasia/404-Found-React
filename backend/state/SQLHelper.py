@@ -107,7 +107,7 @@ def user_check(info: UserInfo):
     query = "SELECT id FROM users WHERE username = ? OR email = ?"
     return query, (info.username, info.email)
 
-def user_create(info: UserInfo):
+def user_create(info: UserInfo, password):
     """Insert a full user record into the users table.
 
     All fields from the backend `UserInfo` model are persisted. Fields that
@@ -122,7 +122,7 @@ def user_create(info: UserInfo):
     return query, (
         info.email,
         info.email,
-        info.password,
+        password,
         info.name,
         info.age,
         info.role,

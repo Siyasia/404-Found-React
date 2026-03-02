@@ -129,6 +129,6 @@ class ItemField(pydantic.BaseModel):
 
 class GameProfile(pydantic.BaseModel):
     """Represents a user's game profile, including stats and progress."""
-    id: int
-    coins: int
+    id: int = 0
+    coins: int = 0
     inventory: List[ItemField] = []
