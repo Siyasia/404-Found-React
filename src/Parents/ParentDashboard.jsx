@@ -3,12 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
-import ParentHabitAssignment from './ParentHabitAssignment.jsx';
+import HabitWizard from '../components/HabitWizard/HabitWizard.jsx';
 import Toast from '../components/Toast.jsx';
 import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
 import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
 import { Child } from '../models/index.js';
-import { goalCreate, actionPlanCreate } from '../lib/api'
+import { goalCreate } from '../lib/api/goals.js'
+import { actionPlanCreate } from '../lib/api/actionPlans.js'
 import mapWizardPayload from '../lib/mapWizardPayload.js'
 
 const CHILDREN_KEY = 'ns.children.v1';
@@ -64,7 +65,7 @@ const normalizeTab = (tab) => {
   const [taskNotes, setTaskNotes] = useState('');
   const [taskError, setTaskError] = useState('');
   const [taskSuccess, setTaskSuccess] = useState('');
-  const [wizardSaving, setWizardSaving] = useState(false);
+  const [wizardSaving, setWizardSaving] = useState(false); // New state to track Habit Wizard saving status
 
   useEffect( () => {
     async function func(){
@@ -500,13 +501,12 @@ const normalizeTab = (tab) => {
 
       {activeTab === 'assign' && (
         <div>
-          <ParentHabitAssignment
-            embed
-            parentChildren={children}
-            parentTasks={tasks}
-            onTasksChange={saveTasks}
-            compactList
-            listMaxHeight={520}
+          <HabitWizard
+            context="parent"
+            availableChildren={children}
+            parentUser={user}
+            embedded={true}
+            onSubmit={handleWizardSubmit}
           />
         </div>
       )}
