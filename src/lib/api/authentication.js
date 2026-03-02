@@ -12,9 +12,10 @@ export async function loginAdult(email, password) {
     return new LoginResponse(info.status, info.data);
 }
 
-export async function loginChild(code) {
+//Sprint 5 change: Login as child with username:
+export async function loginChild(username) {
     let data = {
-        code: code
+        username: username
     }
     const info = await postJSON('/login/child', data);
     return new ChildLoginResponse(info.status, info.data);

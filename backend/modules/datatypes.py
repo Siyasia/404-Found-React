@@ -103,6 +103,10 @@ class ChildInfo(pydantic.BaseModel):
     id: Optional[typing.Union[int, str]] = None
     parentId: Optional[typing.Union[int, str]] = None
     name: Optional[str] = None
+    #Sprint 5 Addition:
+    #Parent-chosen username for the child.
+    #Child login format: username#code
+    username: Optional[str] = None
     code: Optional[str] = None
     age: Optional[int] = None
     createdAt: Optional[int] = None

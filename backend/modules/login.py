@@ -1,4 +1,3 @@
-import hashlib
 import uuid
 import fastapi
 
@@ -12,7 +11,6 @@ router = fastapi.APIRouter()
 
 @router.post("/login")
 def login(user: UserInfo, response: fastapi.Response):
-    # todo: check pw against database
     key = uuid.uuid4().hex
     full_user = util.get_full_user(user)
     if full_user is None:
@@ -27,16 +25,32 @@ def login(user: UserInfo, response: fastapi.Response):
 
     return { "success": True, "user": full_user }
 
+#Sprint 5 addition: Making the username of the child required:
 @router.post("/login/child")
 def login_child(child_info: ChildInfo, response: fastapi.Response):
     key = uuid.uuid4().hex
+    raw = (child_info.username or "").strip()
+
+    if "#" not in raw:
+        response.status_code = 400
+        return {"error": 'You must provide a parent-generated code with a child username Ex: "SwordFish#12345"'}
+
+    username, code = raw.split("#", 1)
+    username = username.strip()
+    code = code.strip()
+
+    if not username or not code:
+        response.status_code = 400
+        return {"error": 'You must provide a parent-generated code with a child username Ex: "SwordFish#12345"'}
+
     with Database() as db:
-        row = db.execute(*SQLHelper.child_get_by_code(child_info.code)).fetchone()
+        row = db.execute(*SQLHelper.child_get_by_username_code(username, code)).fetchone()
 
     full_child = util.get_child_from_row(row)
     if full_child is None:
         response.status_code = 404
-        return { "error": "child not found" }
+        return { "error": "Child not found" }
+
     state.sessions[key] = full_child
     response.set_cookie(key="session_token", value=key)
     return { "success": True, "child": full_child }

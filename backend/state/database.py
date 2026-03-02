@@ -65,6 +65,24 @@ class Database:
         self.__connection.close()
 
     def create_tables(self):
+
+#Spring 5 Additions: Adding usernames to children.
+        self.__connection.execute(
+            "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, username TEXT, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
+        )
+
+        def ensure_column(table: str, column: str, col_def: str):
+            try:
+                cols = [r[1] for r in self.__connection.execute(f"PRAGMA table_info({table})").fetchall()]
+                if column not in cols:
+                    self.__connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+            except sqlite3.Error:
+                traceback.print_exc()
+
+        ensure_column("children", "username", "TEXT")
+
+        #End Sprint 5 Additions
+
         # Users table (matches backend `UserInfo` model)
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, password TEXT, name TEXT, age INTEGER, role TEXT, createdAt TEXT, type TEXT, theme TEXT, profilePic TEXT, stats TEXT, code TEXT, meta TEXT)"
@@ -85,9 +103,7 @@ class Database:
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS formed_habits (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, title TEXT, type TEXT, createdAt TEXT, details TEXT, completedAt TEXT, meta TEXT)"
         )
-        self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
-        )
+        
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS game_profiles (id INTEGER PRIMARY KEY, coins INTEGER, inventory TEXT)"
         )
@@ -106,8 +122,6 @@ class Database:
                 return db.created_id()
             else:
                 return None
-
-        pass
 
         if create_item("item0", "/items/item0.png", 100, "avatar", "head") is None:
             print("Failed to create item 'item0'")
@@ -150,7 +164,7 @@ class Database:
         if create_item("item19", "items/item19.png", 100, "avatar", "shoes") is None:
             print("Failed to create item 'item19")
         if create_item("coins", "items/coins.png", 0, "money", "money") is None:
-            print("Failed to create item 'coins")            
+            print("Failed to create item 'coins")
 
         """
         Usage:
