@@ -6,6 +6,10 @@ import { childList } from '../lib/api/children.js';
 import { taskList, taskUpdate, taskListPending, taskCreate } from '../lib/api/tasks.js';
 import { Task } from '../models';
 import Toast from '../components/Toast.jsx';
+// NC: ( new chnage ) Import GoalCard and the new local API helpers for goals/action plans
+import GoalCard from '../components/GoalCard.jsx';
+import { goalList } from '../lib/api/goals.js';
+import { actionPlanList } from '../lib/api/actionPlans.js';
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
@@ -136,6 +140,9 @@ export default function ParentHomepage() {
   const [children, setChildren] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [pendingTasks, setPendingTasks] = useState([]);
+  // NC: ( new chnage ) Hold wizard-created goals and their action plans for transitional rendering
+  const [goals, setGoals] = useState([]);
+  const [actionPlans, setActionPlans] = useState([]);
   const [todayTab, setTodayTab] = useState('tasks'); // tasks | habits | approvals
   const [familyTab, setFamilyTab] = useState('kids'); // kids | pending | habits
   const [loading, setLoading] = useState(false);
@@ -152,10 +159,13 @@ export default function ParentHomepage() {
       setLoading(true);
       setError('');
       try {
-        const [childResp, taskResp, pendingResp] = await Promise.all([
+        // NC: ( new chnage ) include goalList and actionPlanList in parallel fetches to avoid a second useEffect
+        const [childResp, taskResp, pendingResp, goalResp, actionPlanResp] = await Promise.all([
           childList(),
           taskList(),
           taskListPending(),
+          goalList(),
+          actionPlanList(),
         ]);
 
         if (childResp.status_code === 200 && Array.isArray(childResp.children)) {
@@ -171,6 +181,9 @@ export default function ParentHomepage() {
         if (pendingResp.status_code === 200 && Array.isArray(pendingResp.tasks)) {
           setPendingTasks(pendingResp.tasks.map(Task.from));
         }
+        // NC: ( new chnage ) set the fetched goals and action plans into local state for transitional UI
+        if (goalResp && goalResp.data) setGoals(goalResp.data);
+        if (actionPlanResp && actionPlanResp.data) setActionPlans(actionPlanResp.data);
       } catch (err) {
         console.error('[ParentHomepage] load error', err);
         setError('Failed to load data from server.');
@@ -628,6 +641,20 @@ export default function ParentHomepage() {
                     </li>
                   )}
                 </ul>
+              )}
+
+              {/* NC: ( new chnage ) Render wizard-created goals below the legacy habits list to show both during transition */}
+              {goals && goals.length > 0 && (
+                <div style={{ marginTop: '12px' }}>
+                  <h3 style={{ margin: '8px 0' }}>Wizard Goals</h3>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {goals.map((goal) => (
+                      <li key={goal.id}>
+                        <GoalCard goal={goal} actionPlans={actionPlans.filter((p) => p.goalId === goal.id)} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {todayTab === 'habits' && (
