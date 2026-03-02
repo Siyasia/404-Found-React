@@ -6,7 +6,7 @@ import { childList } from '../lib/api/children.js';
 import { taskList, taskUpdate, taskListPending, taskCreate } from '../lib/api/tasks.js';
 import { Task } from '../models';
 import Toast from '../components/Toast.jsx';
-// NC: ( new chnage ) Import GoalCard and the new local API helpers for goals/action plans
+// NC: Import GoalCard and the new local API helpers for goals/action plans
 import GoalCard from '../components/GoalCard.jsx';
 import { goalList } from '../lib/api/goals.js';
 import { actionPlanList } from '../lib/api/actionPlans.js';
@@ -140,7 +140,7 @@ export default function ParentHomepage() {
   const [children, setChildren] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [pendingTasks, setPendingTasks] = useState([]);
-  // NC: ( new chnage ) Hold wizard-created goals and their action plans for transitional rendering
+  // NC: Hold wizard-created goals and their action plans for transitional rendering
   const [goals, setGoals] = useState([]);
   const [actionPlans, setActionPlans] = useState([]);
   const [todayTab, setTodayTab] = useState('tasks'); // tasks | habits | approvals
@@ -159,7 +159,7 @@ export default function ParentHomepage() {
       setLoading(true);
       setError('');
       try {
-        // NC: ( new chnage ) include goalList and actionPlanList in parallel fetches to avoid a second useEffect
+        // NC: include goalList and actionPlanList in parallel fetches to avoid a second useEffect
         const [childResp, taskResp, pendingResp, goalResp, actionPlanResp] = await Promise.all([
           childList(),
           taskList(),
@@ -181,9 +181,38 @@ export default function ParentHomepage() {
         if (pendingResp.status_code === 200 && Array.isArray(pendingResp.tasks)) {
           setPendingTasks(pendingResp.tasks.map(Task.from));
         }
-        // NC: ( new chnage ) set the fetched goals and action plans into local state for transitional UI
-        if (goalResp && goalResp.data) setGoals(goalResp.data);
-        if (actionPlanResp && actionPlanResp.data) setActionPlans(actionPlanResp.data);
+        // NC: fetched goals/action plans to the current user before setting state
+        if (goalResp && goalResp.data) {
+          const rawGoals = Array.isArray(goalResp.data) ? goalResp.data : [];
+          const scoped = rawGoals.filter((g) => {
+            try {
+              return (
+                (g.assigneeId != null && String(g.assigneeId) === String(user?.id)) ||
+                (g.createdById != null && String(g.createdById) === String(user?.id)) ||
+                (g.assigneeId == null && g.createdById == null && String(user?.id) === String(user?.id))
+              );
+            } catch (e) {
+              return false;
+            }
+          });
+          setGoals(scoped);
+        }
+
+        if (actionPlanResp && actionPlanResp.data) {
+          const rawAP = Array.isArray(actionPlanResp.data) ? actionPlanResp.data : [];
+          const scopedAP = rawAP.filter((p) => {
+            try {
+              return (
+                (p.assigneeId != null && String(p.assigneeId) === String(user?.id)) ||
+                (p.createdById != null && String(p.createdById) === String(user?.id)) ||
+                (p.assigneeId == null && p.createdById == null && String(user?.id) === String(user?.id))
+              );
+            } catch (e) {
+              return false;
+            }
+          });
+          setActionPlans(scopedAP);
+        }
       } catch (err) {
         console.error('[ParentHomepage] load error', err);
         setError('Failed to load data from server.');
@@ -643,7 +672,7 @@ export default function ParentHomepage() {
                 </ul>
               )}
 
-              {/* NC: ( new chnage ) Render wizard-created goals below the legacy habits list to show both during transition */}
+              {/* NC: Render wizard-created goals below the legacy habits list to show both during transition */}
               {goals && goals.length > 0 && (
                 <div style={{ marginTop: '12px' }}>
                   <h3 style={{ margin: '8px 0' }}>Wizard Goals</h3>
