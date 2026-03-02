@@ -5,7 +5,7 @@ import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
 import HabitWizard from '../components/HabitWizard/HabitWizard.jsx';
 import Toast from '../components/Toast.jsx';
-import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
+import {taskList, taskUpdate, taskListPending, taskCreate} from '../lib/api/tasks.js'; // NC: Import GoalCard and the new local API helpers for goals/action plans
 import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
 import { Child } from '../models/index.js';
 import { goalCreate } from '../lib/api/goals.js'
@@ -264,7 +264,32 @@ const normalizeTab = (tab) => {
         plan.assigneeName = plan.assigneeName || goal.assigneeName || user?.name || '';
         // create action plan
         // eslint-disable-next-line no-await-in-loop
-        await actionPlanCreate(plan);
+        const apResp = await actionPlanCreate(plan);
+
+        // NC: Create corresponding Task records so dashboard task lists include wizard-created action plans
+        try {
+          const taskData = new Task({
+            assigneeId: plan.assigneeId,
+            assigneeName: plan.assigneeName,
+            title: plan.title || (Array.isArray(plan.steps) && plan.steps[0]) || goal.title || 'Habit task',
+            notes: plan.notes || '',
+            taskType: plan.taskType || 'build-habit',
+            steps: plan.steps || [],
+            replacements: plan.replacements || [],
+            frequency: plan.frequency || null,
+            completedDates: [], // tasks expect array of completed date strings
+            schedule: plan.schedule || null,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            createdById: user?.id || null,
+            createdByName: user?.name || '',
+            createdByRole: user?.role || 'parent',
+          });
+          // eslint-disable-next-line no-await-in-loop
+          await taskCreate(taskData);
+        } catch (err) {
+          console.error('[ParentDashboard] Failed to create task for action plan', err);
+        }
       }
 
       // reload tasks so parent's my-tasks tab updates
