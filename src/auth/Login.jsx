@@ -10,13 +10,12 @@ export default function Login() {
   const navigate = useNavigate();
   const { setUser } = useUser();
 
-  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
-  const [age, setAge] = useState('');
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('admin');
 
   // Profile selection UI removed; always show manual login form
 
@@ -24,7 +23,8 @@ export default function Login() {
     event.preventDefault();
     setError('');
 
-    const trimmedCode = childCode.trim();
+    if (activeTab === 'child') {
+      const trimmedCode = childCode.trim();
 
     //Sprint 5 addition: Login uses Username flow for children:
     if (trimmedCode) {
@@ -40,7 +40,6 @@ export default function Login() {
         return;
       }
       const child = response.child;
-
       setUser({ ...child, role: 'child' });
 
       try {
@@ -55,6 +54,7 @@ export default function Login() {
       navigate('/home');
       return;
     }
+  }
 
     // ==== ADULT LOGIN FLOW (email + password) ====
     if (!email || !password) {
@@ -100,60 +100,93 @@ export default function Login() {
     <section className="container" style={{ maxWidth: '960px', paddingTop: '3rem', textAlign: 'center' }}>
       <div className="card" style={{ padding: '2.25rem 2rem', maxWidth: '520px', margin: '0 auto', textAlign: 'left' }}>
           <h1 style={{ marginBottom: '.75rem' }}>Welcome back to Next Steps</h1>
-          <p className="sub" style={{ marginTop: 0 }}>
-            Choose your role and sign in. Use child code for kid accounts.
-          </p>
+
+          {/* styling to create separate tabs for admins vs children accounts */}
+          <div className='tabs' style={{ display: 'flex', marginBottom: '1.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('admin')}
+              className="btn"
+              style={{ marginTop: '1.25rem', width: '100%', marginLeft: '1rem', marginRight: '0.5rem' }}
+            >
+              Admin Login
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('child')}
+              className="btn"
+              style={{ marginTop: '1.25rem', width: '100%', marginLeft: '0.5rem', marginRight: '1rem'  }}
+            >
+              Child Login
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} style={{ marginTop: '.75rem' }}>
 
-            <label className="auth-label">
-              Email <span aria-hidden="true" className="required-asterisk">*</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-              />
-            </label>
-
-            <label className="auth-label">
-              Password <span aria-hidden="true" className="required-asterisk">*</span>
-              <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* admin tab (for users, parents, providers) */}
+            {activeTab === 'admin' && (
+              <>
+                <label className="auth-label">
+                <span>
+                Email <span style={{ color: '#b91c1c'}}>*</span>
+                </span>
                 <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  aria-describedby="login-password-visibility-toggle"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
                 />
-                <button
-                  type="button"
-                  id="login-password-visibility-toggle"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="icon-button"
-                  style={{
-                    border: '1px solid #ccc',
-                    background: 'white',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {showPassword ? ' Hide' : ' Show'}
-                </button>
-              </div>
-            </label>
+                </label>
 
-            <label className="auth-label">
-              Child sign on (username#code)
-              <input
-                type="text"
-                value={childCode}
-                onChange={(e) => setChildCode(e.target.value)}
-                placeholder='Example: SwordFish#12345'
-              />
-            </label>
+                <label className="auth-label">
+                  <span>
+                  Password <span style={{ color: '#b91c1c'}}>*</span>
+                  </span>
+                  <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      aria-describedby="login-password-visibility-toggle"
+                    />
+                    <button
+                      type="button"
+                      id="login-password-visibility-toggle"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="icon-button"
+                      style={{
+                        border: '1px solid #ccc',
+                        background: 'white',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showPassword ? ' Hide' : ' Show'}
+                    </button>
+                  </div>
+                </label>
+              </>
+            )}
+
+            {/* child tab */}
+            {activeTab === 'child' && (
+              <label className="auth-label">
+                <span>
+                Child Login (username#code) <span style={{ color: '#b91c1c'}}>*</span>
+                </span>
+                <input
+                  type="text"
+                  value={childCode}
+                  onChange={(e) => setChildCode(e.target.value)}
+                  placeholder='Example: SwordFish#12345'
+                />
+              </label>
+            )}
 
             {error && (
               <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.9rem' }}>{error}</p>

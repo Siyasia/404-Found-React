@@ -55,7 +55,7 @@ export default function Signup() {
     }
 
     // ==== NON-CHILD ROLES (user, parent, provider) ====
-    if (!trimmedName || !age || !role || !password || !email) {
+    if (!trimmedName || !role || !password || !email) {
       setError('Please fill in all fields.');
       return;
     }
@@ -71,15 +71,14 @@ export default function Signup() {
       );
       return;
     }
-
+/*
     if ((role === 'user' || role === 'parent') && numericAge < 14) {
       setError(
         'Users and parents must be at least 14 years old. Please adjust the age or choose a different role.'
       );
       return;
-    }
-    const response = await signupAdult(age, name, role, email, password);
-    // response = await signupAdult(email, password);
+    }*/
+    const response = await signupAdult('50', name, role, email, password);
 
     console.log('📨 Signup API Response:', response);
     console.log('📊 Response status:', response.status_code);
@@ -94,16 +93,6 @@ export default function Signup() {
       setError(errorMsg);
       return;
     }
-
-    // const newUser = {
-    //   id: crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}`,
-    //   email,
-    //   password,
-    //   name: (email.split('@')[0] || 'User'),
-    //   age: '50',
-    //   role: 'user',
-    //   createdAt: new Date().toISOString(),
-    // };
 
     setUser(response.user);
     await makeGameProfile(response.user.id);
@@ -132,7 +121,9 @@ export default function Signup() {
         <form onSubmit={handleSignUp}>
           {/* Role choice (always visible) */}
           <label className="auth-label">
-            Role <span aria-hidden="true" className="required-asterisk">*</span>
+            <span>
+            Role<span aria-hidden="true" className="required-asterisk">*</span>
+            </span>
             <select
               value={role}
               onChange={(e) => {
@@ -153,7 +144,9 @@ export default function Signup() {
           {/* Child code (only for child signup) */}
           {role === 'child' && (
             <label className="auth-label">
-              Parent-provided child code <span aria-hidden="true" className="required-asterisk">*</span>
+              <span>
+              Parent-provided child code<span aria-hidden="true" className="required-asterisk">*</span>
+              </span>
               <input
                 type="text"
                 value={childCode}
@@ -167,9 +160,12 @@ export default function Signup() {
 
           {/* Adult / non-child fields */}
           {role !== 'child' && (
+            
             <>
               <label className="auth-label">
-                Name <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                Name<span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <input
                   type="text"
                   value={name}
@@ -181,7 +177,9 @@ export default function Signup() {
               </label>
 
               <label className="auth-label">
-                Email <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                Email<span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <input
                   type="email"
                   value={email}
@@ -193,20 +191,9 @@ export default function Signup() {
               </label>
 
               <label className="auth-label">
-                Age <span aria-hidden="true" className="required-asterisk">*</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="enter age of user"
-                  required
-                  aria-required="true"
-                />
-              </label>
-
-              <label className="auth-label">
-                Password <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                Password<span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input
                     id="signup-password"
