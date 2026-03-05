@@ -1,6 +1,7 @@
-import React from 'react';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import React, { useState, useEffect } from 'react';
+import { friendsList, friendsAdd, friendsRemove } from '../lib/api/friends.js';
 
 export default function Profile() {
   const { user, setUser } = useUser();
@@ -15,6 +16,9 @@ export default function Profile() {
     );
   }
 
+  const [friends, setFriends] = useState([]);
+  const [friendInput, setFriendInput] = useState('');
+  const [friendError, setFriendError] = useState('');
   const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
   const palette = user?.palette || 'gold';
 
@@ -27,6 +31,16 @@ export default function Profile() {
     const palette = event.target.value;
     setUser({ ...user, palette });
   };
+
+  //Sprint 5: Comparing parent / provider for friends
+  useEffect(() => {
+    async function load() {
+      if (user?.role === ROLE.PARENT || user?.role === ROLE.PROVIDER) return;
+      const res = await friendsList();
+      if (res.status === 200 && res.data?.friends) setFriends(res.data.friends);
+    }
+    load();
+  }, [user]);
 
   return (
     <section className="container">
@@ -53,6 +67,60 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {user.role !== ROLE.PARENT && user.role !== ROLE.PROVIDER && (
+        <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '820px', marginTop: '1rem' }}>
+          <h3 style={{ marginTop: 0 }}>Friends</h3>
+
+          {friendError && <p style={{ color: 'crimson' }}>{friendError}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            <input
+              value={friendInput}
+              onChange={(e) => setFriendInput(e.target.value)}
+              placeholder="Add a friend (username or child username#code)"
+            />
+            <button
+              className="btn"
+              onClick={async () => {
+                setFriendError('');
+                const value = friendInput.trim();
+                if (!value) return;
+                const res = await friendsAdd(value);
+                if (res.status !== 200) { setFriendError(res.data?.error || 'Failed to add friend'); return; }
+                setFriends(res.data.friends || []);
+                setFriendInput('');
+              }}
+            >
+              Add
+            </button>
+          </div>
+          
+          <div className="friendsBox">
+            {friends.length === 0 ? (
+              <p style={{ margin: 0 }}>No friends yet.</p>
+            ) : (
+              <ul className="friendsList">
+                {friends.map((f) => (
+                  <li key={f} className="friendsListRow">
+                    <span>{f}</span>
+                    <button
+                      className="btn"
+                      onClick={async () => {
+                        const res = await friendsRemove(f);
+                        if (res.status !== 200) { setFriendError(res.data?.error || 'Failed to remove'); return; }
+                        setFriends(res.data.friends || []);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '820px', marginTop: '1rem' }}>
         <h3 style={{ marginTop: 0 }}>Theme</h3>

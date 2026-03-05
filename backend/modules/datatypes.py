@@ -111,6 +111,8 @@ class ChildInfo(pydantic.BaseModel):
     age: Optional[int] = None
     createdAt: Optional[int] = None
     theme: Optional[str] = "pink"
+    password: Optional[str] = None
+    friends: Optional[List[str]] = None
 
 
 class Item(pydantic.BaseModel):

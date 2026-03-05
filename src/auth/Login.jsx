@@ -14,6 +14,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [childCode, setChildCode] = useState('');
+  const [childPassword, setChildPassword] = useState('');
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('admin');
 
@@ -27,18 +28,25 @@ export default function Login() {
       const trimmedCode = childCode.trim();
 
     //Sprint 5 addition: Login uses Username flow for children:
+    // Sprint 5 addition: Login uses Username flow for children:
     if (trimmedCode) {
       if (!trimmedCode.includes('#')) {
         setError('You must provide a parent-generated code with a child username Ex: "SwordFish#12345"');
         return;
       }
 
-      const response = await loginChild(trimmedCode);
+      if (!childPassword.trim()) {
+        setError('Child password is required.');
+        return;
+      }
+
+      const response = await loginChild(trimmedCode, childPassword);
 
       if (response.status_code !== 200) {
         setError(response.error || 'No child account found for that username/code. Ask your parent to check it.');
         return;
       }
+
       const child = response.child;
       setUser({ ...child, role: 'child' });
 
@@ -51,6 +59,7 @@ export default function Login() {
         }
       }
 
+      setChildPassword('');
       navigate('/home');
       return;
     }
@@ -58,7 +67,7 @@ export default function Login() {
 
     // ==== ADULT LOGIN FLOW (email + password) ====
     if (!email || !password) {
-      setError('Please enter email + password, or enter a child code.');
+      setError('Please enter email or username + password, or enter a child code.');
       return;
     }
 
@@ -128,15 +137,15 @@ export default function Login() {
             {activeTab === 'admin' && (
               <>
                 <label className="auth-label">
-                <span>
-                Email <span style={{ color: '#b91c1c'}}>*</span>
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                />
+                  <span>
+                    Email or Username<span aria-hidden="true" className="required-asterisk">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email or username"
+                  />
                 </label>
 
                 <label className="auth-label">
@@ -173,19 +182,32 @@ export default function Login() {
               </>
             )}
 
-            {/* child tab */}
             {activeTab === 'child' && (
-              <label className="auth-label">
-                <span>
-                Child Login (username#code) <span style={{ color: '#b91c1c'}}>*</span>
-                </span>
-                <input
-                  type="text"
-                  value={childCode}
-                  onChange={(e) => setChildCode(e.target.value)}
-                  placeholder='Example: SwordFish#12345'
-                />
-              </label>
+              <>
+                <label className="auth-label">
+                  <span>
+                    Child Login (username#code) <span style={{ color: '#b91c1c'}}>*</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={childCode}
+                    onChange={(e) => setChildCode(e.target.value)}
+                    placeholder='Example: SwordFish#12345'
+                  />
+                </label>
+
+                <label className="auth-label">
+                  <span>
+                    Child Password <span style={{ color: '#b91c1c'}}>*</span>
+                  </span>
+                  <input
+                    type="password"
+                    value={childPassword}
+                    onChange={(e) => setChildPassword(e.target.value)}
+                    placeholder="Enter your password"
+                  />
+                </label>
+              </>
             )}
 
             {error && (
