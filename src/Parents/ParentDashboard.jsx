@@ -56,6 +56,8 @@ const normalizeTab = (tab) => {
   const [childAge, setChildAge] = useState('');
   const [childError, setChildError] = useState('');
   const [childSuccess, setChildSuccess] = useState('');
+  const [childUsername, setChildUsername] = useState('');
+  const [childPassword, setChildPassword] = useState('');
 
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
@@ -132,15 +134,22 @@ const normalizeTab = (tab) => {
     setTasks(list);
   };
 
+  //Sprint 5 Change: Adding user name attributes to handleAddChild()
   const handleAddChild = async (e) => {
     e.preventDefault();
     setChildError('');
 
     const name = childName.trim();
     const ageNumber = Number(childAge);
+    const username = childUsername.trim();
 
-    if (!name || !childAge) {
-      setChildError('Please enter a name and age for the child.');
+    if (!name || !childAge || !username || !childPassword) {
+      setChildError('Please enter a name, username, password, and age for the child.');
+      return;
+    }
+
+    if (username.includes('*') || username.includes('#')) {
+      setChildError("Child username cannot contain '*' or '#'.");
       return;
     }
 
@@ -152,20 +161,25 @@ const normalizeTab = (tab) => {
     const newChild = Child.from({
       parentId: user.id,
       name,
+      username,
+      password: childPassword,
       age: ageNumber,
       code: generateChildCode(children),
       createdAt: new Date().getTime(),
     });
 
     console.log('[ParentDashboard] Add child submit');
-    const result = await childCreate(newChild)
+    const result = await childCreate(newChild, childPassword)
     newChild.id = result.id; // Update with ID from backend
     if (result.status_code === 200) {
       const updated = [...children, newChild];
       saveChildren(updated)
       setChildName('');
+      setChildUsername('');
+      setChildPassword('');
       setChildAge('');
-      setChildSuccess(`${newChild.name} added. Code: ${newChild.code}`);
+      setChildSuccess(`Child ${name} has been created with the username ${username}#${newChild.code}`);
+      setChildUsername('');
       setTimeout(() => setChildSuccess(''), 3000);
     } else {
       setChildError('Failed to add child. Please try again.');
@@ -379,6 +393,18 @@ const normalizeTab = (tab) => {
               </label>
 
               <label className="auth-label">
+                Child username <span aria-hidden="true" className="required-asterisk">*</span>
+                <input
+                  type="text"
+                  value={childUsername}
+                  onChange={(e) => setChildUsername(e.target.value)}
+                  placeholder="Example: SwordFish"
+                  required
+                  aria-required="true"
+                />
+              </label>
+
+              <label className="auth-label">
                 Age <span aria-hidden="true" className="required-asterisk">*</span>
                 <input
                   type="number"
@@ -388,6 +414,17 @@ const normalizeTab = (tab) => {
                   placeholder="Example: 10"
                   required
                   aria-required="true"
+                />
+              </label>
+
+              <label className="auth-label">
+                Child password <span aria-hidden="true" className="required-asterisk">*</span>
+                <input
+                  type="password"
+                  value={childPassword}
+                  onChange={(e) => setChildPassword(e.target.value)}
+                  placeholder="Set a password"
+                  required
                 />
               </label>
 

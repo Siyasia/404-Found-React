@@ -107,7 +107,7 @@ def user_check(info: UserInfo):
     query = "SELECT id FROM users WHERE username = ? OR email = ?"
     return query, (info.username, info.email)
 
-def user_create(info: UserInfo):
+def user_create(info: UserInfo, password):
     """Insert a full user record into the users table.
 
     All fields from the backend `UserInfo` model are persisted. Fields that
@@ -120,9 +120,9 @@ def user_create(info: UserInfo):
     stats_json = json.dumps(info.stats) if info.stats else None
     meta_json = json.dumps(info.meta) if info.meta else None
     return query, (
+        info.username,
         info.email,
-        info.email,
-        info.password,
+        password,
         info.name,
         info.age,
         info.role,
@@ -147,14 +147,14 @@ def user_get(user_id: int):
     If callers need the user's habits, use `user_get_with_habits`.
     """
     query = (
-        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta "
+        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta, friends "
         "FROM users WHERE id = ?"
     )
     return query, (user_id,)
 
 def user_get_by_email(email: str):
     query = (
-        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta "
+        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta, friends "
         "FROM users WHERE email = ? OR username = ?"
     )
     return query, (email, email)
@@ -184,6 +184,15 @@ def user_get_with_habits(user_id: int):
     """
     return query, (user_id,)
 
+#Sprint 5 change: adding usernames to regular users:
+def user_get_by_username(username: str):
+    query = "SELECT * FROM users WHERE lower(username) = lower(?)"
+    return query, (username,)
+
+#Sprint 5 change: setting friendslist for user:
+def user_set_friends(user_id: int, friends_json: str):
+    query = "UPDATE users SET friends = ? WHERE id = ?"
+    return query, (friends_json, user_id)
 
 def task_create(info: TaskInfo):
     query = (
@@ -264,10 +273,18 @@ def child_task_list(child_code: int):
     query = "SELECT * FROM tasks WHERE assigneeId IN (SELECT children.id FROM children WHERE code = ?)"
     return query, (child_code,)
 
+#Sprint 5 Change: Including Username when creating child as well as a password:
+def child_create(child: ChildInfo, hashed_password: str):
+    query = "INSERT INTO children (parentId, id, name, username, age, code, password, createdAt, theme) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    return query, (child.parentId, child.id, child.name, child.username, child.age, child.code, hashed_password, child.createdAt, child.theme)
 
-def child_create(child: ChildInfo):
-    query = "INSERT INTO children (parentId, id, name, age, code, createdAt, theme) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    return query, (child.parentId, child.id, child.name, child.age, child.code, child.createdAt, child.theme)
+def child_update(child, child_id):
+    query = "UPDATE children SET parentId = ?, name = ?, username = ?, age = ?, code = ?, createdAt = ?, theme = ? WHERE id = ?"
+    return query, (child.parentId, child.name, child.username, child.age, child.code, child.createdAt, child.theme, child_id)
+
+def child_get_by_username_code(username: str, code: str):
+    query = "SELECT * FROM children WHERE lower(username) = lower(?) AND code = ?"
+    return query, (username, code)
 
 def child_delete(child_id: int):
     query = "DELETE FROM children WHERE id = ?"
@@ -285,11 +302,10 @@ def child_get_by_code(code: str):
     query = "SELECT * FROM children WHERE code = ?"
     return query, (code,)
 
-
-def child_update(child, child_id):
-    query = "UPDATE children SET parentId = ?, name = ?, age = ?, code = ?, createdAt = ?, theme = ? WHERE id = ?"
-    return query, (child.parentId, child.name, child.age, child.code, child.createdAt, child_id, child.theme)
-
+#Sprint 5: Setting friendlist for Child accounts:
+def child_set_friends(child_id: int, friends_json: str):
+    query = "UPDATE children SET friends = ? WHERE id = ?"
+    return query, (friends_json, child_id)
 
 def formed_habit_list(userId):
     query = "SELECT * FROM formed_habits WHERE userId = ?"

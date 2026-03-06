@@ -105,10 +105,11 @@ export class GetChildResponse extends Response {
     }
 }
 
+//Spring 5 addition:
 export class ChildLoginResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
-        this.child = json_data.child ? Child.from(json_data.child) : null;
+        this.child = json_data?.child ? Child.from(json_data.child) : null;
     }
 }
 

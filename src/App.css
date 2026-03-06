@@ -369,6 +369,31 @@ code {
   text-align: left;
 }
 
+/*Friend Box addition for Sprint 5 */
+.friendsBox {
+  border: 1px solid var(--card-border);
+  border-radius: 0.85rem;
+  padding: 0.85rem 0.9rem;
+  background: var(--card-bg);
+  height: auto;
+}
+
+.friendsList {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.friendsListRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
 /* Utility: soft section spacing */
 section.container > .card + .card {
   margin-top: 1.2rem;

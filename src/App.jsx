@@ -3,7 +3,6 @@ import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 
 import Home from './pages/Home.jsx';
-// HomeGate was removed; use Home for the main landing
 import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import Shop from './pages/Shop.jsx';
@@ -12,6 +11,8 @@ import BreakHabit from './pages/BreakHabit.jsx';
 import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
+import HabitWizardPage from './pages/HabitWizardPage.jsx'; // Temporary page for testing the Habit Wizard component
+
 
 import Login from './auth/Login.jsx';
 import Signup from './auth/Signup.jsx';
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/shop" element={<Shop />} />
         <Route path="/build-habit" element={<BuildHabit />} />
         <Route path="/break-habit" element={<BreakHabit />} />
+        <Route path="/habit" element={<HabitWizardPage />} />
         <Route path="/parent" element={<ParentHomepage />} />
         <Route path="/parent/dashboard" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />

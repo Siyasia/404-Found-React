@@ -20,9 +20,7 @@ export default function TaskCard({ task, children }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: schedule ? '.15rem' : 0 }}>
-            <div style={{ fontWeight: 600, fontSize: '1rem' }}>
-              {task?.title || 'Untitled task'}
-            </div>
+            <div style={{ fontWeight: 600, fontSize: '1rem' }}>{task?.title || 'Untitled task'}</div>
             {schedule && formatRepeatBadge(task.schedule) && (
               <span
                 style={{
@@ -54,7 +52,15 @@ export default function TaskCard({ task, children }) {
             </div>
           )}
         </div>
-        {children}
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          {task?.timeOfDay && (
+            <div style={{ fontSize: '.8rem', padding: '.25rem .5rem', borderRadius: 8, background: '#111827', color: 'white', minWidth: 56, textAlign: 'center' }}>
+              {task.timeOfDay}
+            </div>
+          )}
+          <div>{children}</div>
+        </div>
       </div>
       {task.schedule && (
         <div style={{ display: 'flex', gap: '.5rem', marginTop: '.25rem', fontSize: '.8rem', color: '#6b7280' }}>

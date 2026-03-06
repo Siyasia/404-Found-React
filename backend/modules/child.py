@@ -1,4 +1,5 @@
 import fastapi
+import util
 from fastapi.params import Depends
 
 import state
@@ -8,10 +9,31 @@ from state.database import Database
 
 router = fastapi.APIRouter()
 
+#Sprint 5 Update: Making username required when signing in as a child.
+@router.post("/child/create")
+@router.post("/child/create")
 @router.post("/child/create")
 def child_create(child: ChildInfo, response: fastapi.Response, user: UserInfo = Depends(state.require_user)):
+
+    if not child.username or not str(child.username).strip():
+        response.status_code = 400
+        return {"error": "child username is required"}
+
+    if "*" in child.username or "#" in child.username:
+        response.status_code = 400
+        return {"error": "child username cannot contain '*' or '#'"}
+
+    if not getattr(child, "password", None) or not str(child.password).strip():
+        response.status_code = 400
+        return {"error": "child password is required"}
+
+    hashed = util.hash_password(child.password)
+
+    child.parentId = user.id
+
     with Database() as db:
-        if db.try_execute(*SQLHelper.child_create(child)):
+        # NOTE: SQLHelper.child_create must accept (child, hashed)
+        if db.try_execute(*SQLHelper.child_create(child, hashed)):
             child_id = db.created_id()
             db.write()
             return {"id": child_id}
