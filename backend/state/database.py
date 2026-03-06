@@ -66,7 +66,7 @@ class Database:
 
     def create_tables(self):
 
-#Spring 5 Additions: Adding usernames to children.
+        #Sprint 5 Additions: Adding usernames to children.
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, username TEXT, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
         )
@@ -80,13 +80,14 @@ class Database:
                 traceback.print_exc()
 
         ensure_column("children", "username", "TEXT")
-
-        #End Sprint 5 Additions
+        ensure_column("children", "friends", "TEXT")
+        ensure_column("children", "password", "TEXT") #Sprint 5 addon for Passwords for children
 
         # Users table (matches backend `UserInfo` model)
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, password TEXT, name TEXT, age INTEGER, role TEXT, createdAt TEXT, type TEXT, theme TEXT, profilePic TEXT, stats TEXT, code TEXT, meta TEXT)"
         )
+        ensure_column("users", "friends", "TEXT")
 
         # Tasks table (represents frontend Task objects)
         self.__connection.execute(

@@ -17,6 +17,7 @@ export default function Signup() {
   const [role, setRole] = useState('');
   const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
+  const [username, setUsername] = useState('');
 
   async function makeGameProfile (userId) {
     console.log('Creating game profile for new user...');
@@ -78,7 +79,9 @@ export default function Signup() {
       );
       return;
     }*/
-    const response = await signupAdult('50', name, role, email, password);
+
+    /*Changing to accept Usernames (Sprint 5)*/
+    const response = await signupAdult('50', name, role, email, password, username);
 
     console.log('📨 Signup API Response:', response);
     console.log('📊 Response status:', response.status_code);
@@ -140,6 +143,19 @@ export default function Signup() {
               <option value="child">Child</option>
             </select>
           </label>
+
+          {role === 'user' && (
+            <label className="auth-label">
+              Username
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Pick a username"
+                required
+              />
+            </label>
+          )}
 
           {/* Child code (only for child signup) */}
           {role === 'child' && (

@@ -57,6 +57,7 @@ const normalizeTab = (tab) => {
   const [childError, setChildError] = useState('');
   const [childSuccess, setChildSuccess] = useState('');
   const [childUsername, setChildUsername] = useState('');
+  const [childPassword, setChildPassword] = useState('');
 
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
@@ -142,8 +143,8 @@ const normalizeTab = (tab) => {
     const ageNumber = Number(childAge);
     const username = childUsername.trim();
 
-    if (!name || !childAge || !username) {
-      setChildError('Please enter a name, username, and age for the child.');
+    if (!name || !childAge || !username || !childPassword) {
+      setChildError('Please enter a name, username, password, and age for the child.');
       return;
     }
 
@@ -161,19 +162,21 @@ const normalizeTab = (tab) => {
       parentId: user.id,
       name,
       username,
+      password: childPassword,
       age: ageNumber,
       code: generateChildCode(children),
       createdAt: new Date().getTime(),
     });
 
     console.log('[ParentDashboard] Add child submit');
-    const result = await childCreate(newChild)
+    const result = await childCreate(newChild, childPassword)
     newChild.id = result.id; // Update with ID from backend
     if (result.status_code === 200) {
       const updated = [...children, newChild];
       saveChildren(updated)
       setChildName('');
       setChildUsername('');
+      setChildPassword('');
       setChildAge('');
       setChildSuccess(`Child ${name} has been created with the username ${username}#${newChild.code}`);
       setChildUsername('');
@@ -411,6 +414,17 @@ const normalizeTab = (tab) => {
                   placeholder="Example: 10"
                   required
                   aria-required="true"
+                />
+              </label>
+
+              <label className="auth-label">
+                Child password <span aria-hidden="true" className="required-asterisk">*</span>
+                <input
+                  type="password"
+                  value={childPassword}
+                  onChange={(e) => setChildPassword(e.target.value)}
+                  placeholder="Set a password"
+                  required
                 />
               </label>
 
