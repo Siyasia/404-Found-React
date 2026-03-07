@@ -1,3 +1,5 @@
+import { REPEAT, formatScheduleLabel } from '../../lib/schedule.js'
+
 // ===================== CONFIG =====================
 // All configuration constants are centralized here for easy modification.
 export const WIZARD_CONFIG = {
@@ -49,11 +51,40 @@ export function inferGoalType(value) {
  */
 export function defaultSchedule(startDate, endDate) {
   return {
-    repeat: 'daily',
+    repeat: REPEAT.DAILY,
     daysOfWeek: [],
     intervalDays: 1,
     startDate,
     endDate: endDate || '',
+  };
+}
+
+// Normalize a schedule object from various possible input shapes to a consistent format.
+export function normalizeSchedule(schedule, fallbackStart, fallbackEnd) {
+  const repeatRaw = schedule?.repeat || schedule?.frequency || '';
+  const up = String(repeatRaw).toUpperCase();
+  const repeat = Object.values(REPEAT).includes(up)
+    ? up
+    : (() => {
+        const lower = String(repeatRaw).toLowerCase();
+        if (lower === 'daily') return REPEAT.DAILY;
+        if (lower === 'weekdays') return REPEAT.WEEKDAYS;
+        if (lower === 'weekends') return REPEAT.WEEKENDS;
+        return REPEAT.DAILY;
+      })();
+
+  const daysOfWeek = Array.isArray(schedule?.daysOfWeek)
+    ? schedule.daysOfWeek.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+    : [];
+
+  const intervalDays = Number(schedule?.intervalDays) > 0 ? Number(schedule.intervalDays) : 1;
+
+  return {
+    repeat,
+    daysOfWeek,
+    intervalDays,
+    startDate: schedule?.startDate || fallbackStart || '',
+    endDate: schedule?.endDate || fallbackEnd || '',
   };
 }
 
@@ -70,7 +101,7 @@ export function normalizeTask(task, fallbackStart, fallbackEnd) {
     timeOfDay: task?.timeOfDay || '',
     startDate,
     endDate,
-    schedule: task?.schedule || defaultSchedule(startDate, endDate),
+    schedule: normalizeSchedule(task?.schedule || defaultSchedule(startDate, endDate), startDate, endDate),
     completionLog: task?.completionLog || {},
   };
 }
@@ -181,6 +212,21 @@ export function validateTaskForm(taskForm, tasks, editingIndex, goalStartDate, g
       errors.outside = 'Action plans cannot end after the goal ends.';
       return errors;
     }
+  }
+
+  const schedule = taskForm.schedule || defaultSchedule(startDate, endDate);
+  const repeat = schedule?.repeat;
+  if (!repeat || !Object.values(REPEAT).includes(repeat)) {
+    errors.schedule = 'Choose a valid schedule.';
+    return errors;
+  }
+  if (repeat === REPEAT.CUSTOM_DOW && (!Array.isArray(schedule.daysOfWeek) || schedule.daysOfWeek.length === 0)) {
+    errors.schedule = 'Pick at least one day for a custom schedule.';
+    return errors;
+  }
+  if (repeat === REPEAT.INTERVAL_DAYS && !(Number(schedule.intervalDays) >= 1)) {
+    errors.schedule = 'Interval must be at least 1 day.';
+    return errors;
   }
 
   return errors; // empty object means valid
@@ -365,15 +411,22 @@ export function buildFinalPayload(
     startDate: task.startDate,
     endDate: task.endDate || '',
     schedule: task.schedule,
+    // keep a backward-compatible alias so other code that still reads `frequency` continues to work
+    frequency: task.schedule || null,
+    frequencyLabel: formatScheduleLabel(task.schedule),
     completionLog: task.completionLog || {},
   }));
 
   return {
+    // Provide stable top-level fields expected by UI mapping and other components
+    id: habitId,
+    goalId: habitId,
     habitId,
     type: goalSummary.type,
+    goalType: goalSummary.type,
     title: goalSummary.title,
-    goalTitle: goalSummary.title,        // Duplicate for backward compatibility
-    goalName: goalSummary.title,          // Duplicate for backward compatibility
+    goalTitle: goalSummary.title, // Duplicate for backward compatibility
+    goalName: goalSummary.title, // Duplicate for backward compatibility
     whyItMatters: goalSummary.whyItMatters,
     startDate: goalSummary.startDate,
     endDate: goalSummary.endDate || '',
@@ -385,8 +438,15 @@ export function buildFinalPayload(
     location,
     makeItEasier,
     replacements,
+    // Keep both `assignee` (used by mapper) and canonical `assigneeId`
     assignee: assignee || null,
+    assigneeId: assignee || null,
     tasks: normalizedTasks,
     milestoneRewards,
+    // UI-friendly defaults
+    earnedBadges: [],
+    currentStreak: 0,
+    bestStreak: 0,
+    createdAt: new Date().toISOString(),
   };
 }
