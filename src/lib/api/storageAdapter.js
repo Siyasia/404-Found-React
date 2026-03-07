@@ -10,6 +10,8 @@ export const KEYS = {
   COINS: 'ns.coins.v1',
 }
 
+// Calendar data is computed on-the-fly from ACTION_PLANS.
+
 // Helper to read goals with safety checks
 export async function getItem(key) {
   if (typeof window === 'undefined' || !window.localStorage) return null;
