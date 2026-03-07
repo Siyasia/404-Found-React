@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // LOCAL STORAGE ADAPTER — temporary implementation only.
 // When backend is ready , will delete this file entirely.
 // All api/ modules will replace their getItem/setItem calls with fetch() directly.
