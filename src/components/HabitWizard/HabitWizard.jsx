@@ -1,5 +1,5 @@
-/* eslint-disable react-hooks/preserve-manual-memoization */
-import React, { useCallback } from 'react';                // React core and hooks
+import React, { useCallback, useEffect, useRef } from 'react';                // React core and hooks
+import { useUser } from '../../UserContext.jsx';
 import PropTypes from 'prop-types';                        // Type checking for props
 import './HabitWizard.css';                                // Wizard styles
 import { GoalStep, DetailsStep, ActionPlansStep, ReviewLaunchStep } from './HabitWizardSteps.jsx'; // Step UI components
@@ -34,6 +34,7 @@ export default function HabitWizard({
   authToken = '',                   // Auth token for draft API and title validation
   titleValidationUrl = '',          // URL to validate goal title against backend rules
   onDraftSave = null,               // Custom callback for saving draft (alternative to API)
+  saving = false,                   // External saving flag (optional) to disable submit while parent is saving
 }) {
   const today = toLocalISODate();   // Current date in YYYY-MM-DD format
 
@@ -44,6 +45,12 @@ export default function HabitWizard({
   const { isValidating: isValidatingTitle, error: titleError, validate: validateTitle } = 
     useTitleValidation(wizard.state.title, titleValidationUrl, authToken);
 
+  // NC: ( new chnage ) Read current user so we can default assignee in `self` context
+  const { user } = useUser();
+  const currentAssignee = wizard.state.assignee;
+  const selfAssigneeId = user?.id || null;
+  const setAssignee = wizard.setAssignee;
+
   // ---- Handlers ----
   // When a suggestion chip is clicked: either call external handler or fill the task form title
   const handleUseSuggestion = useCallback((suggestion) => {
@@ -52,7 +59,7 @@ export default function HabitWizard({
     } else {
       wizard.updateTaskForm('title', suggestion); // Fill the task title field directly
     }
-  }, [externalOnUseSuggestion, wizard.updateTaskForm]);
+  }, [externalOnUseSuggestion, wizard]);
 
   // ---- Render current step ----
   const renderStep = () => {
@@ -156,12 +163,26 @@ export default function HabitWizard({
             onRewardGoalCostCoinsChange={wizard.setRewardGoalCostCoins}
             onJumpToStep={wizard.jumpToStep}
             onSubmit={() => wizard.handleFinish(onSubmit)} // Call the finish handler with the onSubmit prop
+            saving={saving}
           />
         );
       default:
         return null;
     }
   };
+  // NC: ( new chnage ) If the wizard is used in `self` context, default the assignee to the current user id
+  // so created goals are assigned to the creator by default.
+  const assigneeInitRef = useRef(false);
+  useEffect(() => {
+    if (assigneeInitRef.current) return;
+    if (context !== 'self') return;
+    // Only set when there's a valid self id and no explicit assignee yet
+    if (selfAssigneeId != null && (currentAssignee === null || currentAssignee === undefined || currentAssignee === '')) {
+      setAssignee(selfAssigneeId);
+    }
+    assigneeInitRef.current = true;
+  // deliberately only run when context or self id change on first mount
+  }, [context, currentAssignee, selfAssigneeId, setAssignee]);
 
   return (
     <div className={embedded ? 'hw-container hw-embedded' : 'hw-container'}>
@@ -260,7 +281,7 @@ export default function HabitWizard({
                 type="button"
                 className="hw-btn-primary"
                 onClick={wizard.goNext}
-                disabled={!wizard.isStepValid()}
+                disabled={!wizard.isStepValid() || saving}
               >
                 {wizard.currentStepIndex + 1 < wizard.totalSteps ? 'Next' : 'Save'}
               </button>
@@ -272,6 +293,7 @@ export default function HabitWizard({
   );
 }
 
+// Prop types for type checking and documentation
 HabitWizard.propTypes = {
   context: PropTypes.oneOf(['self', 'parent']),
   availableChildren: PropTypes.array,
@@ -285,4 +307,5 @@ HabitWizard.propTypes = {
   authToken: PropTypes.string,
   titleValidationUrl: PropTypes.string,
   onDraftSave: PropTypes.func,
+  saving: PropTypes.bool,
 };

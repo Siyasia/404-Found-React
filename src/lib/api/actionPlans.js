@@ -2,7 +2,7 @@
 // completedDates lives on the action plan object — backend must store and return this field.
 // Confirm with backend that completedDates: { "YYYY-MM-DD": true } is the agreed shape before swapping.
 
-import { getItem, setItem, KEYS } from '../storageAdapter.js'
+import { getItem, setItem, KEYS } from './storageAdapter.js'
 import { formatScheduleLabel } from '../schedule.js'
 
 // Helper to safely read the list of action plans from storage, ensuring we always get an array back.
