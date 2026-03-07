@@ -1,4 +1,6 @@
+import React, { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
+import { useItems } from '../useItems.js';
 
 /**
  * Reward configuration step for the Habit Wizard.
@@ -17,6 +19,26 @@ export function RewardsStep({
   completionsNeeded,
   error,
 }) {
+  const { items, itemloading } = useItems();
+  const [selectedShopItemId, setSelectedShopItemId] = useState('');
+
+  const shopItems = useMemo(
+    () => (Array.isArray(items) ? items.filter((it) => it && (it.name || it.title)) : []),
+    [items]
+  );
+
+  const handleShopSelect = (value) => {
+    setSelectedShopItemId(value);
+    if (!value) return;
+    const item = shopItems.find((it) => String(it.id) === String(value));
+    if (!item) return;
+
+    const label = item.name || item.title || '';
+    const price = item.price != null ? item.price : '';
+    onSavingForChange(label);
+    onRewardGoalTitleChange(label);
+    if (price !== '') onRewardGoalCostCoinsChange(price);
+  };
   return (
     <div className="hw-stack-md">
       <div className="hw-info-banner">
@@ -74,6 +96,29 @@ export function RewardsStep({
           <span className="hw-section-icon">🎯</span>What are you saving for?
         </div>
         <div className="muted">Optional: Set a reward goal to work toward.</div>
+
+        <div className="hw-mt8">
+          <label className="hw-reward-field-label" htmlFor="hw-shop-item">
+            Pick from the shop (optional)
+          </label>
+          <select
+            id="hw-shop-item"
+            className="hw-input"
+            value={selectedShopItemId}
+            disabled={itemloading || shopItems.length === 0}
+            onChange={(e) => handleShopSelect(e.target.value)}
+          >
+            <option value="">Select an item…</option>
+            {shopItems.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name || item.title} {item.price != null ? `(${item.price} coins)` : ''}
+              </option>
+            ))}
+          </select>
+          <div className="muted" style={{ marginTop: 4 }}>
+            Choosing an item fills the goal name and cost automatically.
+          </div>
+        </div>
 
         <div className="hw-mt8">
           <label className="hw-reward-field-label" htmlFor="hw-savingfor">
