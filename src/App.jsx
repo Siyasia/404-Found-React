@@ -12,6 +12,7 @@ import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
 import HabitWizardPage from './pages/HabitWizardPage.jsx'; // Temporary page for testing the Habit Wizard component
+import CalendarPage from './pages/CalendarPage.jsx';
 import Avatar from './pages/Avatar.jsx';
 
 
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/break-habit" element={<BreakHabit />} />
         <Route path="/habit" element={<HabitWizardPage />} />
         <Route path="/habit-wizard" element={<HabitWizardPage />} /> {/* Temporary route for direct access to the Habit Wizard during development */}
+        <Route path="/calendar" element={<CalendarPage />} /> 
         <Route path="/parent" element={<ParentHomepage />} />
         <Route path="/parent/dashboard" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />

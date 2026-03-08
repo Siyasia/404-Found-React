@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { User } from './models';
 import { logout, userGet } from './lib/api/authentication';
 
@@ -27,52 +27,7 @@ export function UserProvider({ children }) {
     else body.classList.add('theme-gold');
   };
 
-  // Load user once on startup
-  useEffect(() => {
-    async function func () {
-      try {
-        let localUser = null;
-        if (typeof window !== 'undefined' && window.localStorage) {
-          const raw = localStorage.getItem('user');
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed) {
-                const isChild = parsed?.role === 'child' || (parsed?.code && !parsed?.role);
-                const normalized = isChild ? { ...parsed, role: 'child', type: 'child' } : parsed;
-                localUser = User.from(normalized);
-                setUserState(localUser);
-                applyTheme(localUser);
-              }
-            } catch (e) {}
-          }
-        }
-
-        // Only fetch from backend if no local user exists
-        if (localUser) return;
-          const fetched = await userGet();
-          console.debug('userGet returned:', fetched);
-          if (fetched) {
-            let payload = null;
-            if (fetched.user) payload = fetched.user;
-            else if (fetched.data) payload = fetched.data.user ?? fetched.data;
-            else if (fetched.json_data) payload = fetched.json_data.user ?? fetched.json_data;
-            else payload = fetched;
-
-            if (payload && typeof payload === 'object') {
-              setUser(payload);
-            } else {
-              console.warn('No user payload extracted from userGet:', fetched);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load user', err);
-      }
-    }
-    func();
-  }, []);
-
-  const setUser = (newUser) => {
+  const setUser = useCallback((newUser) => {
     const mode = newUser?.themeMode || (newUser?.theme === 'dark' ? 'dark' : newUser?.theme) || 'light';
     const palette = newUser?.palette || 'gold';
     const isChild = newUser?.role === 'child' || (newUser?.code && !newUser?.role);
@@ -100,7 +55,44 @@ export function UserProvider({ children }) {
     } catch (err) {
       console.error('Failed to set user', err);
     }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load user once on startup — reads localStorage first, falls back to userGet()
+  useEffect(() => {
+    async function func() {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = localStorage.getItem('user');
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed) {
+                setUser(parsed);
+                return; // localStorage user found — no need to hit the network
+              }
+            } catch (e) {}
+          }
+        }
+
+        // No localStorage user — fetch from backend once
+        const fetched = await userGet();
+        if (fetched) {
+          let payload = null;
+          if (fetched.user) payload = fetched.user;
+          else if (fetched.data) payload = fetched.data.user ?? fetched.data;
+          else if (fetched.json_data) payload = fetched.json_data.user ?? fetched.json_data;
+          else payload = fetched;
+
+          if (payload && typeof payload === 'object') {
+            setUser(payload);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user', err);
+      }
+    }
+    func();
+  }, [setUser]);
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
