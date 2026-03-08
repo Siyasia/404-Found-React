@@ -65,7 +65,9 @@ export function GoalStep({
   goalWindowError,
 }) {
   // Choose examples based on current habit type (if known)
-  const examples = habitType === 'break' ? BREAK_EXAMPLES : BUILD_EXAMPLES;
+  const examples = habitType
+    ? (habitType === 'break' ? BREAK_EXAMPLES : BUILD_EXAMPLES)
+    : [...BUILD_EXAMPLES, ...BREAK_EXAMPLES];
   const question = habitType === 'break'
     ? 'What goal are you trying to change?'
     : 'What goal do you want to work toward?';
@@ -722,6 +724,7 @@ export function ReviewLaunchStep({
   detailsStepIndex = 1,
   actionsStepIndex = 2,
   onSubmit,
+  saving = false,
 }) {
   const dueSummary = nextDueSummary(tasks);
 
@@ -879,8 +882,8 @@ export function ReviewLaunchStep({
 
       {/* Create button */}
       <div className="hw-actions-end">
-        <button type="button" className="hw-create-btn" onClick={onSubmit}>
-          Create My Goal
+        <button type="button" className="hw-create-btn" onClick={onSubmit} disabled={saving}>
+          {saving ? 'Creating…' : 'Create My Goal'}
         </button>
       </div>
     </div>
@@ -901,4 +904,5 @@ ReviewLaunchStep.propTypes = {
   detailsStepIndex: PropTypes.number,
   actionsStepIndex: PropTypes.number,
   onSubmit: PropTypes.func.isRequired,
+  saving: PropTypes.bool,
 };

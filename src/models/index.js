@@ -2,7 +2,26 @@
 // These are intentionally small wrappers around plain objects so existing code
 // can continue to access properties directly while we get class semantics.
 
-import {updateGameProfile} from "../lib/api/game.js";
+import { updateGameProfile } from "../lib/api/game.js";
+import { formatScheduleLabel, REPEAT } from "../lib/schedule.js";
+
+// Helper to derive a human-friendly frequency label from a schedule object, for display purposes.
+const deriveFrequencyLabel = (schedule) => {
+  if (!schedule) return '';
+  switch ((schedule.repeat || '').toUpperCase()) {
+    case REPEAT.WEEKDAYS:
+      return 'Weekdays';
+    case REPEAT.WEEKENDS:
+      return 'Weekends';
+    case REPEAT.CUSTOM_DOW:
+      return formatScheduleLabel(schedule) || 'Custom days';
+    case REPEAT.INTERVAL_DAYS:
+      return formatScheduleLabel(schedule) || 'Every N days';
+    case REPEAT.DAILY:
+    default:
+      return 'Daily';
+  }
+};
 
 // Task type constants
 export const TASK_TYPE_SIMPLE = 'simple';
@@ -45,6 +64,7 @@ export class Schedule {
   }
 }
 
+// For each model class, we allow constructing from a plain object with flexible field names, and we provide a toJSON method that returns a clean plain object for serialization. The meta field can be used to store any additional data that doesn't fit into the defined properties, without losing it during normalization.
 export class Task {
   constructor(props = {}) {
     // assign all known properties so code can read t.title, t.status, etc.
@@ -58,23 +78,33 @@ export class Task {
     this.steps = Array.isArray(props.steps) ? props.steps.slice() : [];
     this.habitToBreak = props.habitToBreak ?? '';
     this.replacements = Array.isArray(props.replacements) ? props.replacements.slice() : [];
-    this.frequency = props.frequency ?? null;
     this.streak = props.streak ?? 0;
-    this.completedDates = Array.isArray(props.completedDates) ? props.completedDates.slice() : [];
-    this.schedule = Schedule.from(props.schedule);
-    this.lastCompletedOn = props.lastCompletedOn ?? null;
+    if (props.completedDates && typeof props.completedDates === 'object' && !Array.isArray(props.completedDates)) {
+      this.completedDates = { ...props.completedDates };
+    } else {
+      this.completedDates = Array.isArray(props.completedDates) ? props.completedDates.slice() : [];
+    }
+    const incomingMeta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
+      ? { ...props.meta }
+      : {};
+    this.schedule = Schedule.from(props.schedule ?? props.frequency ?? incomingMeta.schedule);
+    const scheduleJson = this.schedule ? this.schedule.toJSON() : null;
+    this.frequencyLabel = deriveFrequencyLabel(scheduleJson);
+    this.frequency = scheduleJson;
+    this.completionLog = props.completionLog ?? incomingMeta.completionLog ?? {};
+    this.stats = props.stats ?? incomingMeta.stats ?? {};
+    this.timeOfDay = props.timeOfDay ?? incomingMeta.timeOfDay ?? '';
+    this.lastCompletedOn = props.lastCompletedOn ?? incomingMeta.lastCompletedOn ?? null;
     this.status = props.status ?? 'pending';
     this.createdAt = props.createdAt ?? new Date().toISOString();
     this.createdById = props.createdById ?? null;
     this.createdByName = props.createdByName ?? '';
     this.createdByRole = props.createdByRole ?? '';
-    // common optional/extra properties made explicit
     this.needsApproval = props.needsApproval ?? false;
-    this.targetType = props.targetType ?? null; // 'child' | 'adult' | null
+    this.targetType = props.targetType ?? null;
     this.targetName = props.targetName ?? null;
 
-    // container for any other arbitrary keys not part of the explicit model
-    this.meta = {};
+    this.meta = incomingMeta;
     Object.keys(props).forEach((k) => {
       if (!(k in this)) this.meta[k] = props[k];
     });
@@ -86,21 +116,26 @@ export class Task {
   }
 
   toJSON() {
-    // produce a plain object that preserves previous top-level shape while
-    // also including meta keys flattened for backward compatibility
+    const scheduleJson = this.schedule ? this.schedule.toJSON() : null;
     const out = {
       id: this.id,
       assigneeId: this.assigneeId,
       assigneeName: this.assigneeName,
+      childCode: this.childCode,
       title: this.title,
       notes: this.notes,
       taskType: this.taskType,
       steps: this.steps.slice(),
       habitToBreak: this.habitToBreak,
       replacements: this.replacements.slice(),
-      frequency: this.frequency,
+      frequency: scheduleJson,
+      frequencyLabel: this.frequencyLabel,
       streak: this.streak,
-      schedule: this.schedule ? this.schedule.toJSON() : null,
+      completedDates: Array.isArray(this.completedDates) ? this.completedDates.slice() : { ...this.completedDates },
+      schedule: scheduleJson,
+      completionLog: { ...(this.completionLog || {}) },
+      stats: { ...(this.stats || {}) },
+      timeOfDay: this.timeOfDay,
       lastCompletedOn: this.lastCompletedOn,
       status: this.status,
       createdAt: this.createdAt,
@@ -111,14 +146,12 @@ export class Task {
       targetType: this.targetType,
       targetName: this.targetName,
     };
-    // flatten meta keys too
     Object.keys(this.meta || {}).forEach((k) => {
       out[k] = this.meta[k];
     });
     return out;
   }
 }
-
 export class BuildHabit {
   constructor(props = {}) {
     this.id = props.id ?? null;
@@ -126,7 +159,7 @@ export class BuildHabit {
     this.goal = props.goal ?? '';
     this.cue = props.cue ?? '';
     this.steps = Array.isArray(props.steps) ? props.steps.slice() : [];
-    this.schedule = props.schedule ?? null;
+    this.schedule = Schedule.from(props.schedule);
     this.savedOn = props.savedOn ?? null;
     this.reward = props.reward ?? '';
   }
@@ -136,7 +169,7 @@ export class BuildHabit {
     return new BuildHabit(obj || {});
   }
 
- toJSON() {
+  toJSON() {
     return {
       id: this.id,
       account_id: this.account_id,
@@ -186,14 +219,14 @@ export class FormedHabit {
     this.id = props.id ?? String(Date.now());
     this.userId = props.userId ?? null;
     this.title = props.title ?? '';
-    this.type = props.type ?? 'build'; // 'build' | 'break'
+    this.type = props.type ?? 'build';
     this.createdAt = props.createdAt ?? new Date().toISOString();
-    // explicit common extras
     this.details = props.details ?? null;
     this.completedAt = props.completedAt ?? null;
 
-    // container for other arbitrary properties
-    this.meta = {};
+    this.meta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
+      ? { ...props.meta }
+      : {};
     Object.keys(props).forEach((k) => { if (!(k in this)) this.meta[k] = props[k]; });
   }
 
@@ -203,7 +236,6 @@ export class FormedHabit {
   }
 
   toJSON() {
-    // return known fields plus flattened meta for backward compatibility
     const out = {
       id: this.id,
       userId: this.userId,
@@ -212,6 +244,7 @@ export class FormedHabit {
       createdAt: this.createdAt,
       details: this.details,
       completedAt: this.completedAt,
+      meta: { ...(this.meta || {}) },
     };
     Object.keys(this.meta || {}).forEach((k) => { out[k] = this.meta[k]; });
     return out;
@@ -227,17 +260,17 @@ export class User {
     this.age = props.age ?? null;
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
-    this.type = this.role; // i think these should be the same?
+    this.type = this.role;
     this.themeMode = props.themeMode ?? props.theme ?? 'light';
     this.palette = props.palette ?? 'gold';
-    this.theme = this.themeMode; // legacy alias
+    this.theme = this.themeMode;
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
-    // explicit common extras
     this.code = props.code ?? null;
 
-    // collect any other arbitrary props under `meta`
-    this.meta = {};
+    this.meta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
+      ? { ...props.meta }
+      : {};
     Object.keys(props).forEach((k) => { if (!(k in this)) this.meta[k] = props[k]; });
   }
 
@@ -268,7 +301,6 @@ export class User {
   }
 }
 
-//Sprint 5 change: Adding username to child object:
 export class Child {
   constructor(props = {}) {
     this.parentId = props.parentId ?? null;
@@ -307,11 +339,12 @@ export class Child {
 
 export class GameProfile {
   constructor(props = {}) {
-    this.id = props.id ?? null; // should also always be same as userId
+    this.id = props.id ?? null;
     this.coins = props.coins ?? 0;
-    // array of objects, representing the user's inventory of items/fields in the game
-    // format of { id: int, equipped: bool }, where id corresponds to a GameItem id and equipped indicates whether it's currently active
     this.inventory = Array.isArray(props.inventory) ? props.inventory.slice() : [];
+    this.meta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
+      ? { ...props.meta }
+      : {};
   }
 
   async setCoinCount(newCoins) {
@@ -324,7 +357,7 @@ export class GameProfile {
   async addToInventory(item, equipped = false) {
     this.inventory.push({
       id: item.id,
-      equipped: equipped,
+      equipped,
     })
     await updateGameProfile({
       inventory: this.inventory,
@@ -353,7 +386,8 @@ export class GameProfile {
     return {
       id: this.id,
       coins: this.coins,
-      inventory: this.inventory.map((field) => ({id: field.id, equipped: field.equipped})),
+      inventory: this.inventory.map((field) => ({ id: field.id, equipped: field.equipped })),
+      meta: { ...(this.meta || {}) },
     };
   }
 }

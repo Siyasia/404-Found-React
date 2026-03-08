@@ -31,6 +31,7 @@ export default function App() {
         <Route path="/build-habit" element={<BuildHabit />} />
         <Route path="/break-habit" element={<BreakHabit />} />
         <Route path="/habit" element={<HabitWizardPage />} />
+        <Route path="/habit-wizard" element={<HabitWizardPage />} /> {/* Temporary route for direct access to the Habit Wizard during development */}
         <Route path="/parent" element={<ParentHomepage />} />
         <Route path="/parent/dashboard" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />

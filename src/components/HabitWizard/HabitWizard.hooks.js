@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'; // React hooks
 import {
   WIZARD_CONFIG,
@@ -9,6 +11,7 @@ import {
   validateTaskForm,
   buildFinalPayload,
   defaultSchedule,
+  normalizeSchedule,
   inferGoalType,
 } from './HabitWizard.utils.js'; // Pure utilities
 
@@ -16,6 +19,7 @@ import {
  * Main hook for the Habit Wizard.
  * Manages all state, validation, and side effects (auto-save, navigation).
  */
+
 export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onDraftSave) {
   // Load initial data from props or localStorage draft
   const initialData = useMemo(
@@ -23,7 +27,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
     [initialValues, today]
   );
 
-  // Single state object containing all wizard fields
+  // Single state object containing all wizard fields and metadata
   const [state, setState] = useState({
     currentStepIndex: 0,
     habitType: initialData.habitType,
@@ -62,6 +66,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
   });
 
   const submitErrorRef = useRef(null); // Hold submission error for parent
+  const skipDraftSaveRef = useRef(false); // Prevent autosave after successful submit
 
   // Derived values
   const totalSteps = 5; // goal, details, actions, rewards, review
@@ -119,7 +124,6 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       : null;
 
   // ---- Actions (state setters) ----
-
   // Update goal title and infer type
   const setGoalTitle = useCallback((value) => {
     setState((prev) => {
@@ -196,34 +200,39 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       const newErrors = { ...prev.errors, taskForm: undefined };
 
       if (field === 'schedule') {
+        const normalized = normalizeSchedule(value, prev.taskForm.startDate || prev.goalStartDate, prev.taskForm.endDate || prev.goalEndDate);
         // When schedule changes, also mirror its start/end dates onto the task form.
         return {
           ...prev,
           taskForm: {
             ...prev.taskForm,
-            schedule: value,
-            startDate: value?.startDate || prev.taskForm.startDate || prev.goalStartDate,
-            endDate: value?.endDate || '',
+            schedule: normalized,
+            startDate: normalized?.startDate || prev.taskForm.startDate || prev.goalStartDate,
+            endDate: normalized?.endDate || '',
           },
           errors: newErrors,
         };
       }
 
       if (field === 'startDate' || field === 'endDate') {
-        return {
-          ...prev,
-          taskForm: {
-            ...prev.taskForm,
-            [field]: value,
-            schedule: {
-              ...(prev.taskForm.schedule || defaultSchedule(prev.goalStartDate, prev.goalEndDate)),
-              [field]: value,
-            },
-          },
-          errors: newErrors,
-        };
-      }
+            const base = prev.taskForm.schedule || defaultSchedule(prev.goalStartDate, prev.goalEndDate)
+            const tentative = { ...base, [field]: value }
+            const fallbackStart = field === 'startDate' ? value : prev.taskForm.startDate || prev.goalStartDate
+            const fallbackEnd = field === 'endDate' ? value : prev.taskForm.endDate || prev.goalEndDate
+            const normalized = normalizeSchedule(tentative, fallbackStart, fallbackEnd)
 
+            return {
+              ...prev,
+              taskForm: {
+                ...prev.taskForm,
+                [field]: value,
+                schedule: normalized,
+                startDate: normalized?.startDate || prev.taskForm.startDate || prev.goalStartDate,
+                endDate: normalized?.endDate || prev.taskForm.endDate || '',
+              },
+              errors: newErrors,
+            };
+      }
       return {
         ...prev,
         taskForm: { ...prev.taskForm, [field]: value },
@@ -236,9 +245,17 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
   const saveTask = useCallback(() => {
     setState((prev) => {
       if (prev.isSavingTask) return prev;
+      const schedule = normalizeSchedule(
+        prev.taskForm.schedule || defaultSchedule(prev.goalStartDate, prev.goalEndDate),
+        prev.taskForm.startDate || prev.goalStartDate,
+        prev.taskForm.endDate || prev.goalEndDate,
+      );
+
+      // mark as saving to avoid double-taps
+      const baseState = { ...prev, isSavingTask: true };
 
       const taskErrors = validateTaskForm(
-        prev.taskForm,
+        { ...prev.taskForm, schedule },
         prev.tasks,
         prev.editingIndex,
         prev.goalStartDate,
@@ -247,7 +264,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       );
 
       if (Object.keys(taskErrors).length > 0) {
-        return { ...prev, errors: { ...prev.errors, taskForm: taskErrors } };
+        return { ...baseState, errors: { ...prev.errors, taskForm: taskErrors }, isSavingTask: false };
       }
 
       const nextTask = {
@@ -256,7 +273,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
         timeOfDay: prev.taskForm.timeOfDay || '',
         startDate: prev.taskForm.startDate || prev.goalStartDate,
         endDate: prev.taskForm.endDate || '',
-        schedule: prev.taskForm.schedule,
+        schedule,
         completionLog: prev.taskForm.completionLog || {},
       };
 
@@ -383,6 +400,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
 
       try {
         const result = await onSubmit(payload);
+        skipDraftSaveRef.current = true; // block post-submit autosave of the just-submitted data
         localStorage.removeItem(WIZARD_CONFIG.DRAFT_STORAGE_KEY); // Clear draft on success
         return result;
       } catch (error) {
@@ -397,6 +415,9 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
 
   // Auto-save draft on any state change (debounced 500ms)
   useEffect(() => {
+    // Skip autosave while submitting or after a successful submission to avoid rehydrating old data on remount.
+    if (skipDraftSaveRef.current || state.isSubmitting) return undefined;
+
     const timer = setTimeout(() => {
       saveDraft(
         {

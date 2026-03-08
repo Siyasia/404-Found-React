@@ -1,0 +1,321 @@
+/* PHASE 4: New shared dashboard styles for read-only goal + action-plan display. */
+:root {
+  --hw-bg: #f8f4ea;
+  --hw-surface: #ffffff;
+  --hw-surface-soft: #fcfaf4;
+  --hw-border: #e8ddc8;
+  --hw-text: #2f2418;
+  --hw-muted: #7b6b56;
+  --hw-gold: #bf8b30;
+  --hw-gold-dark: #8e6823;
+  --hw-gold-soft: #f4ead0;
+  --hw-shadow-soft: 0 10px 24px rgba(64, 44, 12, 0.08);
+  --hw-font-display: 'Playfair Display', Georgia, serif;
+  --hw-font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --hw-radius-xl: 1rem;
+  --hw-radius-lg: 0.85rem;
+  --hw-radius-md: 0.65rem;
+  --hw-radius-sm: 0.4rem;
+}
+
+.dashboard-shell {
+  min-height: 100vh;
+  background: var(--hw-bg);
+  color: var(--hw-text);
+  font-family: var(--hw-font-body);
+  padding: 24px;
+}
+
+.dashboard-card {
+  background: var(--hw-surface);
+  border: 1px solid var(--hw-border);
+  border-radius: var(--hw-radius-lg);
+  box-shadow: var(--hw-shadow-soft);
+  padding: 16px;
+}
+
+.dashboard-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hw-muted);
+  margin-bottom: 6px;
+}
+
+.dashboardInlineChip {
+  border-radius: 999px;
+  padding: 5px 10px;
+  border: 1px solid var(--hw-border);
+  background: var(--hw-surface-soft);
+  color: var(--hw-text);
+  font-weight: 700;
+  font-size: 0.78rem;
+  line-height: 1rem;
+}
+
+.dashboard-emptyText {
+  color: var(--hw-muted);
+  font-size: 0.92rem;
+  padding: 8px 0;
+}
+
+.homeDashboard {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.homeHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.homeHeaderTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.homeTitle {
+  margin: 0;
+  font-family: var(--hw-font-display);
+  letter-spacing: -0.01em;
+  font-size: clamp(1.8rem, 2vw + 1rem, 2.4rem);
+}
+
+.homeSub {
+  margin: 0;
+  color: var(--hw-muted);
+}
+
+.homeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.homeMain,
+.homeSide {
+  display: grid;
+  gap: 18px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--hw-text);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.statCard {
+  background: var(--hw-surface-soft);
+  border: 1px solid var(--hw-border);
+  border-radius: var(--hw-radius-md);
+  box-shadow: var(--hw-shadow-soft);
+  padding: 14px;
+}
+
+.statLabel {
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  color: var(--hw-muted);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.statValue {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--hw-text);
+  margin-top: 6px;
+}
+
+.statSub {
+  font-size: 0.9rem;
+  color: var(--hw-muted);
+  margin-top: 4px;
+}
+
+.goalCardsList {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.goalCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.goalCardMain {
+  min-width: 0;
+}
+
+.goalCardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.goalCardTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--hw-text);
+}
+
+.goalCardMeta {
+  font-size: 0.86rem;
+  color: var(--hw-muted);
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.goalCardBody {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hw-border);
+}
+
+.goalCardSection {
+  border: 1px solid var(--hw-border);
+  background: var(--hw-surface-soft);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.goalCardBodyText {
+  color: var(--hw-text);
+  font-size: 0.94rem;
+}
+
+.goalCardMutedText {
+  color: var(--hw-muted);
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+.goalCardBulletList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--hw-text);
+  display: grid;
+  gap: 4px;
+}
+
+.habitPlanList {
+  padding-left: 0;
+  margin: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.habitPlanRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hw-border);
+}
+
+.habitPlanRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.habitPlanMain {
+  min-width: 0;
+}
+
+.habitPlanTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.habitPlanTitle {
+  font-weight: 700;
+  color: var(--hw-text);
+}
+
+.habitPlanMeta {
+  font-size: 0.86rem;
+  color: var(--hw-muted);
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.habitPlanSide {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.infoList {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hw-border);
+}
+
+.infoRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.infoLabel {
+  color: var(--hw-muted);
+  font-size: 0.88rem;
+}
+
+.infoValue {
+  color: var(--hw-text);
+  font-weight: 700;
+  text-align: right;
+}
+
+@media (max-width: 960px) {
+  .homeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .habitPlanRow {
+    grid-template-columns: 1fr;
+  }
+
+  .habitPlanSide {
+    justify-content: flex-start;
+  }
+}
