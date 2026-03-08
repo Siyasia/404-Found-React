@@ -1,77 +1,92 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUser } from '../UserContext.jsx';
-import GoalCard from '../components/GoalCard.jsx';
-import HabitPlanList from '../components/HabitPlanList.jsx';
-import { goalList } from '../lib/api/goals.js';
-import { actionPlanList } from '../lib/api/actionPlans.js';
-import { isDueOnDate, toLocalISODate } from '../lib/schedule.js';
-import '../dashboardTheme.css';
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useUser } from '../UserContext.jsx'
+import GoalCard from '../components/GoalCard.jsx'
+import HabitPlanList from '../components/HabitPlanList.jsx'
+import Toast from '../components/Toast.jsx'
+import { goalList } from '../lib/api/goals.js'
+import { actionPlanList } from '../lib/api/actionPlans.js'
+import { getCoins } from '../lib/api/streaks.js'
+import togglePlanCompletion from '../lib/actionPlanCompletion.js'
+import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
+import '../dashboardTheme.css'
 
-// PHASE 4: Home is now the first read-only surface for the new goal + action-plan system.
-// This page deliberately avoids completion toggles, coins, badges, and calendar logic.
 export default function Home() {
-  const navigate = useNavigate();
-  const { user } = useUser();
+  const navigate = useNavigate()
+  const { user } = useUser()
 
-  const [goals, setGoals] = useState([]);
-  const [actionPlans, setActionPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [goals, setGoals] = useState([])
+  const [actionPlans, setActionPlans] = useState([])
+  const [coins, setCoins] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [rewardMessage, setRewardMessage] = useState('')
 
-  const todayISO = useMemo(() => toLocalISODate(), []);
+  const todayISO = useMemo(() => toLocalISODate(), [])
 
   useEffect(() => {
-    let active = true;
+    let active = true
 
-    async function loadReadOnlyHabitData() {
-      setLoading(true);
+    async function loadHabitData() {
+      setLoading(true)
       try {
-        const [goalResponse, planResponse] = await Promise.all([
+        const [goalResponse, planResponse, coinsResponse] = await Promise.all([
           goalList(),
           actionPlanList(),
-        ]);
+          getCoins(user?.id),
+        ])
 
-        if (!active) return;
+        if (!active) return
 
-        const nextGoals = Array.isArray(goalResponse?.data) ? goalResponse.data : [];
-        const nextPlans = Array.isArray(planResponse?.data) ? planResponse.data : [];
+        const nextGoals = Array.isArray(goalResponse?.data) ? goalResponse.data : []
+        const nextPlans = Array.isArray(planResponse?.data) ? planResponse.data : []
+        const totalCoins = Number(coinsResponse?.data?.total || 0)
 
-        setGoals(nextGoals);
-        setActionPlans(nextPlans);
+        setGoals(nextGoals)
+        setActionPlans(nextPlans)
+        setCoins(totalCoins)
       } catch (error) {
-        console.error('[PHASE 4] Failed to load goals/action plans for Home:', error);
-        if (!active) return;
-        setGoals([]);
-        setActionPlans([]);
+        console.error('[PHASE 5] Failed to load goals/action plans for Home:', error)
+        if (!active) return
+        setGoals([])
+        setActionPlans([])
+        setCoins(0)
       } finally {
-        if (active) setLoading(false);
+        if (active) setLoading(false)
       }
     }
 
-    loadReadOnlyHabitData();
+    loadHabitData()
 
     return () => {
-      active = false;
-    };
-  }, []);
+      active = false
+    }
+  }, [user?.id])
 
-  // PHASE 4: Show goals assigned to the current user, plus goals they created for others.
   const visibleGoals = useMemo(() => {
-    if (!Array.isArray(goals) || !user?.id) return [];
+    if (!Array.isArray(goals) || !user?.id) return []
 
     return goals.filter((goal) => {
-      const isAssignedToUser = String(goal?.assigneeId) === String(user.id);
-      const isCreatedByUser = String(goal?.createdById) === String(user.id);
-      return isAssignedToUser || isCreatedByUser;
-    });
-  }, [goals, user]);
+      const isAssignedToUser = String(goal?.assigneeId) === String(user.id)
+      const isCreatedByUser = String(goal?.createdById) === String(user.id)
+      return isAssignedToUser || isCreatedByUser
+    })
+  }, [goals, user])
+
+  const goalsById = useMemo(() => {
+    const map = {}
+    visibleGoals.forEach((goal) => {
+      map[String(goal.id)] = goal
+    })
+    return map
+  }, [visibleGoals])
 
   const visibleActionPlans = useMemo(() => {
-    const visibleGoalIds = new Set(visibleGoals.map((goal) => String(goal.id)));
+    const visibleGoalIds = new Set(visibleGoals.map((goal) => String(goal.id)))
     return (Array.isArray(actionPlans) ? actionPlans : []).filter((plan) =>
       visibleGoalIds.has(String(plan.goalId))
-    );
-  }, [actionPlans, visibleGoals]);
+    )
+  }, [actionPlans, visibleGoals])
 
   const todaysPlans = useMemo(() => {
     return visibleActionPlans.filter((plan) => {
@@ -80,28 +95,74 @@ export default function Home() {
           ? plan.schedule
           : plan?.frequency && typeof plan.frequency === 'object'
             ? plan.frequency
-            : null;
+            : null
 
-      if (!schedule) return false;
-      return isDueOnDate(schedule, todayISO);
-    });
-  }, [visibleActionPlans, todayISO]);
+      if (!schedule) return false
+      return isDueOnDate(schedule, todayISO)
+    })
+  }, [visibleActionPlans, todayISO])
 
   const activeStreakCount = useMemo(() => {
-    return visibleActionPlans.filter((plan) => Number(plan?.currentStreak || 0) > 0).length;
-  }, [visibleActionPlans]);
+    return visibleActionPlans.filter((plan) => Number(plan?.currentStreak || 0) > 0).length
+  }, [visibleActionPlans])
 
   const assignedToMeCount = useMemo(() => {
-    return visibleGoals.filter((goal) => String(goal?.assigneeId) === String(user?.id)).length;
-  }, [visibleGoals, user]);
+    return visibleGoals.filter((goal) => String(goal?.assigneeId) === String(user?.id)).length
+  }, [visibleGoals, user])
 
   const managedForOthersCount = useMemo(() => {
     return visibleGoals.filter(
       (goal) =>
         String(goal?.createdById) === String(user?.id) &&
         String(goal?.assigneeId) !== String(user?.id)
-    ).length;
-  }, [visibleGoals, user]);
+    ).length
+  }, [visibleGoals, user])
+
+  const handleRewardFeedback = useCallback((newBadgeIds = [], coinPayload = null, planTitle = '') => {
+    if (Array.isArray(newBadgeIds) && newBadgeIds.length > 0) {
+      setRewardMessage(`New badge${newBadgeIds.length === 1 ? '' : 's'} earned: ${newBadgeIds.join(', ')}`)
+    }
+
+    const delta = Number(coinPayload?.delta || 0)
+    if (delta > 0) {
+      setSuccessMessage(`Completed ${planTitle || 'habit plan'} • earned ${delta} coins`)
+    } else if (delta === 0) {
+      setSuccessMessage(`Updated ${planTitle || 'habit plan'} for today`)
+    }
+  }, [])
+
+  const handleToggleActionPlanCompletion = useCallback(
+    async (plan) => {
+      if (!plan) return null
+
+      const goal = goalsById[String(plan.goalId)]
+      const milestoneRewards = Array.isArray(goal?.milestoneRewards) ? goal.milestoneRewards : []
+
+      try {
+        const result = await togglePlanCompletion({
+          plan,
+          todayISO,
+          milestoneRewards,
+          setActionPlans,
+          onBadges: (badgeIds) => handleRewardFeedback(badgeIds, null, plan?.title),
+          onCoins: ({ delta = 0, total = null }) => {
+            if (typeof total === 'number' && !Number.isNaN(total)) {
+              setCoins(total)
+            } else if (typeof delta === 'number' && !Number.isNaN(delta)) {
+              setCoins((prev) => Math.max(0, prev + delta))
+            }
+            handleRewardFeedback([], { delta, total }, plan?.title)
+          },
+        })
+
+        return result
+      } catch (error) {
+        console.error('[PHASE 5] Failed to toggle action plan completion:', error)
+        return null
+      }
+    },
+    [goalsById, handleRewardFeedback, todayISO]
+  )
 
   if (!user) {
     return (
@@ -109,28 +170,42 @@ export default function Home() {
         <h1>Home</h1>
         <p className="sub hero">You need to log in first.</p>
       </section>
-    );
+    )
   }
 
   return (
     <div className="dashboard-shell">
+      <Toast message={successMessage} type="success" onClose={() => setSuccessMessage('')} />
+      <Toast message={rewardMessage} type="success" onClose={() => setRewardMessage('')} />
+
       <div className="homeDashboard">
         <header className="homeHeader">
           <div className="homeHeaderTop">
             <div>
               <h1 className="homeTitle">Good day, {user?.name || 'there'}</h1>
               <p className="homeSub">
-                This is the first read-only home view for your saved goals and action plans.
+                Your new habit system is now interactive here.
               </p>
             </div>
 
-            <button
-              type="button"
-              className="btn"
-              onClick={() => navigate('/habit-wizard')}
-            >
-              Create habit
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  padding: '.5rem .8rem',
+                  borderRadius: '999px',
+                  border: '1px solid var(--hw-border)',
+                  background: 'linear-gradient(135deg, #fffaf0, #fef3c7)',
+                  fontWeight: 800,
+                  color: '#8a5a00',
+                }}
+              >
+                🪙 {coins}
+              </div>
+
+              <button type="button" className="btn" onClick={() => navigate('/habit-wizard')}>
+                Create habit
+              </button>
+            </div>
           </div>
         </header>
 
@@ -145,6 +220,8 @@ export default function Home() {
                 ) : (
                   <HabitPlanList
                     plans={todaysPlans}
+                    todayISO={todayISO}
+                    onToggleCompletion={handleToggleActionPlanCompletion}
                     emptyTitle="Nothing due today"
                     emptyDescription="Once your schedules line up with today, they will show here."
                     limit={8}
@@ -160,7 +237,7 @@ export default function Home() {
             <section className="dashboard-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <h2 className="sectionTitle">Saved goals</h2>
-                <span className="dashboardInlineChip">Read-only view</span>
+                <span className="dashboardInlineChip">Interactive view</span>
               </div>
 
               {loading ? (
@@ -175,6 +252,7 @@ export default function Home() {
                           (plan) => String(plan.goalId) === String(goal.id)
                         )}
                         todayISO={todayISO}
+                        onToggleActionPlanCompletion={handleToggleActionPlanCompletion}
                       />
                     </li>
                   ))}
@@ -208,6 +286,12 @@ export default function Home() {
                   <div className="statValue">{activeStreakCount}</div>
                   <div className="statSub">Plans with a current streak above zero</div>
                 </div>
+
+                <div className="statCard">
+                  <div className="statLabel">Coins</div>
+                  <div className="statValue">{coins}</div>
+                  <div className="statSub">New habit-system balance</div>
+                </div>
               </div>
             </section>
 
@@ -232,5 +316,5 @@ export default function Home() {
         </div>
       </div>
     </div>
-  );
+  )
 }
