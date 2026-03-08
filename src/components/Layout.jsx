@@ -44,6 +44,7 @@ export default function Layout({ children }) {
                 <NavLink to="/parent/dashboard?tab=children" className="nav-link">Children</NavLink>
                 <NavLink to="/parent/dashboard?tab=assign" className="nav-link">Assign tasks</NavLink>
                 <NavLink to="/parent/dashboard?tab=my-tasks" className="nav-link">My tasks</NavLink>
+                <NavLink to="/parent/dashboard?tab=goals" className="nav-link">Goals</NavLink>
                 <NavLink to="/parent/dashboard?tab=approvals" className="nav-link">Approvals</NavLink>
               </>
             ) : (

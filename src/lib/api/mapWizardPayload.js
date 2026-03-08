@@ -1,7 +1,7 @@
 // SWAP: Mapper between the Habit Wizard and local models.
 // This file is intentionally pure and side-effect free.
 
-import { formatScheduleLabel, REPEAT } from './schedule.js'
+import { formatScheduleLabel, REPEAT } from '../schedule.js'
 
 // The main export takes the raw form data from the Habit Wizard and maps it into the normalized shape expected by our local models and API.
 function normalizeSchedule(schedule) {

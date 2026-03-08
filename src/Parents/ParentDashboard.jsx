@@ -3,11 +3,21 @@ import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import { Task } from '../models';
-import ParentHabitAssignment from './ParentHabitAssignment.jsx';
 import Toast from '../components/Toast.jsx';
 import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
 import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
 import { Child } from '../models/index.js';
+{/* Habit wizard imports */}
+import HabitWizard from '../components/HabitWizard/HabitWizard.jsx';
+import { WIZARD_CONFIG } from '../components/HabitWizard/HabitWizard.utils.js';
+import { goalCreate, goalDelete, goalList, goalUpdate } from '../lib/api/goals.js';
+import {
+  actionPlanCreate,
+  actionPlanDelete,
+  actionPlanList,
+  actionPlanDeleteByGoal,
+} from '../lib/api/actionPlans.js';
+import mapWizardPayload from '../lib/api/mapWizardPayload.js';
 
 const CHILDREN_KEY = 'ns.children.v1';
 const TASKS_KEY = 'ns.childTasks.v1';
@@ -39,6 +49,7 @@ const normalizeTab = (tab) => {
       children: 'children',
       assign: 'assign',
       mytasks: 'my-tasks',
+      goals: 'goals',  // Future tab for managing goals, not implemented yet
       approvals: 'approvals',
     };
     return map[key] || 'children';
@@ -52,6 +63,11 @@ const normalizeTab = (tab) => {
   const [tasks, setTasks] = useState([]);
   const [pendingTasks, setPendingTasks] = useState([]);
 
+  // new habit system data that lives in goals + action plans.
+  const [goals, setGoals] = useState([]);
+  const [actionPlans, setActionPlans] = useState([]);
+  const [editingGoal, setEditingGoal] = useState(null);
+
   const [childName, setChildName] = useState('');
   const [childAge, setChildAge] = useState('');
   const [childError, setChildError] = useState('');
@@ -64,6 +80,8 @@ const normalizeTab = (tab) => {
   const [taskNotes, setTaskNotes] = useState('');
   const [taskError, setTaskError] = useState('');
   const [taskSuccess, setTaskSuccess] = useState('');
+   const [wizardSaving, setWizardSaving] = useState(false);
+  const [wizardKey, setWizardKey] = useState(0); // force-remount wizard after save/edit reset.
 
   useEffect( () => {
     async function func(){
@@ -96,6 +114,26 @@ const normalizeTab = (tab) => {
       } catch (err) {
         console.error('Failed to load pending tasks', err);
       }
+
+      // load saved goals + action plans for the new Habit Wizard flow.
+      try {
+        const gResp = await goalList();
+        if (gResp && gResp.status_code === 200) {
+          setGoals(Array.isArray(gResp.data) ? gResp.data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load goals', err);
+      }
+
+      try {
+        const apResp = await actionPlanList();
+        if (apResp && apResp.status_code === 200) {
+          setActionPlans(Array.isArray(apResp.data) ? apResp.data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load action plans', err);
+      }
+      
   } func();
   }, []);
 
@@ -199,6 +237,7 @@ const normalizeTab = (tab) => {
     }
   };
 
+  /* the legacy single-task assign flow is deprecated. want to add it back in later
   const handleAssignTask = async (e) => {
     e.preventDefault();
     setTaskError('');
@@ -227,8 +266,7 @@ const normalizeTab = (tab) => {
       else {
         setTaskError('Selected assignee not found. Please refresh and try again.');
       }
-    }
-
+    } 
     const newTask = new Task({
       assigneeId: taskAssigneeId,
       assigneeName: assignee ? assignee.name : 'Unknown',
@@ -249,6 +287,182 @@ const normalizeTab = (tab) => {
     saveTasks(updated);
     setTaskTitle('');
     setTaskNotes('');
+  }; */
+
+  // Handle Habit Wizard submit: map payload, create/update goal, then create action plans.
+  // PHASE 3: this saves the new habit system only. It does NOT create legacy Task records.
+  const handleWizardSubmit = async (payload) => {
+    setTaskError('');
+    setWizardSaving(true);
+
+    try {
+      const mapped = mapWizardPayload(payload);
+      const { goal, actionPlans: mappedPlans } = mapped;
+
+      if (!goal.assigneeId) {
+        setTaskError('Please choose who this goal is for before saving.');
+        return { success: false };
+      }
+
+      // PHASE 3: stamp creator + assignee display metadata before save.
+      goal.createdById = user?.id || null;
+      goal.createdByName = user?.name || '';
+      goal.createdByRole = user?.role || 'parent';
+
+      const assigneeMatch = (children || []).find((c) => String(c.id) === String(goal.assigneeId));
+      goal.assigneeName = goal.assigneeName || assigneeMatch?.name || user?.name || '';
+
+      // Defensive validation: all action plans must keep a normalized schedule.
+      for (let i = 0; i < mappedPlans.length; i += 1) {
+        const plan = mappedPlans[i];
+        if (!plan || !plan.schedule || !plan.schedule.repeat) {
+          const title = plan?.title || `task #${i + 1}`;
+          setTaskError(`Wizard task "${title}" is missing scheduling information. Please set a schedule and try again.`);
+          return { success: false };
+        }
+      }
+
+      let goalId = null;
+
+      if (editingGoal && editingGoal.id) {
+        const updateResp = await goalUpdate(editingGoal.id, goal);
+        if (!updateResp || updateResp.status_code !== 200) {
+          setTaskError(updateResp?.error ? String(updateResp.error) : 'Failed to update goal.');
+          return { success: false };
+        }
+
+        goalId = updateResp?.data?.id || updateResp?.data?._id || editingGoal.id;
+
+        try {
+          await actionPlanDeleteByGoal(goalId);
+        } catch (err) {
+          console.error('[ParentDashboard] Failed to replace existing action plans during edit', err);
+          setTaskError('Failed to replace the previous action plans for this goal.');
+          return { success: false };
+        }
+      } else {
+        const createResp = await goalCreate(goal);
+        if (!createResp || createResp.status_code !== 200) {
+          setTaskError(createResp?.error ? String(createResp.error) : 'Failed to create goal.');
+          return { success: false };
+        }
+
+        goalId = createResp?.data?.id || createResp?.data?._id || null;
+      }
+
+      const createdActionPlanIds = [];
+
+      for (const plan of mappedPlans) {
+        const nextPlan = {
+          ...plan,
+          goalId,
+          assigneeId: plan.assigneeId ?? goal.assigneeId ?? null,
+          createdById: user?.id || null,
+          createdByName: user?.name || '',
+          createdByRole: user?.role || 'parent',
+        };
+
+        const planAssignee = (children || []).find((c) => String(c.id) === String(nextPlan.assigneeId));
+        nextPlan.assigneeName = nextPlan.assigneeName || planAssignee?.name || goal.assigneeName || '';
+
+        const apResp = await actionPlanCreate(nextPlan);
+        if (!apResp || apResp.status_code !== 200) {
+          console.error('[ParentDashboard] actionPlanCreate failed', apResp);
+
+          // Best-effort rollback for partially-created bundles.
+          for (const createdId of createdActionPlanIds) {
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              await actionPlanDelete(createdId);
+            } catch {
+              // ignore rollback failure
+            }
+          }
+
+          if (!editingGoal && goalId) {
+            try {
+              await goalDelete(goalId);
+            } catch {
+              // ignore rollback failure
+            }
+          }
+
+          setTaskError(apResp?.error ? String(apResp.error) : 'Failed to create action plan.');
+          return { success: false };
+        }
+
+        const createdApId = apResp?.data?.id || apResp?.data?._id || null;
+        if (createdApId) createdActionPlanIds.push(createdApId);
+      }
+
+      // Refresh new-system state after save.
+      try {
+        const gResp = await goalList();
+        if (gResp && gResp.status_code === 200) {
+          setGoals(Array.isArray(gResp.data) ? gResp.data : []);
+        }
+      } catch (err) {
+        console.warn('[ParentDashboard] Failed to refresh goals after save', err);
+      }
+
+      try {
+        const apResp = await actionPlanList();
+        if (apResp && apResp.status_code === 200) {
+          setActionPlans(Array.isArray(apResp.data) ? apResp.data : []);
+        }
+      } catch (err) {
+        console.warn('[ParentDashboard] Failed to refresh action plans after save', err);
+      }
+
+      // PHASE 3: clear the wizard draft and reset edit mode after a successful save.
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(WIZARD_CONFIG.DRAFT_STORAGE_KEY);
+        }
+      } catch {
+        // ignore localStorage cleanup failure
+      }
+
+      setEditingGoal(null);
+      setWizardKey((k) => k + 1);
+      setTaskSuccess(editingGoal ? 'Goal updated successfully.' : 'Goal saved successfully.');
+      setTimeout(() => setTaskSuccess(''), 3000);
+      return { success: true };
+    } catch (err) {
+      console.error('[ParentDashboard] handleWizardSubmit error', err);
+      setTaskError('Unexpected error creating goal.');
+      return { success: false };
+    } finally {
+      setWizardSaving(false);
+    }
+  };
+
+  // PHASE 3: deleting a goal removes its action plans first, then the goal.
+  const handleDeleteGoal = async (goalId) => {
+    const confirmed = typeof window === 'undefined' ? true : window.confirm('Delete this goal and all of its action plans?');
+    if (!confirmed) return;
+
+    try {
+      await actionPlanDeleteByGoal(goalId);
+      const resp = await goalDelete(goalId);
+
+      if (!resp || resp.status_code !== 200) {
+        alert('Failed to delete goal.');
+        return;
+      }
+
+      setGoals((prev) => prev.filter((g) => String(g.id) !== String(goalId)));
+      setActionPlans((prev) => prev.filter((p) => String(p.goalId) !== String(goalId)));
+      if (editingGoal && String(editingGoal.id) === String(goalId)) {
+        setEditingGoal(null);
+        setWizardKey((k) => k + 1);
+      }
+      setTaskSuccess('Goal deleted.');
+      setTimeout(() => setTaskSuccess(''), 2500);
+    } catch (err) {
+      console.error('[ParentDashboard] handleDeleteGoal error', err);
+      alert('Failed to delete goal.');
+    }
   };
 
   const handleToggleTaskStatus = (taskId) => {
@@ -490,14 +704,90 @@ const normalizeTab = (tab) => {
 
       {activeTab === 'assign' && (
         <div>
-          <ParentHabitAssignment
-            embed
-            parentChildren={children}
-            parentTasks={tasks}
-            onTasksChange={saveTasks}
-            compactList
-            listMaxHeight={520}
+          <HabitWizard
+            key={wizardKey}
+            context="parent"
+            availableChildren={children}
+            parentUser={user}
+            initialValues={editingGoal ? {
+              // prefill the wizard when editing an existing goal bundle.
+              type: editingGoal.goalType || editingGoal.type || editingGoal.habitType || null,
+              title: editingGoal.title || editingGoal.goalTitle || '',
+              whyItMatters: editingGoal.whyItMatters || '',
+              startDate: editingGoal.startDate || editingGoal.goalStartDate || '',
+              endDate: editingGoal.endDate || editingGoal.goalEndDate || '',
+              triggers: editingGoal.triggers || [],
+              replacements: editingGoal.replacements || [],
+              savingFor: editingGoal.savingFor || '',
+              rewardGoalTitle: editingGoal.rewardGoalTitle || '',
+              rewardGoalCostCoins: editingGoal.rewardGoalCostCoins || '',
+              milestoneRewards: editingGoal.milestoneRewards || undefined,
+              assignee: editingGoal.assigneeId || editingGoal.assignee || '',
+              tasks: (actionPlans || []).filter((p) => String(p.goalId) === String(editingGoal.id)),
+            } : null}
+            embedded={true}
+            onSubmit={handleWizardSubmit}
+            saving={wizardSaving}
           />
+        </div>
+      )}
+
+      {/* Future tab for managing goals directly, outside of the Habit Wizard flow. Not fully implemented yet. */}
+      {activeTab === 'goals' && (
+        <div className="card">
+          <h2>Your goals</h2>
+
+          {goals.length === 0 && (
+            <p className="sub">You haven&apos;t created any goals yet. Use the Assign tab to create one.</p>
+          )}
+
+          {goals.length > 0 && (
+            <ul className="notepad-list">
+              {goals
+                .slice()
+                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+                .map((goal) => (
+                  <li key={goal.id} className="notepad-list-row">
+                    <div style={{ flex: 1 }}>
+                      <strong>{goal.title || goal.goalTitle || 'Untitled goal'}</strong>
+                      <div className="muted">
+                        For: {goal.assigneeName || goal.assignee || 'Unknown'}
+                      </div>
+                      <div className="muted">
+                        Window: {goal.startDate || ''}
+                        {goal.endDate ? ` → ${goal.endDate}` : ''}
+                      </div>
+                      <div style={{ marginTop: '.5rem' }}>
+                        <small>
+                          {(actionPlans || []).filter((p) => String(p.goalId) === String(goal.id)).length} action plan(s)
+                        </small>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '.5rem' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setEditingGoal(goal);
+                          setTab('assign');
+                          setWizardKey((k) => k + 1);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => handleDeleteGoal(goal.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
         </div>
       )}
 
