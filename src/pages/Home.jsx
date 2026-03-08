@@ -4,6 +4,7 @@ import { useUser } from '../UserContext.jsx'
 import GoalCard from '../components/GoalCard.jsx'
 import HabitPlanList from '../components/HabitPlanList.jsx'
 import Toast from '../components/Toast.jsx'
+import WeekStrip from '../components/WeekStrip.jsx'
 import { goalList } from '../lib/api/goals.js'
 import { actionPlanList } from '../lib/api/actionPlans.js'
 import { getCoins } from '../lib/api/streaks.js'
@@ -21,6 +22,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [successMessage, setSuccessMessage] = useState('')
   const [rewardMessage, setRewardMessage] = useState('')
+  const [weekRefreshKey, setWeekRefreshKey] = useState(0) // refresh the week strip after completion changes
 
   const todayISO = useMemo(() => toLocalISODate(), [])
 
@@ -153,6 +155,9 @@ export default function Home() {
             }
             handleRewardFeedback([], { delta, total }, plan?.title)
           },
+          onAfterToggle: () => {
+            setWeekRefreshKey((prev) => prev + 1) //refresh weekly overview after calendar-affecting changes
+          },
         })
 
         return result
@@ -266,6 +271,11 @@ export default function Home() {
           </main>
 
           <aside className="homeSide">
+            <section className="dashboard-card">
+              {/* weekly habit overview strip linking into the calendar page */}
+              <WeekStrip assigneeId={user?.id} refreshKey={weekRefreshKey} onExpandClick={() => navigate('/calendar')} />
+            </section>
+
             <section className="dashboard-card">
               <h2 className="sectionTitle">Overview</h2>
               <div className="statsGrid" style={{ marginTop: 12 }}>
