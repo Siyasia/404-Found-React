@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { formatScheduleSummary, toLocalISODate } from '../lib/schedule.js';
 import HabitPlanList from './HabitPlanList.jsx';
 
-// PHASE 4: New read-only goal card for saved goals + nested action plans.
+// New read-only goal card for saved goals + nested action plans.
 function formatLongDate(iso) {
   if (!iso) return 'No start date';
   try {
@@ -19,6 +19,7 @@ function formatLongDate(iso) {
   }
 }
 
+// Extract a user-friendly type label from the goal's type or goalType field, with some basic normalization.
 function getTypeLabel(goal) {
   const raw = String(goal?.goalType || goal?.type || goal?.taskType || '').toLowerCase();
   if (raw.includes('build')) return 'Build';
@@ -26,12 +27,14 @@ function getTypeLabel(goal) {
   return 'Habit';
 }
 
+// Convert an array of strings or objects with title/label into a clean array of strings for display.
 function asTextList(items) {
   return (Array.isArray(items) ? items : [])
     .map((item) => (typeof item === 'string' ? item : item?.title || item?.label || ''))
     .filter(Boolean);
 }
 
+// GoalCard component displays a summary of a goal and its associated action plans, with an expandable section for details.
 export default function GoalCard({ goal = {}, actionPlans = [], todayISO }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -63,6 +66,7 @@ export default function GoalCard({ goal = {}, actionPlans = [], todayISO }) {
     });
   }, [actionPlans, todayISO]);
 
+  // The component renders a card with a header showing the goal title, type, assignee, start date, and number of action plans. A button toggles the expanded state to show more details, including a summary of the goal, its patterns and supports, and a list of associated action plans with their schedules.
   return (
     <article className="goalCard dashboard-card">
       <div className="goalCardHeader">
