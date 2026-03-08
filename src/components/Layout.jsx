@@ -60,9 +60,9 @@ export default function Layout({ children }) {
                 {useGame && (
                   <>
                     <NavLink to="/shop" className="nav-link">Shop</NavLink>
+                    <NavLink to="/avatar" className="nav-link">Avatar</NavLink>
                   </>
                 )}
-                {/* <NavLink to="/about" className="nav-link">About</NavLink> */}
               </>
             )}
           </nav>

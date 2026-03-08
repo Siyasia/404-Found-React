@@ -12,6 +12,7 @@ import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
 import HabitWizardPage from './pages/HabitWizardPage.jsx'; // Temporary page for testing the Habit Wizard component
+import Avatar from './pages/Avatar.jsx';
 
 
 import Login from './auth/Login.jsx';
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/avatar" element={<Avatar />} />
         <Route path="*" element={<Home />} />
 
       </Routes>
