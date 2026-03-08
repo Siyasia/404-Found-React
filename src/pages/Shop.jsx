@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useGameProfile } from '../components/useGameProfile.js';
+import React, { useState } from 'react';
+import { useGameProfile } from '../components/useGameProfile.jsx';
 import { GameProfile } from '../models/index.js';
-import { useItems } from '../components/useItems.js';
-import { useInventory } from '../components/useInventory.js';
+import { useItems } from '../components/useItems.jsx';
+import { useInventory } from '../components/useInventory.jsx';
 
 export default function Shop() {
 
@@ -10,8 +10,14 @@ export default function Shop() {
   const { items, loading: itemLoading, error: itemError } = useItems();
   const invItems = useInventory(profile, items);
   const [modal, setModal] = React.useState(null); 
+  const [chosenCategory, setChosenCategory] = useState('all');
 
   if (loading || itemLoading) return <p>Loading...</p>;
+
+  //for tabs to display item type
+  const categories = ['all', ...new Set(items.map(i => i.type))];
+  const filtered =
+    chosenCategory === 'all' ? items : items.filter(item => item.type === chosenCategory);
 
   const showModal = (message, type = 'info') => {
     setModal(message, type);
@@ -54,9 +60,9 @@ export default function Shop() {
     updated.coins -= item.price;
     updated.inventory.push({
       id: item.id,
-      name: item.id,
+      name: item.name,
       path: item.path,
-      price: item.path,
+      price: item.price,
       type: item.type,
       placement: item.placement,
       equipped: false,
@@ -70,32 +76,125 @@ export default function Shop() {
     await saveProfile(updated);
   };
 
-  //TODO: display items from inventory correctly
   return (
-    <section className="container" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', paddingTop: '2rem', flexGrow: 1, gap: '1.5rem', paddingLeft: '0rem', paddingRight: '0rem' }}>
+    <section className="container" style={{ 
+      display: 'flex', 
+      justifyContent: 'flex-end', 
+      width: '100%', 
+      paddingTop: '2rem', 
+      flexGrow: 1, gap: '1.5rem', 
+      paddingLeft: '0rem', 
+      paddingRight: '0rem' }}>
 
-      <div className="card" style={{ width: '1000px', padding: '1.4rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <h1>Shop</h1>
-        <strong>Here, you can trade your coins for items.</strong>
+      <div className="container" style={{  
+        width: '1000px', 
+        padding: '1.4rem', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center' }}>
 
-        <div className="coin-balance" style={{ marginBottom: '1.5rem', fontSize: '1rem' }}>
-          <p><strong>Your Coins:</strong>{profile.coins}</p>
+        <div className="shop-title" style={{ 
+          borderRadius: '12px',
+          background: '#d1d5ff5c',
+          width: '700px', 
+          padding: '1.4rem', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center' }}>
+
+          <h1>Shop</h1>
+          <p>Here, you can trade your coins for items.</p>
+
+          <div className="coin-balance" style={{ 
+            marginBottom: '.5rem', 
+            fontSize: '1rem' }}>
+
+            <p><strong>Your Coins: </strong>{profile.coins}</p>
+          </div>
         </div>
 
-        <div className="items" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-          {items.map(item => (
-            <div key={item.id} className="item-card" style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', width: '150px', textAlign: 'center' }}>
-              <img src={item.image} alt={item.name} style={{ width: '100px', height: '100px' }} />
-              <h3>{item.name}</h3>
-              <p><strong>Price:</strong> {item.price} coins</p>
-              <button onClick={() => buyItem(item)} style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>Buy</button>
-            </div>
+        <div style={{ display: 'flex', marginBottom: '1.5rem' }}>
+
+          {categories.map(category => (
+            
+            <button
+              key={category}
+              type="button"
+              className="btn"
+              onClick={() => setChosenCategory(category)}
+              style={{ 
+                borderColor: '#aaa8d0',
+                background: '#d1d5ffb4',
+                fontWeight: chosenCategory === category ? 'bold' : 'normal',
+                marginTop: '1.25rem', 
+                width: '100%', 
+                marginLeft: '0.5rem', 
+                marginRight: '1rem'  }}
+            >
+              {category}
+            </button>
           ))}
+
         </div>
-      </div>
+
+        <div className="items" style={{ 
+          display: 'flex', 
+          gap: '1.5rem', 
+          flexWrap: 'wrap', 
+          justifyContent: 'center' }}>
+
+          {filtered.map(item => {
+            const owned = profile.inventory.some(inv => inv.id === item.id);
+
+            return (
+              <div
+                key={item.id}
+                className="item-card"
+                style={{ 
+                  border: '1px solid #ccc', 
+                  borderRadius: '12px', 
+                  padding: '1rem', 
+                  width: '150px', 
+                  textAlign: 'center',
+                  opacity: owned ? 0.5 : 1,
+                  backgroundColor: owned ? '#f5f5f5' : '#fff'
+                }}
+              >
+                <img src={item.path} alt={item.name} style={{ width: '100px', height: '100px' }} />
+                <h3>{item.name}</h3>
+                <p><strong>Price:</strong> {item.price} coins</p>
+
+                <button
+                  onClick={() => buyItem(item)}
+                  disabled={owned}
+                  style={{ 
+                    borderColor: '#aaa8d0',
+                    borderRadius: '10px',
+                    padding: '0.5rem 1rem', 
+                    fontSize: '0.9rem',
+                    backgroundColor: owned ? '#a9add9b4' : '#d1d5ffb4',
+                    cursor: owned ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {owned ? 'Owned' : 'Buy'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div> 
 
       {modal && (
-        <div className="modal" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <div className="modal" style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          backgroundColor: 'rgba(0,0,0,0.5)', 
+          display: 'flex', justifyContent: 'center', 
+          alignItems: 'center' }}>
+
           <div className="modal-content" style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
             <p>{modal}</p>
             <button onClick={closeModal} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>Close</button>
@@ -103,16 +202,37 @@ export default function Shop() {
         </div>
       )}
       
-      <div className="card" style={{ width: '400px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="card" style={{ 
+        width: '400px', 
+        padding: '1rem', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        flexWrap: 'wrap' }}>
+
         <h3>Your Inventory</h3>
         <br></br>
         {invItems.length === 0 ? (
           <p>You don't have any items yet. Try buying some from the shop!</p>
         ) : (
-          <div className="inventory" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div className="inventory" style={{ 
+            display: 'flex', 
+            gap: '1.5rem', 
+            flexWrap: 'wrap', 
+            justifyContent: 'center' }}>
+
             {invItems.map(item => (
-              <div key={item.id} className="inventory-item" style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', width: '100px', textAlign: 'center' }}>
-                <img src={item.image} alt={item.name} style={{ width: '75px', height: '75px' }} />
+              <div key={item.id} className="inventory-item" style={{ 
+                border: '1px solid #ccc', 
+                borderRadius: '8px', 
+                padding: '.5rem',
+                width: '100px', 
+                textAlign: 'center' }}>
+
+                <img src={item.path} alt={item.name} style={{ 
+                  width: '75px', 
+                  height: '75px' }} />
+
                 <h4>{item.name}</h4>
               </div>
             ))}
