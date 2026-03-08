@@ -5,7 +5,7 @@ import {
   TASK_TYPE_BUILD_HABIT,
   TASK_TYPE_BREAK_HABIT,
 } from '../models/index.js';
-import '../styles/dashboardTheme.css';
+import '../dashboardTheme.css';
 
 // PHASE 4: New read-only action-plan list for the dashboard surfaces.
 // No completion toggles or mutation logic live here yet.
