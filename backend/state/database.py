@@ -124,47 +124,35 @@ class Database:
             else:
                 return None
 
-        if create_item("item0", "/items/item0.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item0'")
-        if create_item("item1", "items/item1.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item1")
-        if create_item("item2", "items/item2.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item2")
-        if create_item("item3", "items/item3.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item3")
-        if create_item("item4", "items/item4.png", 100, "avatar", "head") is None:
-            print("Failed to create item 'item4")
-        if create_item("item5", "items/item5.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item5")
-        if create_item("item6", "items/item6.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item6")
-        if create_item("item7", "items/item7.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item7")
-        if create_item("item8", "items/item8.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item8")
-        if create_item("item9", "items/item9.png", 100, "avatar", "shirt") is None:
-            print("Failed to create item 'item9")
-        if create_item("item10", "items/item10.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item10")
-        if create_item("item11", "items/item11.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item11")
-        if create_item("item12", "items/item12.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item12")
-        if create_item("item13", "items/item13.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item13")
-        if create_item("item14", "items/item14.png", 100, "avatar", "pants") is None:
-            print("Failed to create item 'item14")
-        if create_item("item15", "items/item15.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item15")
-        if create_item("item16", "items/item16.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item16")
-        if create_item("item17", "items/item17.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item17")
-        if create_item("item18", "items/item18.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item18")
-        if create_item("item19", "items/item19.png", 100, "avatar", "shoes") is None:
-            print("Failed to create item 'item19")
-        if create_item("coins", "items/coins.png", 0, "money", "money") is None:
+        if create_item("hair1", "/images/hair1.png", 100, "avatar", "hair") is None:
+            print("Failed to create item 'hair1'")
+        if create_item("hair2", "/images/hair2.png", 100, "avatar", "hair") is None:
+            print("Failed to create item 'hair2'")
+        if create_item("hair3", "/images/hair3.png", 100, "avatar", "hair") is None:
+            print("Failed to create item 'hair3'")
+        if create_item("hair4", "/images/hair4.png", 100, "avatar", "hair") is None:
+            print("Failed to create item 'hair4'")
+        if create_item("shirt1", "/images/shirt1.png", 100, "avatar", "shirt") is None:
+            print("Failed to create item 'shirt1'")
+        if create_item("shirt2", "/images/shirt2.png", 100, "avatar", "shirt") is None:
+            print("Failed to create item 'shirt2'")
+        if create_item("shirt3", "/images/shirt3.png", 100, "avatar", "shirt") is None:
+            print("Failed to create item 'shirt3'")
+        if create_item("shirt4", "/images/shirt4.png", 100, "avatar", "shirt") is None:
+            print("Failed to create item 'shirt4'")
+        if create_item("pants1", "/images/pants1.png", 100, "avatar", "pants") is None:
+            print("Failed to create item 'pants1'")
+        if create_item("pants2", "/images/pants2.png", 100, "avatar", "pants") is None:
+            print("Failed to create item 'pants2'")
+        if create_item("pants3", "/images/pants3.png", 100, "avatar", "pants") is None:
+            print("Failed to create item 'pants3'")
+        if create_item("pants4", "/images/pants4.png", 100, "avatar", "pants") is None:
+            print("Failed to create item 'pants4'")
+        if create_item("shoes1", "/images/shoes1.png", 100, "avatar", "shoes") is None:
+            print("Failed to create item 'shoes1'")
+        if create_item("shoes2", "/images/shoes2.png", 100, "avatar", "shoes") is None:
+            print("Failed to create item 'shoes2'")
+        if create_item("coins", "images/coins.png", 0, "money", "money") is None:
             print("Failed to create item 'coins")
 
         """
