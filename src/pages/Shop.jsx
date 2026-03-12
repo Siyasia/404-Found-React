@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useGameProfile } from '../components/useGameProfile.jsx';
+import { useGameProfile } from '../components/useGameProfile.js';
 import { GameProfile } from '../models/index.js';
-import { useItems } from '../components/useItems.jsx';
-import { useInventory } from '../components/useInventory.jsx';
+import { useItems } from '../components/useItems.js';
+import { useInventory } from '../components/useInventory.js';
 
 export default function Shop() {
 

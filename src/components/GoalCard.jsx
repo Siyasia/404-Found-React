@@ -1,72 +1,74 @@
-import React, { useMemo, useState } from 'react';
-import { formatScheduleSummary, toLocalISODate } from '../lib/schedule.js';
-import HabitPlanList from './HabitPlanList.jsx';
+import React, { useMemo, useState } from 'react'
+import { formatScheduleSummary, toLocalISODate } from '../lib/schedule.js'
+import HabitPlanList from './HabitPlanList.jsx'
 
-// New read-only goal card for saved goals + nested action plans.
+// GoalCard stays mostly read-focused, but nested plans are now checkable.
+
 function formatLongDate(iso) {
-  if (!iso) return 'No start date';
+  if (!iso) return 'No start date'
   try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return 'No start date';
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return 'No start date'
     return new Intl.DateTimeFormat('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-    }).format(d);
+    }).format(d)
   } catch {
-    return 'No start date';
+    return 'No start date'
   }
 }
 
-// Extract a user-friendly type label from the goal's type or goalType field, with some basic normalization.
 function getTypeLabel(goal) {
-  const raw = String(goal?.goalType || goal?.type || goal?.taskType || '').toLowerCase();
-  if (raw.includes('build')) return 'Build';
-  if (raw.includes('break')) return 'Break';
-  return 'Habit';
+  const raw = String(goal?.goalType || goal?.type || goal?.taskType || '').toLowerCase()
+  if (raw.includes('build')) return 'Build'
+  if (raw.includes('break')) return 'Break'
+  return 'Habit'
 }
 
-// Convert an array of strings or objects with title/label into a clean array of strings for display.
 function asTextList(items) {
   return (Array.isArray(items) ? items : [])
     .map((item) => (typeof item === 'string' ? item : item?.title || item?.label || ''))
-    .filter(Boolean);
+    .filter(Boolean)
 }
 
-// GoalCard component displays a summary of a goal and its associated action plans, with an expandable section for details.
-export default function GoalCard({ goal = {}, actionPlans = [], todayISO }) {
-  const [expanded, setExpanded] = useState(false);
+export default function GoalCard({
+  goal = {},
+  actionPlans = [],
+  todayISO,
+  onToggleActionPlanCompletion,
+}) {
+  const [expanded, setExpanded] = useState(false)
 
-  const title = goal.title || goal.goal || goal.name || 'Untitled goal';
-  const typeLabel = getTypeLabel(goal);
-  const assignee = goal.assigneeName || goal.assignedToName || goal.ownerName || 'Unassigned';
-  const start = goal.startDate || goal.start || goal.createdAt || '';
-  const startLabel = formatLongDate(start);
+  const title = goal.title || goal.goal || goal.name || 'Untitled goal'
+  const typeLabel = getTypeLabel(goal)
+  const assignee = goal.assigneeName || goal.assignedToName || goal.ownerName || 'Unassigned'
+  const start = goal.startDate || goal.start || goal.createdAt || ''
+  const startLabel = formatLongDate(start)
 
-  const planCount = Array.isArray(actionPlans) ? actionPlans.length : 0;
-  const triggers = asTextList(goal.triggers);
-  const replacements = asTextList(goal.replacements);
-  const supports = asTextList(goal.makeItEasier);
+  const planCount = Array.isArray(actionPlans) ? actionPlans.length : 0
+  const triggers = asTextList(goal.triggers)
+  const replacements = asTextList(goal.replacements)
+  const supports = asTextList(goal.makeItEasier)
 
   const normalizedPlans = useMemo(() => {
-    const today = todayISO || toLocalISODate();
+    const today = todayISO || toLocalISODate()
     return (Array.isArray(actionPlans) ? actionPlans : []).map((plan) => {
       const schedule =
         plan?.schedule && typeof plan.schedule === 'object'
           ? plan.schedule
           : plan?.frequency && typeof plan.frequency === 'object'
             ? plan.frequency
-            : null;
+            : null
 
       return {
         ...plan,
         scheduleLabel: schedule ? formatScheduleSummary(schedule, today) : '',
-      };
-    });
-  }, [actionPlans, todayISO]);
+      }
+    })
+  }, [actionPlans, todayISO])
 
-  // The component renders a card with a header showing the goal title, type, assignee, start date, and number of action plans. A button toggles the expanded state to show more details, including a summary of the goal, its patterns and supports, and a list of associated action plans with their schedules.
   return (
     <article className="goalCard dashboard-card">
       <div className="goalCardHeader">
@@ -128,6 +130,8 @@ export default function GoalCard({ goal = {}, actionPlans = [], todayISO }) {
             <div className="dashboard-section-label">Action plans</div>
             <HabitPlanList
               plans={normalizedPlans}
+              todayISO={todayISO}
+              onToggleCompletion={onToggleActionPlanCompletion}
               emptyTitle="No action plans saved"
               emptyDescription="This goal has not been broken into smaller plans yet."
               limit={Infinity}
@@ -153,5 +157,6 @@ export default function GoalCard({ goal = {}, actionPlans = [], todayISO }) {
         </div>
       )}
     </article>
-  );
+  )
 }
+
