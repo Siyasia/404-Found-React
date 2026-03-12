@@ -2,35 +2,24 @@ import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import React, { useState, useEffect } from 'react';
 import { friendsList, friendsAdd, friendsRemove } from '../lib/api/friends.js';
+import { useGameProfile } from '../components/useGameProfile.jsx';
+import { useItems } from '../components/useItems.jsx';
+import { useInventory } from '../components/useInventory.jsx';
+import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
 
 export default function Profile() {
+  
   const { user, setUser } = useUser();
-
-  //If  user is not logged in, prompt to log in
-  if (!user) {
-    return (
-      <section className="container">
-        <h1>Profile</h1>
-        <p><a href="/login">You need to log in first</a></p>
-      </section>
-    );
-  }
+  const { profile, saveProfile, loading, error } = useGameProfile();
+  const { items, loading: itemLoading, error: itemError } = useItems();
+  const invItems = useInventory(profile, items);
 
   const [friends, setFriends] = useState([]);
   const [friendInput, setFriendInput] = useState('');
   const [friendError, setFriendError] = useState('');
+
   const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
   const palette = user?.palette || 'gold';
-
-  const handleModeChange = (event) => {
-    const themeMode = event.target.value;
-    setUser({ ...user, themeMode, theme: themeMode });
-  };
-
-  const handlePaletteChange = (event) => {
-    const palette = event.target.value;
-    setUser({ ...user, palette });
-  };
 
   //Sprint 5: Comparing parent / provider for friends
   useEffect(() => {
@@ -42,30 +31,62 @@ export default function Profile() {
     load();
   }, [user]);
 
+
+  if (loading || itemLoading) return <p>Loading...</p>;
+
+  //If  user is not logged in, prompt to log in
+  if (!user) {
+    return (
+      <section className="container">
+        <h1>Profile</h1>
+        <p><a href="/login">You need to log in first</a></p>
+      </section>
+    );
+  }
+
+
+
+  const handleModeChange = (event) => {
+    const themeMode = event.target.value;
+    setUser({ ...user, themeMode, theme: themeMode });
+  };
+
+  const handlePaletteChange = (event) => {
+    const palette = event.target.value;
+    setUser({ ...user, palette });
+  };
+
+
   return (
-    <section className="container">
+    <section className="container" >
       <h1>Profile</h1>
       <p className="sub hero">Your account information</p>
 
-      <div className="card" style={{ padding: '2.5rem 2rem', maxWidth: '780px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ maxWidth: '100%', padding: '1.5rem', position: 'relative' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
           <div>
             <p><strong>Name:</strong> {user.name}</p>
-            {user.role === ROLE.CHILD ? (
+            {user.role === ROLE.CHILD || user.role === ROLE.USER ? (
               <p><strong>Username:</strong> {user.username}{user.code ? `#${user.code}` : ''}</p>
             ) : (
               <p><strong>Email:</strong> {user.email}</p>
             )}
-            <p><strong>Age:</strong> {user.age}</p>
             <p><strong>Role:</strong> {user.role === ROLE.PARENT ? 'Parent' : user.role === ROLE.PROVIDER ? 'Provider' : user.role === ROLE.CHILD ? 'Child' : 'User'}</p>
           </div>
+
           <div>
             <p><strong>Total Tasks Completed:</strong> {user.stats?.tasksCompleted || 0}</p>
             <p><strong>Total Habits Built:</strong> {user.stats?.habitsBuilt || 0}</p>
             <p><strong>Total Habits Broken:</strong> {user.stats?.habitsBroken || 0}</p>
             <p><strong>Longest Streak:</strong> {user.stats?.longestStreak || "0 days"}</p>
           </div>
+
+          <DisplayAvatar invItems={invItems} />
+
         </div>
+
+
+
       </div>
 
       {user.role !== ROLE.PARENT && user.role !== ROLE.PROVIDER && (
