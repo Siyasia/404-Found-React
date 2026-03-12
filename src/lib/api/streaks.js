@@ -130,6 +130,12 @@ export async function markComplete(actionPlanId, dateISO = toLocalISODate(), mil
     const idx = list.findIndex((p) => String(p.id) === String(actionPlanId))
     if (idx === -1) return { status_code: 500, error: 'Action plan not found' }
 
+    // Prevent marking future dates as complete.
+    const todayISO = toLocalISODate()
+    if (dateISO > todayISO) {
+      return { status_code: 400, error: 'Cannot mark future dates as complete' }
+    }
+
     // First we check if the plan is due on the given date. If not, we return an error without modifying anything.
     const plan = { ...list[idx] }
     const schedule = getSchedule(plan)
