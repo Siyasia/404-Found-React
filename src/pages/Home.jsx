@@ -148,11 +148,16 @@ export default function Home() {
           setActionPlans,
           onBadges: (badgeIds) => handleRewardFeedback(badgeIds, null, plan?.title),
           onCoins: ({ delta = 0, total = null }) => {
-            if (typeof total === 'number' && !Number.isNaN(total)) {
-              setCoins(total)
-            } else if (typeof delta === 'number' && !Number.isNaN(delta)) {
-              setCoins((prev) => Math.max(0, prev + delta))
+            const isForCurrentUser = String(plan?.assigneeId) === String(user?.id)
+
+            if (isForCurrentUser) {
+              if (typeof total === 'number' && !Number.isNaN(total)) {
+                setCoins(total)
+              } else if (typeof delta === 'number' && !Number.isNaN(delta)) {
+                setCoins((prev) => Math.max(0, prev + delta))
+              }
             }
+
             handleRewardFeedback([], { delta, total }, plan?.title)
           },
           onAfterToggle: () => {
