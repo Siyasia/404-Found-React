@@ -1,8 +1,8 @@
 import React from 'react';
 import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
-import { useGameProfile } from '../components/useGameProfile.jsx';
-import { useItems } from '../components/useItems.jsx';
-import { useInventory } from '../components/useInventory.jsx';
+import { useGameProfile } from '../components/useGameProfile.js';
+import { useItems } from '../components/useItems.js';
+import { useInventory } from '../components/useInventory.js';
 
 export default function Avatar() {
 
