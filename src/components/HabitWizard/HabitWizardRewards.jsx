@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { useItems } from '../useItems.js';
+import { useItems } from '../useItems.jsx';
 
 /**
  * Reward configuration step for the Habit Wizard.
