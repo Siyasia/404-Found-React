@@ -276,7 +276,7 @@ class Database:
             print("Failed to create item 'Cardigan'")
         if create_item("Plain Hoodie", "/outerwear/outerwear2", 35, "avatar", "Outerwear") is None:
             print("Failed to create item 'Plain Hoodie'")
-        if create_item("Star Hoodie", "/outerwear/outerwear1", 45, "avatar", "Outerwear") is None:
+        if create_item("Star Hoodie", "/outerwear/outerwear3", 45, "avatar", "Outerwear") is None:
             print("Failed to create item 'Star Hoodie'")
 
         if create_item("coins", "/images/coins", 0, "money", "money") is None:
