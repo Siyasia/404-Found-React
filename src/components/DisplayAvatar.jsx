@@ -7,9 +7,11 @@ export function DisplayAvatar({ invItems }) {
     //create list of equipped items from the user to display
     for (const invItem of invItems) {
         if (invItem.equipped) {
-            equipped[invItem.placement] = invItem;
+            equipped[invItem.placement.toLowerCase()] = invItem;
         }
     }
+
+    console.log("equipped: ", equipped)
 
     return (
         //positioning the images on top of each other
@@ -18,16 +20,14 @@ export function DisplayAvatar({ invItems }) {
             width: '180px',
             height: '240px'
         }} >
-
-            {/* base image for clothes to be layered on */}
-            <img src='images/base.png' style={layer} />
             
             {/* from bottom-most to top-most layers */}
-            {equipped.shoes && <img src={`/images/${equipped.shoes.name}full.png`} style={layer} />}
-            {equipped.pants && <img src={`/images/${equipped.pants.name}full.png`} style={layer} />}
-            {equipped.shirt && <img src={`/images/${equipped.shirt.name}full.png`} style={layer} />}
-            {equipped.hair && <img src={`/images/${equipped.hair.name}full.png`} style={layer} />}
-            {equipped.accessory && <img src={`/images/${equipped.accessory.name}full.png`} style={layer} />}
+            {equipped.base && <img src={`${equipped.base.path}${equipped.base.color ?? 1}.PNG`} style={layer} />}
+            {equipped.hair && <img src={`${equipped.hair.path}-${equipped.hair.color ?? 1}full.PNG`} style={layer} />}
+            {equipped.eyebrows && <img src={`${equipped.eyebrows.path}-${equipped.eyebrows.color ?? 1}full.PNG`} style={layer} />}
+            {equipped.eyes && <img src={`${equipped.eyes.path}-${equipped.eyes.color ?? 1}full.PNG`} style={layer} />}
+            {equipped.mouths && <img src={`${equipped.mouths.path}full.PNG`} style={layer} />}
+            {equipped.shirts && <img src={`${equipped.shirts.path}-${equipped.shirts.color ?? 1}full.PNG`} style={layer} />}
 
         </div>
     );
