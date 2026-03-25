@@ -124,153 +124,160 @@ class Database:
             else:
                 return None
 
-        if create_item("Base", "/images/base", 0, "Default", "Base") is None:
+        if create_item("Base", "/base/base", 0, "Default", "Base") is None:
             print("Failed to create item 'base'")
-        if create_item("Default Eyebrows", "/images/eyebrows1", 0, "Default", "Eyebrows") is None:
+        if create_item("Default Eyebrows", "/eyebrows/eyebrows1", 0, "Default", "Eyebrows") is None:
             print("Failed to create item 'Default Eyebrows'")
-        if create_item("Default Eyes", "/images/eyes1", 0, "Default", "Eyes") is None:
+        if create_item("Default Eyes", "/eyes/eyes1", 0, "Default", "Eyes") is None:
             print("Failed to create item 'Default Eyes'")
-        if create_item("Default Mouth", "/images/mouth1", 0, "Default", "Mouths") is None:
+        if create_item("Default Mouth", "/mouths/mouth1", 0, "Default", "Mouths") is None:
             print("Failed to create item 'Default Mouth'")
-        if create_item("Default Hair", "/images/hair1", 0, "Default", "Hair") is None:
+        if create_item("Default Hair", "/hair/hair1", 0, "Default", "Hair") is None:
             print("Failed to create item 'Default Hair'")
-        if create_item("Default Shirt", "/images/shirt1", 0, "Default", "Shirts") is None:
+        if create_item("Default Shirt", "/shirts/shirt1", 0, "Default", "Shirts") is None:
             print("Failed to create item 'Default Shirt'")
 
-        if create_item("Angry", "/images/eyebrows2", 10, "avatar", "Eyebrows") is None:
+        if create_item("Angry", "/eyebrows/eyebrows2", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Angry'")
-        if create_item("Monobrow", "/images/eyebrows3", 10, "avatar", "Eyebrows") is None:
+        if create_item("Monobrow", "/eyebrows/eyebrows3", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Monobrow'")
-        if create_item("Worried", "/images/eyebrows4", 10, "avatar", "Eyebrows") is None:
+        if create_item("Worried", "/eyebrows/eyebrows4", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Worried'")
-        if create_item("Thick", "/images/eyebrows5", 10, "avatar", "Eyebrows") is None:
+        if create_item("Thick", "/eyebrows/eyebrows5", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Thick'")
-        if create_item("Arched", "/images/eyebrows6", 10, "avatar", "Eyebrows") is None:
+        if create_item("Arched", "/eyebrows/eyebrows6", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Arched'")
-        if create_item("Furrowed", "/images/eyebrows7", 10, "avatar", "Eyebrows") is None:
+        if create_item("Furrowed", "/eyebrows/eyebrows7", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Furrowed'")
-        if create_item("Inquisitive", "/images/eyebrows8", 10, "avatar", "Eyebrows") is None:
+        if create_item("Inquisitive", "/eyebrows/eyebrows8", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Inquisitive'")
-        if create_item("Upturned", "/images/eyebrows9", 10, "avatar", "Eyebrows") is None:
+        if create_item("Upturned", "/eyebrows/eyebrows9", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Upturned'")
-        if create_item("Round", "/images/eyebrows10", 10, "avatar", "Eyebrows") is None:
+        if create_item("Round", "/eyebrows/eyebrows10", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Round'")
-        if create_item("Short", "/images/eyebrows11", 10, "avatar", "Eyebrows") is None:
+        if create_item("Short", "/eyebrows/eyebrows11", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Short'")
 
-        if create_item("Large", "/images/eyes2", 30, "avatar", "Eyes") is None:
+        if create_item("Large", "/eyes/eyes2", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Large'")
-        if create_item("Narrow", "/images/eyes3", 30, "avatar", "Eyes") is None:
+        if create_item("Narrow", "/eyes/eyes3", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Narrow'")
-        if create_item("Tall", "/images/eyes4", 30, "avatar", "Eyes") is None:
+        if create_item("Tall", "/eyes/eyes4", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Tall'")
-        if create_item("Round", "/images/eyes5", 30, "avatar", "Eyes") is None:
+        if create_item("Round", "/eyes/eyes5", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Round'")
-        if create_item("Sharp", "/images/eyes6", 30, "avatar", "Eyes") is None:
+        if create_item("Sharp", "/eyes/eyes6", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Sharp'")
-        if create_item("Tired", "/images/eyes7", 30, "avatar", "Eyes") is None:
+        if create_item("Tired", "/eyes/eyes7", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Tired'")
-        if create_item("Upturned", "/images/eyes8", 30, "avatar", "Eyes") is None:
+        if create_item("Upturned", "/eyes/eyes8", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Upturned'")
-        if create_item("Long Eyelashes", "/images/eyes9", 30, "avatar", "Eyes") is None:
+        if create_item("Long Eyelashes", "/eyes/eyes9", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Long Eyelashes'")
-        if create_item("Wide", "/images/eyes10", 30, "avatar", "Eyes") is None:
+        if create_item("Wide", "/eyes/eyes10", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Wide'")
-        if create_item("Closed", "/images/eyes11", 10, "avatar", "Eyes") is None:
+        if create_item("Closed", "/eyes/eyes11", 10, "avatar", "Eyes") is None:
             print("Failed to create item 'Closed'")
 
-        if create_item("Curved", "/images/mouth2", 15, "avatar", "Mouths") is None:
+        if create_item("Curved", "/mouths/mouth2", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Curved'")
-        if create_item("Small", "/images/mouth3", 15, "avatar", "Mouths") is None:
+        if create_item("Small", "/mouths/mouth3", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Small'")
-        if create_item("Open", "/images/mouth4", 15, "avatar", "Mouths") is None:
+        if create_item("Open", "/mouths/mouth4", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Open'")
-        if create_item("Open Fangs", "/images/mouth5", 15, "avatar", "Mouths") is None:
+        if create_item("Open Fangs", "/mouths/mouth5", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Open Fangs'")
-        if create_item("Closed Fangs", "/images/mouth6", 15, "avatar", "Mouths") is None:
+        if create_item("Closed Fangs", "/mouths/mouth6", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Closed Fangs'")
-        if create_item("Cartoon", "/images/mouth7", 15, "avatar", "Mouths") is None:
+        if create_item("Cartoon", "/mouths/mouth7", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Cartoon'")
-        if create_item("Open Smile", "/images/mouth8", 15, "avatar", "Mouths") is None:
+        if create_item("Open Smile", "/mouths/mouth8", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Open Smile'")
-        if create_item("Catlike", "/images/mouth9", 15, "avatar", "Mouths") is None:
+        if create_item("Catlike", "/mouths/mouth9", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Catlike'")
-        if create_item("V-Shape", "/images/mouth10", 15, "avatar", "Mouths") is None:
+        if create_item("V-Shape", "/mouths/mouth10", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'V-Shape'")
-        if create_item("Pointed Down", "/images/mouth11", 15, "avatar", "Mouths") is None:
+        if create_item("Pointed Down", "/mouths/mouth11", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Pointed Down'")
-        if create_item("Straight", "/images/mouth12", 15, "avatar", "Mouths") is None:
+        if create_item("Straight", "/mouths/mouth12", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Straight'")
 
-        if create_item("Short", "/images/hair2", 35, "avatar", "Hair") is None:
+        if create_item("Short", "/hair/hair2", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Short'")
-        if create_item("Cornrows", "/images/hair3", 35, "avatar", "Hair") is None:
+        if create_item("Cornrows", "/hair/hair3", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Cornrows'")
-        if create_item("Bob", "/images/hair4", 35, "avatar", "Hair") is None:
+        if create_item("Bob", "/hair/hair4", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Bob'")
-        if create_item("Short Bangs", "/images/hair5", 35, "avatar", "Hair") is None:
+        if create_item("Short Bangs", "/hair/hair5", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Short Bangs'")
-        if create_item("Middle Part", "/images/hair6", 35, "avatar", "Hair") is None:
+        if create_item("Middle Part", "/hair/hair6", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Middle Part'")     
-        if create_item("Bun", "/images/hair7", 35, "avatar", "Hair") is None:
+        if create_item("Bun", "/hair/hair7", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Bun'")   
-        if create_item("High Pigtails", "/images/hair8", 35, "avatar", "Hair") is None:
+        if create_item("High Pigtails", "/hair/hair8", 35, "avatar", "Hair") is None:
             print("Failed to create item 'High Pigtails'")
-        if create_item("Twintails", "/images/hair9", 35, "avatar", "Hair") is None:
+        if create_item("Twintails", "/hair/hair9", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Twintails'") 
-        if create_item("Buzzed", "/images/hair10", 35, "avatar", "Hair") is None:
+        if create_item("Buzzed", "/hair/hair10", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Buzzed'")   
-        if create_item("Ruffled", "/images/hair11", 35, "avatar", "Hair") is None:
+        if create_item("Ruffled", "/hair/hair11", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Ruffled'")
-        if create_item("Unruly Long", "/images/hair12", 35, "avatar", "Hair") is None:
+        if create_item("Unruly Long", "/hair/hair12", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Unruly Long'")
-        if create_item("Pixie", "/images/hair13", 35, "avatar", "Hair") is None:
+        if create_item("Pixie", "/hair/hair13", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Pixie'")
-        if create_item("Shaggy", "/images/hair14", 35, "avatar", "Hair") is None:
+        if create_item("Shaggy", "/hair/hair14", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Shaggy'")
-        if create_item("Upward", "/images/hair15", 35, "avatar", "Hair") is None:
+        if create_item("Upward", "/hair/hair15", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Upward'")
-        if create_item("Semi-Bowl", "/images/hair16", 35, "avatar", "Hair") is None:
+        if create_item("Semi-Bowl", "/hair/hair16", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Semi-Bowl'")
-        if create_item("idk1", "/images/hair17", 35, "avatar", "Hair") is None:
-            print("Failed to create item 'idk1'")
-        if create_item("Sideswept", "/images/hair18", 35, "avatar", "Hair") is None:
+        if create_item("idk1", "/hair/hair17", 35, "avatar", "Hair") is None:
+            print("Failed to create item 'Cornrows'")
+        if create_item("Sideswept", "/hair/hair18", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Sideswept'")
-        if create_item("idk2", "/images/hair19", 35, "avatar", "Hair") is None:
-            print("Failed to create item 'idk2'")
-        if create_item("Pixie 2", "/images/hair20", 35, "avatar", "Hair") is None:
+        if create_item("idk2", "/hair/hair19", 35, "avatar", "Hair") is None:
+            print("Failed to create item 'Curled Afro 1'")
+        if create_item("Pixie 2", "/hair/hair20", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Pixie 2'")
-        if create_item("idk3", "/images/hair21", 35, "avatar", "Hair") is None:
-            print("Failed to create item 'idk3'")
-        if create_item("Ponytail", "/images/hair22", 35, "avatar", "Hair") is None:
+        if create_item("idk3", "/hair/hair21", 35, "avatar", "Hair") is None:
+            print("Failed to create item 'Curled Afro 2'")
+        if create_item("Ponytail", "/hair/hair22", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Ponytail'")
-        if create_item("Afro", "/images/hair23", 35, "avatar", "Hair") is None:
+        if create_item("Afro", "/hair/hair23", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Afro'")
-        if create_item("Long Anime", "/images/hair24", 35, "avatar", "Hair") is None:
+        if create_item("Long Anime", "/hair/hair24", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Long Anime'")
-        if create_item("Long Side Bangs", "/images/hair25", 35, "avatar", "Hair") is None:
+        if create_item("Long Side Bangs", "/hair/hair25", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Long Side Bangs'")
-        if create_item("Layered", "/images/hair26", 35, "avatar", "Hair") is None:
+        if create_item("Layered", "/hair/hair26", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Layered'")
 
-        if create_item("T-Shirt", "/images/shirt2", 30, "avatar", "Shirts") is None:
+        if create_item("T-Shirt", "/shirts/shirt2", 30, "avatar", "Shirts") is None:
             print("Failed to create item 'T-Shirt'")
-        if create_item("Long Sleeve", "/images/shirt3", 30, "avatar", "Shirts") is None:
+        if create_item("Long Sleeve", "/shirts/shirt3", 30, "avatar", "Shirts") is None:
             print("Failed to create item 'Long Sleeve'")
-        if create_item("Layered Heart", "/images/shirt4", 40, "avatar", "Shirts") is None:
+        if create_item("Layered Heart", "/shirts/shirt4", 40, "avatar", "Shirts") is None:
             print("Failed to create item 'Layered Heart'")
-        if create_item("Striped Tank", "/images/shirt5", 40, "avatar", "Shirts") is None:
+        if create_item("Striped Tank", "/shirts/shirt5", 40, "avatar", "Shirts") is None:
             print("Failed to create item 'Striped Tank'")
-        if create_item("Tank Top", "/images/shirt6", 30, "avatar", "Shirts") is None:
+        if create_item("Tank Top", "/shirts/shirt6", 30, "avatar", "Shirts") is None:
             print("Failed to create item 'Tank Top'")
-        if create_item("Off-the-Shoulder", "/images/shirt7", 35, "avatar", "Shirts") is None:
+        if create_item("Off-the-Shoulder", "/shirts/shirt7", 35, "avatar", "Shirts") is None:
             print("Failed to create item 'Off-the-Shoulder'")
-        if create_item("Collared Sweatshirt", "/images/shirt8", 40, "avatar", "Shirts") is None:
+        if create_item("Collared Sweatshirt", "/shirts/shirt8", 40, "avatar", "Shirts") is None:
             print("Failed to create item 'Collared Sweatshirt'")
-        if create_item("Button-Up", "/images/shirt9", 35, "avatar", "Shirts") is None:
+        if create_item("Button-Up", "/shirts/shirt9", 35, "avatar", "Shirts") is None:
             print("Failed to create item 'Button-Up'")
-        if create_item("Plain Sweatshirt", "/images/shirt10", 35, "avatar", "Shirts") is None:
+        if create_item("Plain Sweatshirt", "/shirts/shirt10", 35, "avatar", "Shirts") is None:
             print("Failed to create item 'Plain Sweatshirt'")
+
+        if create_item("Cardigan", "/outerwear/outerwear1", 35, "avatar", "Outerwear") is None:
+            print("Failed to create item 'Cardigan'")
+        if create_item("Plain Hoodie", "/outerwear/outerwear2", 35, "avatar", "Outerwear") is None:
+            print("Failed to create item 'Plain Hoodie'")
+        if create_item("Star Hoodie", "/outerwear/outerwear1", 45, "avatar", "Outerwear") is None:
+            print("Failed to create item 'Star Hoodie'")
 
         if create_item("coins", "/images/coins", 0, "money", "money") is None:
             print("Failed to create item 'coins")
