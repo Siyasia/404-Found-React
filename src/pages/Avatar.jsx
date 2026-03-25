@@ -74,6 +74,7 @@ export default function Avatar() {
             14: '#BE3F3C',
             15: '#55330A'
         },
+        Outerwear: null,
         Eyes: {
             1: '#2A2828',
             2: '#E1EAEA',
@@ -94,6 +95,7 @@ export default function Avatar() {
         }
     }
     COLOR_MAP.Eyebrows = COLOR_MAP.Hair;
+    COLOR_MAP.Outerwear = COLOR_MAP.Shirts;
 
     if (loading || itemLoading) return <p>Loading...</p>;
 
