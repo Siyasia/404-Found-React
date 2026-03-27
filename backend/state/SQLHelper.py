@@ -302,6 +302,30 @@ def child_get_by_code(code: str):
     query = "SELECT * FROM children WHERE code = ?"
     return query, (code,)
 
+def child_update_partial(fields: dict, child_id: int):
+    if not fields:
+        raise ValueError("no fields to update")
+
+    allowed = {"parentId", "name", "username", "age", "code", "createdAt", "theme", "password", "friends"}
+    set_clauses = []
+    params = []
+
+    for col, val in fields.items():
+        if col not in allowed:
+            continue
+        if isinstance(val, (list, dict)):
+            val = json.dumps(val)
+        set_clauses.append(f"{col} = ?")
+        params.append(val)
+
+    if not set_clauses:
+        raise ValueError("no valid child fields to update")
+
+    params.append(child_id)
+    set_clause = ", ".join(set_clauses)
+    sql = f"UPDATE children SET {set_clause} WHERE id = ?"
+    return sql, tuple(params)
+
 #Sprint 5: Setting friendlist for Child accounts:
 def child_set_friends(child_id: int, friends_json: str):
     query = "UPDATE children SET friends = ? WHERE id = ?"
