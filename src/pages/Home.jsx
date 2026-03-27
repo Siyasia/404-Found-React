@@ -171,7 +171,7 @@ export default function Home() {
         return null
       }
     },
-    [goalsById, handleRewardFeedback, todayISO]
+    [goalsById, handleRewardFeedback, todayISO, user?.id]
   )
 
   if (!user) {
