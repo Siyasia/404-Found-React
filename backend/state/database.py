@@ -109,7 +109,7 @@ class Database:
             "CREATE TABLE IF NOT EXISTS game_profiles (id INTEGER PRIMARY KEY, coins INTEGER, inventory TEXT)"
         )
         self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, price INTEGER, type TEXT, path TEXT UNIQUE, placement TEXT)"
+            "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER, type TEXT, path TEXT UNIQUE, placement TEXT)"
         )
 
         # Goals table for the new habit system
@@ -226,8 +226,6 @@ class Database:
             print("Failed to create item 'Long Eyelashes'")
         if create_item("Wide", "/eyes/eyes10", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Wide'")
-        if create_item("Closed", "/eyes/eyes11", 10, "avatar", "Eyes") is None:
-            print("Failed to create item 'Closed'")
 
         if create_item("Curved", "/mouths/mouth2", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Curved'")
