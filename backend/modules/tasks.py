@@ -81,12 +81,34 @@ def task_update(info: TaskInfo, response: fastapi.Response, user: UserInfo = Dep
 
 @router.get("/task/list")
 def task_list(response: fastapi.Response, user: UserInfo | ChildInfo = Depends(state.require_user)):
+    if isinstance(user, ChildInfo):
+        return task_list_child(response, user)
+    out = []
     with Database() as db:
-        if isinstance(user, ChildInfo):
-            if not db.try_execute(*SQLHelper.child_task_list(int(user.code))):
-                response.status_code = 500
-                return response
-        elif not db.try_execute(*SQLHelper.task_list(user.id)):
+        if not db.try_execute(*SQLHelper.task_list(user.id)):
+            response.status_code = 500
+            return response
+
+        rows = db.cursor().fetchall()
+        out = [row_to_task(row) for row in rows]
+
+        if not db.try_execute(*SQLHelper.child_list(user.id)):
+            response.status_code = 500
+            return response
+
+        children = db.cursor().fetchall()
+        for child in children:
+            if not db.try_execute(*SQLHelper.child_task_list(int(child["code"]))):
+                continue
+            rows = db.cursor().fetchall()
+            out.extend([row_to_task(row) for row in rows])
+
+    response.status_code = 200
+    return {"tasks": out}
+
+def task_list_child(response: fastapi.Response, user: ChildInfo):
+    with Database() as db:
+        if not db.try_execute(*SQLHelper.child_task_list(int(user.code))):
             response.status_code = 500
             return response
         rows = db.cursor().fetchall()
@@ -99,10 +121,23 @@ def task_list(response: fastapi.Response, user: UserInfo | ChildInfo = Depends(s
 @router.get("/task/list/pending")
 def task_list_pending(response: fastapi.Response, user: UserInfo = Depends(state.require_user)):
     with Database() as db:
-        if not db.try_execute(*SQLHelper.task_list_pending(user.id)):
+
+        # if not db.try_execute(*SQLHelper.child_task_list(user.id)):
+        #     response.status_code = 500
+        #     return response
+        if not db.try_execute(*SQLHelper.child_list(user.id)):
             response.status_code = 500
             return response
         rows = db.cursor().fetchall()
+        child_ids = [row["code"] for row in rows]
+        tasks = []
+        for code in child_ids:
+            if not db.try_execute(*SQLHelper.task_list_pending(int(code))):
+                continue
+            rows = db.cursor().fetchall()
+            for row in rows:
+                tasks.append(row_to_task(row))
+
     out = []
     for row in rows:
         out.append(row_to_task(row))
