@@ -4,6 +4,8 @@
 // const data = await getJSON('/api/items')
 // const created = await postJSON('/api/items', { name: 'new' })
 
+import {nullifyLogin} from "../../UserContext.jsx";
+
 const DEFAULT_TIMEOUT = 10000 // ms
 const BASE_URL = "http://localhost:8080"
 
@@ -57,6 +59,13 @@ export async function getJSON(url, { headers, timeout } = {}) {
             data: await parseResponse(res)
         }
 	} catch (err) {
+		if (err.status === 401) {
+			nullifyLogin();
+			return {
+				status: 401,
+				data: { error: 'Unauthorized' }
+			};
+		}
 		// normalize abort error message
 		if (err.name === 'AbortError') {
 			const e = new Error('Request timed out')

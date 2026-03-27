@@ -2,7 +2,7 @@ import {User, BuildHabit, BreakHabit, FormedHabit, Task, Child, GameItem, GamePr
 
 class Response {
     constructor(status, json_data) {
-        this.status_code = status; 
+        this.status_code = status;
         if (json_data.error) {
             this.error = json_data.error;
         } else {
