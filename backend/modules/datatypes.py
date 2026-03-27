@@ -134,3 +134,48 @@ class GameProfile(pydantic.BaseModel):
     id: int = 0
     coins: int = 0
     inventory: List[ItemField] = []
+
+
+class GoalInfo(pydantic.BaseModel):
+    id: Optional[typing.Union[int, str]] = None
+    title: Optional[str] = ""
+    goal: Optional[str] = ""
+    goalType: Optional[str] = None
+    type: Optional[str] = None
+    whyItMatters: Optional[str] = ""
+    startDate: Optional[typing.Union[int, str]] = None
+    endDate: Optional[typing.Union[int, str]] = None
+    assigneeId: Optional[typing.Union[int, str]] = None
+    assigneeName: Optional[str] = None
+    triggers: Optional[List[str]] = []
+    replacements: Optional[List[str]] = []
+    makeItEasier: Optional[List[str]] = []
+    savingFor: Optional[str] = None
+    rewardGoalTitle: Optional[str] = None
+    rewardGoalCostCoins: Optional[typing.Union[int, str]] = None
+    milestoneRewards: Optional[List[typing.Any]] = []
+    createdAt: Optional[typing.Union[int, str]] = None
+    createdById: Optional[typing.Union[int, str]] = None
+    createdByName: Optional[str] = None
+    createdByRole: Optional[str] = None
+    meta: Optional[dict] = {}
+
+
+class ActionPlanInfo(pydantic.BaseModel):
+    id: Optional[typing.Union[int, str]] = None
+    goalId: Optional[typing.Union[int, str]] = None
+    title: Optional[str] = ""
+    notes: Optional[str] = ""
+    assigneeId: Optional[typing.Union[int, str]] = None
+    assigneeName: Optional[str] = None
+    schedule: Optional[typing.Any] = None
+    frequency: Optional[typing.Any] = None
+    frequencyLabel: Optional[str] = None
+    completedDates: Optional[typing.Any] = {}
+    streak: Optional[int] = 0
+    createdAt: Optional[typing.Union[int, str]] = None
+    createdById: Optional[typing.Union[int, str]] = None
+    createdByName: Optional[str] = None
+    createdByRole: Optional[str] = None
+    meta: Optional[dict] = {}
+

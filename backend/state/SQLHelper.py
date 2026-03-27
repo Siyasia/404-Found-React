@@ -372,3 +372,132 @@ def get_item(item_id: int):
 def item_list():
     query = "SELECT * FROM items"
     return query, ()
+
+def goal_create(info: 'GoalInfo'):
+    query = "INSERT INTO goals (title, goal, goalType, type, whyItMatters, startDate, endDate, assigneeId, assigneeName, triggers, replacements, makeItEasier, savingFor, rewardGoalTitle, rewardGoalCostCoins, milestoneRewards, createdAt, createdById, createdByName, createdByRole, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    triggers_json = json.dumps(info.triggers) if info.triggers else None
+    replacements_json = json.dumps(info.replacements) if info.replacements else None
+    make_json = json.dumps(info.makeItEasier) if info.makeItEasier else None
+    milestone_json = json.dumps(info.milestoneRewards) if info.milestoneRewards else None
+    meta_json = json.dumps(info.meta) if info.meta else None
+    return query, (
+        info.title,
+        info.goal,
+        info.goalType,
+        info.type,
+        info.whyItMatters,
+        info.startDate,
+        info.endDate,
+        info.assigneeId,
+        info.assigneeName,
+        triggers_json,
+        replacements_json,
+        make_json,
+        info.savingFor,
+        info.rewardGoalTitle,
+        info.rewardGoalCostCoins,
+        milestone_json,
+        info.createdAt,
+        info.createdById,
+        info.createdByName,
+        info.createdByRole,
+        meta_json,
+    )
+
+
+def goal_delete(goal_id: int):
+    query = "DELETE FROM goals WHERE id = ?"
+    return query, (goal_id,)
+
+
+def goal_get(goal_id: int):
+    query = "SELECT * FROM goals WHERE id = ?"
+    return query, (goal_id,)
+
+
+def goal_update_partial(fields: dict, goal_id: int):
+    if not fields:
+        raise ValueError("no fields to update")
+    set_clauses = []
+    params = []
+    for col, val in fields.items():
+        if isinstance(val, (list, dict)):
+            val = json.dumps(val)
+        set_clauses.append(f"{col} = ?")
+        params.append(val)
+    params.append(goal_id)
+    set_clause = ", ".join(set_clauses)
+    sql = f"UPDATE goals SET {set_clause} WHERE id = ?"
+    return sql, tuple(params)
+
+
+def goal_list(owner_id: int):
+    query = "SELECT * FROM goals WHERE createdById = ?"
+    return query, (owner_id,)
+
+
+# Action plan helpers
+def action_plan_create(info: 'ActionPlanInfo'):
+    query = "INSERT INTO action_plans (goalId, title, notes, assigneeId, assigneeName, schedule, frequency, frequencyLabel, completedDates, streak, createdAt, createdById, createdByName, createdByRole, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    schedule_json = json.dumps(info.schedule) if info.schedule else None
+    freq_json = json.dumps(info.frequency) if info.frequency else None
+    completed_json = json.dumps(info.completedDates) if info.completedDates else None
+    meta_json = json.dumps(info.meta) if info.meta else None
+    return query, (
+        info.goalId,
+        info.title,
+        info.notes,
+        info.assigneeId,
+        info.assigneeName,
+        schedule_json,
+        freq_json,
+        info.frequencyLabel,
+        completed_json,
+        info.streak,
+        info.createdAt,
+        info.createdById,
+        info.createdByName,
+        info.createdByRole,
+        meta_json,
+    )
+
+
+def action_plan_delete(plan_id: int):
+    query = "DELETE FROM action_plans WHERE id = ?"
+    return query, (plan_id,)
+
+
+def action_plan_delete_by_goal(goal_id: int):
+    query = "DELETE FROM action_plans WHERE goalId = ?"
+    return query, (goal_id,)
+
+
+def action_plan_get(plan_id: int):
+    query = "SELECT * FROM action_plans WHERE id = ?"
+    return query, (plan_id,)
+
+
+def action_plan_update_partial(fields: dict, plan_id: int):
+    if not fields:
+        raise ValueError("no fields to update")
+    set_clauses = []
+    params = []
+    for col, val in fields.items():
+        if isinstance(val, (list, dict)):
+            val = json.dumps(val)
+        set_clauses.append(f"{col} = ?")
+        params.append(val)
+    params.append(plan_id)
+    set_clause = ", ".join(set_clauses)
+    sql = f"UPDATE action_plans SET {set_clause} WHERE id = ?"
+    return sql, tuple(params)
+
+
+def action_plan_list(owner_id: int):
+    query = "SELECT * FROM action_plans WHERE createdById = ?"
+    return query, (owner_id,)
+
+
+def action_plan_list_by_goal(goal_id: int):
+    query = "SELECT * FROM action_plans WHERE goalId = ?"
+    return query, (goal_id,)

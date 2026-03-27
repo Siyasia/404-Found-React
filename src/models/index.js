@@ -251,6 +251,88 @@ export class FormedHabit {
   }
 }
 
+// New Goal model — light wrapper/normalizer for goal objects used by goals.js and UI components
+export class Goal {
+  constructor(props = {}) {
+    // identity
+    this.id = props.id ?? props.goalId ?? null;
+
+    // primary display/title fields (components sometimes use title, goal, or name)
+    this.title = props.title ?? props.goalTitle ?? props.goal ?? props.name ?? '';
+    this.goal = props.goal ?? props.title ?? this.title;
+
+    // type / classification
+    this.type = props.type ?? props.goalType ?? props.taskType ?? 'goal';
+
+    // assignee / owner fields (code uses a few different names across the app)
+    this.assigneeId = props.assigneeId ?? props.assignee ?? props.assignedToId ?? null;
+    this.assigneeName = props.assigneeName ?? props.assignedToName ?? props.ownerName ?? props.assignee ?? '';
+
+    // window / dates
+    this.startDate = props.startDate ?? props.start ?? props.createdAt ?? null;
+    this.endDate = props.endDate ?? props.end ?? null;
+
+    // reward / savings
+    this.savingFor = props.savingFor ?? null;
+    this.rewardGoalTitle = props.rewardGoalTitle ?? null;
+    this.rewardGoalCostCoins = props.rewardGoalCostCoins ?? null;
+
+    // supportive fields used by GoalCard and wizard
+    this.triggers = Array.isArray(props.triggers) ? props.triggers.slice() : (props.triggers ? [props.triggers] : []);
+    this.replacements = Array.isArray(props.replacements) ? props.replacements.slice() : (props.replacements ? [props.replacements] : []);
+    this.makeItEasier = Array.isArray(props.makeItEasier) ? props.makeItEasier.slice() : (props.makeItEasier ? [props.makeItEasier] : []);
+    this.location = props.location ?? null;
+
+    // metadata about creation/ownership
+    this.createdAt = props.createdAt ?? new Date().toISOString();
+    this.createdById = props.createdById ?? props.ownerId ?? null;
+    this.createdByName = props.createdByName ?? props.ownerName ?? '';
+    this.createdByRole = props.createdByRole ?? null;
+
+    // keep any extra fields in meta to avoid dropping unknowns
+    this.meta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
+      ? { ...props.meta }
+      : {};
+    Object.keys(props).forEach((k) => { if (!(k in this)) this.meta[k] = props[k]; });
+  }
+
+  static from(obj) {
+    if (obj instanceof Goal) return obj;
+    if (obj === null || obj === undefined) return null;
+    if (typeof obj === 'string') {
+      try { return new Goal(JSON.parse(obj)); } catch { return new Goal({}); }
+    }
+    return new Goal(obj || {});
+  }
+
+  toJSON() {
+    const out = {
+      id: this.id,
+      title: this.title,
+      goal: this.goal,
+      type: this.type,
+      assigneeId: this.assigneeId,
+      assigneeName: this.assigneeName,
+      startDate: this.startDate,
+      endDate: this.endDate,
+      savingFor: this.savingFor,
+      rewardGoalTitle: this.rewardGoalTitle,
+      rewardGoalCostCoins: this.rewardGoalCostCoins,
+      triggers: Array.isArray(this.triggers) ? this.triggers.slice() : [],
+      replacements: Array.isArray(this.replacements) ? this.replacements.slice() : [],
+      makeItEasier: Array.isArray(this.makeItEasier) ? this.makeItEasier.slice() : [],
+      location: this.location,
+      createdAt: this.createdAt,
+      createdById: this.createdById,
+      createdByName: this.createdByName,
+      createdByRole: this.createdByRole,
+      meta: { ...(this.meta || {}) },
+    };
+    Object.keys(this.meta || {}).forEach((k) => { out[k] = this.meta[k]; });
+    return out;
+  }
+}
+
 export class User {
   constructor(props = {}) {
     this.id = props.id ?? props.user_id ?? null;
@@ -419,11 +501,80 @@ export class GameItem {
   }
 }
 
+export class ActionPlan {
+  constructor(props = {}) {
+    const p = props || {};
+    this.id = p.id ?? p.planId ?? p._id ?? null;
+    this.goalId = p.goalId ?? p.goal_id ?? p.goal ?? null;
+    this.title = p.title ?? p.name ?? '';
+    this.notes = p.notes ?? p.description ?? '';
+    this.assigneeId = p.assigneeId ?? p.assignee ?? (p.assignedToId ?? null);
+    if (this.assigneeId != null) this.assigneeId = String(this.assigneeId);
+    this.assigneeName = p.assigneeName ?? p.assignedToName ?? p.ownerName ?? '';
+
+    // schedule / frequency normalization
+    this.schedule = p.schedule ?? p.frequency ?? null;
+    this.frequency = this.schedule;
+    this.frequencyLabel = p.frequencyLabel ?? (this.schedule ? (typeof this.schedule === 'object' ? (this.schedule.label || null) : String(this.schedule)) : '');
+
+    // completion tracking
+    if (p.completedDates && typeof p.completedDates === 'object' && !Array.isArray(p.completedDates)) {
+      this.completedDates = { ...p.completedDates };
+    } else {
+      this.completedDates = {};
+    }
+
+    this.streak = p.streak ?? 0;
+    this.createdAt = p.createdAt ?? new Date().toISOString();
+    this.createdById = p.createdById ?? p.ownerId ?? null;
+    this.createdByName = p.createdByName ?? p.ownerName ?? '';
+    this.createdByRole = p.createdByRole ?? null;
+
+    // extra fields stored in meta
+    this.meta = p.meta && typeof p.meta === 'object' && !Array.isArray(p.meta) ? { ...p.meta } : {};
+    Object.keys(p).forEach((k) => { if (!(k in this)) this.meta[k] = p[k]; });
+  }
+
+  static from(obj) {
+    if (obj instanceof ActionPlan) return obj;
+    if (obj === null || obj === undefined) return null;
+    if (typeof obj === 'string') {
+      try { return new ActionPlan(JSON.parse(obj)); } catch { return new ActionPlan({}); }
+    }
+    return new ActionPlan(obj || {});
+  }
+
+  toJSON() {
+    const out = {
+      id: this.id,
+      goalId: this.goalId,
+      title: this.title,
+      notes: this.notes,
+      assigneeId: this.assigneeId,
+      assigneeName: this.assigneeName,
+      schedule: this.schedule,
+      frequency: this.frequency,
+      frequencyLabel: this.frequencyLabel,
+      completedDates: { ...(this.completedDates || {}) },
+      streak: this.streak,
+      createdAt: this.createdAt,
+      createdById: this.createdById,
+      createdByName: this.createdByName,
+      createdByRole: this.createdByRole,
+      meta: { ...(this.meta || {}) },
+    };
+    Object.keys(this.meta || {}).forEach((k) => { out[k] = this.meta[k]; });
+    return out;
+  }
+}
+
 export default {
   Task,
   BuildHabit,
   BreakHabit,
   FormedHabit,
+  Goal,
+  ActionPlan,
   User,
   Child,
 };

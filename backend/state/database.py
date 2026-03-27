@@ -112,6 +112,56 @@ class Database:
             "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, price INTEGER, type TEXT, path TEXT UNIQUE, placement TEXT)"
         )
 
+        # Goals table for the new habit system
+        self.__connection.execute(
+            "CREATE TABLE IF NOT EXISTS goals ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "title TEXT, "
+            "goal TEXT, "
+            "goalType TEXT, "
+            "type TEXT, "
+            "whyItMatters TEXT, "
+            "startDate TEXT, "
+            "endDate TEXT, "
+            "assigneeId TEXT, "
+            "assigneeName TEXT, "
+            "triggers TEXT, "
+            "replacements TEXT, "
+            "makeItEasier TEXT, "
+            "savingFor TEXT, "
+            "rewardGoalTitle TEXT, "
+            "rewardGoalCostCoins INTEGER, "
+            "milestoneRewards TEXT, "
+            "createdAt TEXT, "
+            "createdById TEXT, "
+            "createdByName TEXT, "
+            "createdByRole TEXT, "
+            "meta TEXT"
+            ")"
+        )
+
+        # Action plans table (also known as action_plans)
+        self.__connection.execute(
+            "CREATE TABLE IF NOT EXISTS action_plans ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "goalId INTEGER, "
+            "title TEXT, "
+            "notes TEXT, "
+            "assigneeId TEXT, "
+            "assigneeName TEXT, "
+            "schedule TEXT, "
+            "frequency TEXT, "
+            "frequencyLabel TEXT, "
+            "completedDates TEXT, "
+            "streak INTEGER, "
+            "createdAt TEXT, "
+            "createdById TEXT, "
+            "createdByName TEXT, "
+            "createdByRole TEXT, "
+            "meta TEXT"
+            ")"
+        )
+
     @staticmethod
     def populate_items(db):
         def create_item(name: str, path: str, price: int, type_: str, placement: str) -> int | None:

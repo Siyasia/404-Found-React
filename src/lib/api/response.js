@@ -1,9 +1,9 @@
-import {User, BuildHabit, BreakHabit, FormedHabit, Task, Child, GameItem, GameProfile} from "../../models";
+import {User, BuildHabit, BreakHabit, FormedHabit, Task, Child, GameItem, GameProfile, Goal, ActionPlan} from "../../models";
 
 class Response {
     constructor(status, json_data) {
         this.status_code = status; 
-        if (json_data.error) {
+        if (json_data && json_data.error) {
             this.error = json_data.error;
         } else {
             this.error = null;
@@ -113,6 +113,24 @@ export class ChildLoginResponse extends Response {
     }
 }
 
+// New: Goal responses
+export class GetGoalResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        // support multiple shapes from backend: { goal: {...} } or raw goal object
+        const raw = json_data?.goal ?? json_data?.data ?? json_data ?? null;
+        this.goal = raw ? Goal.from(raw) : null;
+    }
+}
+
+export class ListGoalResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        const arr = json_data?.goals ?? json_data?.data ?? json_data ?? [];
+        this.goals = Array.isArray(arr) ? arr.map((g) => Goal.from(g)) : [];
+    }
+}
+
 export class GetGameProfileResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
@@ -136,6 +154,25 @@ export class GetItemListResponse extends Response {
     }
 }
 
+// Action plan responses
+export class GetActionPlanResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        // backend may return { plan: {...} } or raw object
+        const raw = json_data?.plan ?? json_data?.data ?? json_data ?? null;
+        this.plan = raw ? (Array.isArray(raw) ? raw.map((p) => ActionPlan.from(p)) : ActionPlan.from(p)) : null;
+        // If it's a single plan object, convert to ActionPlan in callers; keep flexible here.
+    }
+}
+
+export class ListActionPlanResponse extends Response {
+    constructor(status, json_data) {
+        super(status, json_data);
+        const arr = json_data?.plans ?? json_data?.data ?? json_data ?? [];
+        this.plans = Array.isArray(arr) ? arr.map((p) => ActionPlan.from(p)) : [];
+    }
+}
+
 export const CreateBuildHabitResponse = CreateResponse;
 export const CreateBreakHabitResponse = CreateResponse;
 export const CreateTaskResponse = CreateResponse;
@@ -149,3 +186,13 @@ export const UpdateTaskResponse = CreateResponse;
 export const UpdateUserResponse = CreateResponse;
 export const UpdateGameProfileResponse = CreateResponse;
 export const DeleteResponse = Response;
+
+// Goal aliases - standardized names used across API modules
+export const CreateGoalResponse = CreateResponse;
+export const UpdateGoalResponse = CreateResponse;
+
+// Action plan aliases
+export const CreateActionPlanResponse = CreateResponse;
+export const UpdateActionPlanResponse = CreateResponse;
+
+// Note: GetGoalResponse and ListGoalResponse are exported as named classes above.

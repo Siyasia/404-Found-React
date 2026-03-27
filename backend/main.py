@@ -7,7 +7,7 @@ import load_dotenv
 import os
 from state import database
 from modules.habits import build_habits, formed_habits, break_habits
-from modules import tasks, user, login, child, game, friends
+from modules import tasks, user, login, child, game, friends, action_plans, goals
 
 load_dotenv.load_dotenv()
 db_filename = os.getenv("DATABASE_FILE", "database.db")
@@ -22,6 +22,8 @@ app.include_router(login.router)
 app.include_router(child.router)
 app.include_router(game.router)
 app.include_router(friends.router)
+app.include_router(action_plans.router)
+app.include_router(goals.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,4 +63,3 @@ def read_root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
-
