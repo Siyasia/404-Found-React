@@ -6,16 +6,12 @@ import Home from './pages/Home.jsx';
 import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import Shop from './pages/Shop.jsx';
-import BuildHabit from './pages/BuildHabit.jsx';
-import BreakHabit from './pages/BreakHabit.jsx';
 import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
 import HabitWizardPage from './pages/HabitWizardPage.jsx'; // Temporary page for testing the Habit Wizard component
 import CalendarPage from './pages/CalendarPage.jsx';
 import Avatar from './pages/Avatar.jsx';
-
-
 import Login from './auth/Login.jsx';
 import Signup from './auth/Signup.jsx';
 
