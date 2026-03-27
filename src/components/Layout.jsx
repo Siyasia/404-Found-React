@@ -53,8 +53,6 @@ export default function Layout({ children }) {
                 {/* <NavLink to="/features" className="nav-link">Features</NavLink> */}
                 {canCreate && (
                   <>
-                    <NavLink to="/build-habit" className="nav-link">Build Habit</NavLink>
-                    <NavLink to="/break-habit" className="nav-link">Break Habit</NavLink>
                     <NavLink to="/habit" className="nav-link">Habit Wizard</NavLink>
                   </>
                 )}
