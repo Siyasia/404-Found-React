@@ -28,7 +28,8 @@ export function useInventory(profile, itemList) {
 
             return {
                 ...fullItem,
-                equipped: invItem.equipped
+                equipped: invItem.equipped,
+                color: invItem.color
             };
         }).filter(Boolean);
 

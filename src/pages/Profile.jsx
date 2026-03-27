@@ -2,7 +2,7 @@ import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import React, { useState, useEffect } from 'react';
 import { friendsList, friendsAdd, friendsRemove } from '../lib/api/friends.js';
-import { useGameProfile } from '../components/useGameProfile.jsx';
+import { useGameProfile } from '../components/useGameProfile';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
 import { DisplayAvatar } from '../components/DisplayAvatar.jsx';

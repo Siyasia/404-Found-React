@@ -468,7 +468,7 @@ export class GameProfile {
     return {
       id: this.id,
       coins: this.coins,
-      inventory: this.inventory.map((field) => ({ id: field.id, equipped: field.equipped })),
+      inventory: this.inventory.map((field) => ({ id: field.id, equipped: field.equipped, color: field.color ?? 1 })),
       meta: { ...(this.meta || {}) },
     };
   }

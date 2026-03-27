@@ -14,10 +14,18 @@ export default function Shop() {
 
   if (loading || itemLoading) return <p>Loading...</p>;
 
-  //for tabs to display item type
-  const categories = ['all', ...new Set(items.map(i => i.type))];
+  const shopItems = items.filter(item => 
+    item.type !== "Default" && item.placement !== "Base"
+  );
+
+  const filteredInv = invItems.filter(item =>
+    item.type !== 'Default' && item.placement !== 'Base'
+  ) 
+
+  //for tabs to display item placement
+  const categories = ['all', ...new Set(shopItems.map(i => i.placement))];
   const filtered =
-    chosenCategory === 'all' ? items : items.filter(item => item.type === chosenCategory);
+    chosenCategory === 'all' ? shopItems : shopItems.filter(item => item.placement === chosenCategory);
 
   const showModal = (message, type = 'info') => {
     setModal(message, type);
@@ -160,7 +168,7 @@ export default function Shop() {
                   backgroundColor: owned ? '#f5f5f5' : '#fff'
                 }}
               >
-                <img src={item.path} alt={item.name} style={{ width: '100px', height: '100px' }} />
+                <img src={`${item.path}.PNG`} alt={item.name} style={{ width: '100px', height: '100px' }} />
                 <h3>{item.name}</h3>
                 <p><strong>Price:</strong> {item.price} coins</p>
 
@@ -212,7 +220,7 @@ export default function Shop() {
 
         <h3>Your Inventory</h3>
         <br></br>
-        {invItems.length === 0 ? (
+        {filteredInv.length === 0 ? (
           <p>You don't have any items yet. Try buying some from the shop!</p>
         ) : (
           <div className="inventory" style={{ 
@@ -221,7 +229,7 @@ export default function Shop() {
             flexWrap: 'wrap', 
             justifyContent: 'center' }}>
 
-            {invItems.map(item => (
+            {filteredInv.map(item => (
               <div key={item.id} className="inventory-item" style={{ 
                 border: '1px solid #ccc', 
                 borderRadius: '8px', 
@@ -229,7 +237,7 @@ export default function Shop() {
                 width: '100px', 
                 textAlign: 'center' }}>
 
-                <img src={item.path} alt={item.name} style={{ 
+                <img src={`${item.path}.PNG`} alt={item.name} style={{ 
                   width: '75px', 
                   height: '75px' }} />
 

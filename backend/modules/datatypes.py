@@ -128,6 +128,7 @@ class Item(pydantic.BaseModel):
 class ItemField(pydantic.BaseModel):
     id: Optional[int] = None
     equipped: bool = False
+    color: int = 1
 
 class GameProfile(pydantic.BaseModel):
     """Represents a user's game profile, including stats and progress."""

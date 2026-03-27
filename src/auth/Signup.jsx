@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
-import {loginChild, signupAdult, signupChild} from '../lib/api/authentication.js';
+import { signupAdult } from '../lib/api/authentication.js';
 import {createGameProfile} from "../lib/api/game.js";
 import {GameProfile} from "../models/index.js";
 
@@ -13,9 +13,7 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
-  const [age, setAge] = useState('');
   const [role, setRole] = useState('');
-  const [childCode, setChildCode] = useState('');
   const [error, setError] = useState('');
   const [username, setUsername] = useState('');
 
@@ -35,27 +33,8 @@ export default function Signup() {
     setError('');
 
     const trimmedName = name.trim();
-    const numericAge = Number(age);
-    const trimmedCode = childCode.trim();
 
-    // ==== CHILD SIGNUP (code-only) ====
-    if (role === 'child') {
-
-      // Account has been created at this point, so it's actually a login rather than a signup
-      const response = await loginChild(trimmedCode);
-
-      if (response.status !== 200) {
-        setError('No child account found for that code. Ask your parent to check the code.');
-        return;
-      }
-
-      await makeGameProfile();
-      setUser({ ...response.user, role: 'child' });
-      navigate('/home');
-      return;
-    }
-
-    // ==== NON-CHILD ROLES (user, parent, provider) ====
+    // ==== ADULT ROLES (user, parent, provider) ====
     if (!trimmedName || !role || !password || !email) {
       setError('Please fill in all fields.');
       return;
@@ -140,7 +119,6 @@ export default function Signup() {
               <option value="parent">Parent</option>
               <option value="provider">Provider</option>
               <option value="user">User (14+)</option>
-              <option value="child">Child</option>
             </select>
           </label>
 
@@ -157,28 +135,7 @@ export default function Signup() {
             </label>
           )}
 
-          {/* Child code (only for child signup) */}
-          {role === 'child' && (
-            <label className="auth-label">
-              <span>
-              Parent-provided child code<span aria-hidden="true" className="required-asterisk">*</span>
-              </span>
-              <input
-                type="text"
-                value={childCode}
-                onChange={(e) => setChildCode(e.target.value)}
-                placeholder="Enter the code your parent gave you"
-                required
-                aria-required="true"
-              />
-            </label>
-          )}
-
-          {/* Adult / non-child fields */}
-          {role !== 'child' && (
-            
-            <>
-              <label className="auth-label">
+          <label className="auth-label">
                 <span>
                 Name<span aria-hidden="true" className="required-asterisk">*</span>
                 </span>
@@ -229,8 +186,6 @@ export default function Signup() {
               <div className="passwordRequirement" id="passwordRequirement">
                 Your password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number.
               </div>
-            </>
-          )}
 
           {error && (
             <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.95rem' }}>
@@ -242,11 +197,20 @@ export default function Signup() {
             Sign Up
           </button>
 
-          <br />
-          <hr />
-          <br />
+          <div
+            style={{
+              marginTop: '1rem',
+              paddingTop: '1rem',
+              borderTop: '1px solid rgba(148, 163, 184, 0.2)',
+              color: '#64748b',
+              fontSize: '0.95rem',
+            }}
+          >
+            <span aria-hidden="true" style={{ color: 'inherit' }}>*</span>{' '}
+            Parents create children from their "Children" page.
+          </div>
 
-          <div className="container signin">
+          <div className="container signin" style={{ marginTop: '0.75rem' }}>
             <p>
               Already have an account? <a href="/login">Log In</a>.
             </p>

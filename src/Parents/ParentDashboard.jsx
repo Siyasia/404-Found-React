@@ -5,7 +5,7 @@ import { ROLE } from '../Roles/roles.js';
 import { Task, Goal, ActionPlan } from '../models';
 import Toast from '../components/Toast.jsx';
 import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
-import { childCreate, childGet, childList, childDelete } from '../lib/api/children.js';
+import { childCreate, childGet, childList, childDelete, childUpdate } from '../lib/api/children.js';
 import { Child } from '../models/index.js';
 {/* Habit wizard imports */}
 import HabitWizard from '../components/HabitWizard/HabitWizard.jsx';
@@ -74,6 +74,8 @@ const normalizeTab = (tab) => {
   const [childSuccess, setChildSuccess] = useState('');
   const [childUsername, setChildUsername] = useState('');
   const [childPassword, setChildPassword] = useState('');
+  const [childPasswordDrafts, setChildPasswordDrafts] = useState({});
+  const [childPasswordSavingId, setChildPasswordSavingId] = useState(null);
 
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
@@ -223,6 +225,36 @@ const normalizeTab = (tab) => {
       setChildError('Failed to add child. Please try again.');
     }
     
+  };
+
+  const handleChangeChildPassword = async (child) => {
+    const nextPassword = (childPasswordDrafts[child.id] || '').trim();
+
+    setChildError('');
+
+    if (!nextPassword) {
+      setChildError(`Please enter a new password for ${child.name}.`);
+      return;
+    }
+
+    setChildPasswordSavingId(child.id);
+
+    try {
+      const result = await childUpdate({ id: child.id, password: nextPassword });
+
+      if (result.status_code === 200) {
+        setChildPasswordDrafts((prev) => ({ ...prev, [child.id]: '' }));
+        setChildSuccess(`Password updated for ${child.name}.`);
+        setTimeout(() => setChildSuccess(''), 3000);
+      } else {
+        setChildError(result.error || 'Failed to update child password. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to update child password', err);
+      setChildError('Failed to update child password. Please try again.');
+    } finally {
+      setChildPasswordSavingId(null);
+    }
   };
 
   const handleRemoveChild = async (id) => {
@@ -595,7 +627,9 @@ const normalizeTab = (tab) => {
 
             <form onSubmit={handleAddChild}>
               <label className="auth-label">
-                Child&apos;s name <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                  Child&apos;s name <span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <input
                   type="text"
                   value={childName}
@@ -607,7 +641,9 @@ const normalizeTab = (tab) => {
               </label>
 
               <label className="auth-label">
-                Child username <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                  Child username <span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <input
                   type="text"
                   value={childUsername}
@@ -619,7 +655,9 @@ const normalizeTab = (tab) => {
               </label>
 
               <label className="auth-label">
-                Age <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                  Age <span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <input
                   type="number"
                   min="1"
@@ -632,7 +670,9 @@ const normalizeTab = (tab) => {
               </label>
 
               <label className="auth-label">
-                Child password <span aria-hidden="true" className="required-asterisk">*</span>
+                <span>
+                  Child password <span aria-hidden="true" className="required-asterisk">*</span>
+                </span>
                 <input
                   type="password"
                   value={childPassword}
@@ -671,29 +711,61 @@ const normalizeTab = (tab) => {
             )}
 
             {children.length > 0 && (
-              <ul className="notepad-list">
+              <ul className="notepad-list childrenNotepadList">
                 {children.map((child) => (
                   <li
                     key={child.id}
-                    className="notepad-list-row"
+                    className="notepad-list-row childListRow"
                   >
-                    <span>
-                      <strong>{child.name}</strong> — {child.age} years old
+                    <div className="childListInfo">
+                      <div className="childPrimaryLine">
+                        <strong>{child.name}</strong> — {child.age} years old
+                      </div>
+                      <div className="childSecondaryLine">
+                        Username: <strong>{child.username || '—'}</strong>
+                      </div>
                       {child.code && (
-                        <> (Code: <code>{child.code}</code>)</>
+                        <div className="childSecondaryLine">
+                          Login: <code>{child.username}#{child.code}</code>
+                        </div>
                       )}
-                    </span>
+                    </div>
 
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={async () => {
-                        console.log('Removed child', child.id);
-                        await handleRemoveChild(child.id);
-                      }}
-                    >
-                      Remove
-                    </button>
+                    <div className="childListActions">
+                      <div className="childPasswordRow">
+                        <input
+                          type="password"
+                          className="childPasswordInput"
+                          value={childPasswordDrafts[child.id] || ''}
+                          onChange={(e) =>
+                            setChildPasswordDrafts((prev) => ({
+                              ...prev,
+                              [child.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="New password"
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-primary childPasswordButton"
+                          disabled={childPasswordSavingId === child.id}
+                          onClick={() => handleChangeChildPassword(child)}
+                        >
+                          {childPasswordSavingId === child.id ? 'Saving...' : 'Update password'}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={async () => {
+                          console.log('Removed child', child.id);
+                          await handleRemoveChild(child.id);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

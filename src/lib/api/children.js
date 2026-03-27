@@ -24,3 +24,8 @@ export async function childGet(child_id) {
     const info = await getJSON('/child/get/' + child_id);
     return new GetChildResponse(info.status, info.data);
 }
+export async function childUpdate(child) {
+    const json = (child && typeof child.toJSON === 'function') ? child.toJSON() : { ...child };
+    const info = await postJSON('/child/update', json);
+    return new CreateChildResponse(info.status, info.data);
+}
