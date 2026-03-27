@@ -62,4 +62,10 @@ export async function userGet() {
         
         return User.from(json);
     }
+    else if (info.status === 401) {
+        return null; // Not logged in
+    }
+    else {
+        throw new Error(`Failed to fetch user info: ${info.status}`);
+    }
 }
