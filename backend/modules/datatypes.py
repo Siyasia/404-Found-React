@@ -159,6 +159,7 @@ class GoalInfo(pydantic.BaseModel):
     createdById: Optional[typing.Union[int, str]] = None
     createdByName: Optional[str] = None
     createdByRole: Optional[str] = None
+    location: Optional[str] = None
     meta: Optional[dict] = {}
 
 

@@ -398,7 +398,8 @@ def item_list():
     return query, ()
 
 def goal_create(info: 'GoalInfo'):
-    query = "INSERT INTO goals (title, goal, goalType, type, whyItMatters, startDate, endDate, assigneeId, assigneeName, triggers, replacements, makeItEasier, savingFor, rewardGoalTitle, rewardGoalCostCoins, milestoneRewards, createdAt, createdById, createdByName, createdByRole, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    # match the columns and order defined in state.database:create_tables (includes `location` before `meta`)
+    query = "INSERT INTO goals (title, goal, goalType, whyItMatters, startDate, endDate, assigneeId, assigneeName, triggers, replacements, makeItEasier, savingFor, rewardGoalTitle, rewardGoalCostCoins, milestoneRewards, createdAt, createdById, createdByName, createdByRole, location, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     triggers_json = json.dumps(info.triggers) if info.triggers else None
     replacements_json = json.dumps(info.replacements) if info.replacements else None
     make_json = json.dumps(info.makeItEasier) if info.makeItEasier else None
@@ -408,7 +409,6 @@ def goal_create(info: 'GoalInfo'):
         info.title,
         info.goal,
         info.goalType,
-        info.type,
         info.whyItMatters,
         info.startDate,
         info.endDate,
@@ -425,6 +425,7 @@ def goal_create(info: 'GoalInfo'):
         info.createdById,
         info.createdByName,
         info.createdByRole,
+        info.location,
         meta_json,
     )
 

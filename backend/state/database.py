@@ -119,7 +119,6 @@ class Database:
             "title TEXT, "
             "goal TEXT, "
             "goalType TEXT, "
-            "type TEXT, "
             "whyItMatters TEXT, "
             "startDate TEXT, "
             "endDate TEXT, "
@@ -136,6 +135,7 @@ class Database:
             "createdById TEXT, "
             "createdByName TEXT, "
             "createdByRole TEXT, "
+            "location TEXT, "
             "meta TEXT"
             ")"
         )
