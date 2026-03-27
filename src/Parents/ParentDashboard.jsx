@@ -521,12 +521,12 @@ const normalizeTab = (tab) => {
   );
 
   const handleApproveProviderTask = async (taskId) => {
-    const toUpdate = tasks.find((t) => t.id === taskId);
+    const toUpdate = pendingTasks.find((t) => t.id === taskId);
     if (!toUpdate) {
       alert('Task not found. Please refresh and try again.');
       return;
     }
-    const child = children.find((c) => c.code === toUpdate.childCode);
+    const child = children.find((c) => c.code == toUpdate.childCode);
     if (!child) {
       alert(
         `No child found with code ${toUpdate.childCode}. Add the child or correct the code before approving.`
@@ -535,7 +535,7 @@ const normalizeTab = (tab) => {
     }
 
     const data = {
-      taskId,
+      id: taskId,
       assigneeId: child.id,
       assigneeName: child.name,
       needsApproval: false,
