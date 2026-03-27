@@ -30,8 +30,6 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/features" element={<Features />} />
         <Route path="/shop" element={<Shop />} />
-        <Route path="/build-habit" element={<BuildHabit />} />
-        <Route path="/break-habit" element={<BreakHabit />} />
         <Route path="/habit" element={<HabitWizardPage />} />
         <Route path="/habit-wizard" element={<HabitWizardPage />} /> {/* Temporary route for direct access to the Habit Wizard during development */}
         <Route path="/calendar" element={<CalendarPage />} /> 
