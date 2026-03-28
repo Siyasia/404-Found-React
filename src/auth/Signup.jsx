@@ -78,8 +78,9 @@ export default function Signup() {
 
     setUser(response.user);
     await makeGameProfile(response.user.id);
+    navigate('/home'); // Let RoleHomeRouter decide where to send the user based on their role
 
-    // Navigate based on user role
+    {/* // Navigate based on user role
     const userRole = response.user.role;
     console.log('User signed up with role:', userRole, 'Full user:', response.user);
     
@@ -89,7 +90,8 @@ export default function Signup() {
       navigate('/provider');
     } else {
       navigate('/home');
-    }
+    } */}
+
   };
 
   return (
