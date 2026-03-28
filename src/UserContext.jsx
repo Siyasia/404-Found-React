@@ -1,3 +1,5 @@
+// Hey guys, I’m adding authReady so the app waits until authentication is fully checked before deciding which homepage or redirect to show.
+
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { User } from './models';
 import { logout, userGet } from './lib/api/authentication';
@@ -7,6 +9,7 @@ const UserContext = createContext(null);
 
 export function UserProvider({ children }) {
   const [user, setUserState] = useState(null);
+  const [authReady, setAuthReady] = useState(false); // tracks if we've attempted to load user (successfully or not)
 
   const applyTheme = (prefs) => {
     if (typeof document === 'undefined') return;
@@ -55,7 +58,7 @@ export function UserProvider({ children }) {
     } catch (err) {
       console.error('Failed to set user', err);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // Load user once on startup — reads localStorage first, falls back to userGet()
   useEffect(() => {
@@ -68,13 +71,12 @@ export function UserProvider({ children }) {
               const parsed = JSON.parse(raw);
               if (parsed) {
                 setUser(parsed);
-                return; // localStorage user found — no need to hit the network
+                return;
               }
             } catch (e) {}
           }
         }
 
-        // No localStorage user — fetch from backend once
         const fetched = await userGet();
         if (fetched) {
           let payload = null;
@@ -89,13 +91,15 @@ export function UserProvider({ children }) {
         }
       } catch (err) {
         console.error('Failed to load user', err);
+      } finally { // we attempted to load user, whether successfully or not, so we can render the app now
+        setAuthReady(true);
       }
     }
     func();
   }, [setUser]);
 
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ user, setUser, authReady }}> {/* expose authReady so we can conditionally render the app only after we've attempted to load user */}
       {children}
     </UserContext.Provider>
   );
