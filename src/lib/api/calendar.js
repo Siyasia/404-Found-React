@@ -15,7 +15,6 @@ function toISO(date) {
 
 async function readActionPlans() {
   const list = await actionPlanList()
-  console.log(list)
   if (list.status_code === 200) {
     return list?.plans ? Array.isArray(list.plans) ? list.plans : [list.plans] : []
   }
