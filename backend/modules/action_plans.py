@@ -79,18 +79,20 @@ def action_plan_update(info: ActionPlanInfo, response: fastapi.Response, user: U
 @router.get("/action-plan/list")
 def action_plan_list(response: fastapi.Response, goalId: int = None, user: UserInfo = Depends(state.require_user)):
     with Database() as db:
-        if goalId is not None:
-            if not db.try_execute(*SQLHelper.action_plan_list_by_goal(goalId)):
-                response.status_code = 500
-                return response
-        else:
-            if not db.try_execute(*SQLHelper.action_plan_list(user.id)):
-                response.status_code = 500
-                return response
+        # Always scope the query by the authenticated user to prevent
+        # enumeration of other users' action plans via goalId.
+        if not db.try_execute(*SQLHelper.action_plan_list(user.id)):
+            response.status_code = 500
+            return response
         rows = db.cursor().fetchall()
     out = []
     for row in rows:
-        out.append(row_to_plan(row))
+        plan = row_to_plan(row)
+        if goalId is not None:
+            # Only include plans matching the requested goalId.
+            if plan.get("goalId") != goalId:
+                continue
+        out.append(plan)
     response.status_code = 200
     return {"plans": out}
 
