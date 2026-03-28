@@ -286,6 +286,10 @@ def child_get_by_username_code(username: str, code: str):
     query = "SELECT * FROM children WHERE lower(username) = lower(?) AND code = ?"
     return query, (username, code)
 
+def child_get_by_code(code: str):
+    query = "SELECT * FROM children WHERE code = ?"
+    return query, (code,)
+
 def child_delete(child_id: int):
     query = "DELETE FROM children WHERE id = ?"
     return query, (child_id,)
@@ -354,9 +358,10 @@ def user_update_partial(fields: dict, user_id: int):
     sql = f"UPDATE users SET {set_clause} WHERE id = ?"
     return sql, tuple(params)
 
-def task_list_pending(assignee_id: int):
-    query = "SELECT * FROM tasks WHERE assigneeId = ? AND needsApproval = 1 AND createdByRole = 'provider'"
-    return query, (assignee_id,)
+def task_list_pending(childCode: int):
+    query = "SELECT * FROM tasks WHERE childCode IN (SELECT code FROM children WHERE code = ?) AND needsApproval = 1 AND createdByRole = 'provider'"
+
+    return query, (childCode,)
 
 def get_game_profile(userId: int):
     query = "SELECT * FROM game_profiles WHERE id = ?"
