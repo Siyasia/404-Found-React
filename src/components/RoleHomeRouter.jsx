@@ -12,10 +12,32 @@ import ChildHomepage from '../Child/ChildHomepage.jsx';
 import ParentHomepage from '../Parents/ParentHomepage.jsx';
 import ProviderDashboard from '../Provider/ProviderDashboard.jsx';
 
+{/* Now the routing logic is:
+user exists → go straight to homepage
+no user yet, auth still loading → show loading
+no user, auth finished → send to login 
+*/}
+
 export default function RoleHomeRouter() {
   const { user, authReady } = useUser();
 
-  // Show loading state while auth is being determined
+// If we already have a user in context, route immediately instead of waiting on authReady.
+// This prevents recently logged-in users from getting stuck on the loading card.
+  if (user) {
+    switch (user.role) {
+      case ROLE.CHILD:
+        return <ChildHomepage />;
+      case ROLE.PARENT:
+        return <ParentHomepage />;
+      case ROLE.PROVIDER:
+        return <ProviderDashboard />;
+      case ROLE.USER:
+      default:
+        return <Home />;
+    }
+  }
+
+  // Show loading state only while auth is still being checked and no user has been resolved yet.
   if (!authReady) {
     return (
       <section className="container" style={{ paddingTop: '2rem' }}>
@@ -26,21 +48,6 @@ export default function RoleHomeRouter() {
     );
   }
 
-  // If user is not authenticated, redirect to login
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-// Route to the appropriate homepage based on user role
-  switch (user.role) {
-    case ROLE.CHILD:
-      return <ChildHomepage />;
-    case ROLE.PARENT:
-      return <ParentHomepage />;
-    case ROLE.PROVIDER:
-      return <ProviderDashboard />;
-    case ROLE.USER:
-    default: // For regular users or any unrecognized roles, show the generic home page
-      return <Home />;
-  }
+  // If auth has finished and there is still no user, send them to login.
+  return <Navigate to="/login" replace />;
 }
