@@ -1,8 +1,6 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import RoleHomeRouter from './components/RoleHomeRouter.jsx';
-import Home from './pages/Home.jsx';
 import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import Shop from './pages/Shop.jsx';
@@ -38,7 +36,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/avatar" element={<Avatar />} />
-        <Route path="*" element={<Home />} />
+        <Route path="*" element={<RoleHomeRouter />} />
 
       </Routes>
     </Layout>
