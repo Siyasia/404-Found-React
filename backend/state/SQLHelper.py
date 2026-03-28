@@ -413,7 +413,7 @@ def goal_create(info: 'GoalInfo'):
     return query, (
         info.title,
         info.goal,
-        info.goalType,
+        getattr(info, "goalType", getattr(info, "type", None)),
         info.whyItMatters,
         info.startDate,
         info.endDate,
