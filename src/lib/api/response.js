@@ -160,7 +160,7 @@ export class GetActionPlanResponse extends Response {
         super(status, json_data);
         // backend may return { plan: {...} } or raw object
         const raw = json_data?.plan ?? json_data?.data ?? json_data ?? null;
-        this.plan = raw ? (Array.isArray(raw) ? raw.map((p) => ActionPlan.from(p)) : ActionPlan.from(p)) : null;
+        this.plan = raw ? (Array.isArray(raw) ? raw.map((p) => ActionPlan.from(p)) : ActionPlan.from(raw)) : null;
         // If it's a single plan object, convert to ActionPlan in callers; keep flexible here.
     }
 }
