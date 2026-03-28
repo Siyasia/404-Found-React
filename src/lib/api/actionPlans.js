@@ -1,78 +1,36 @@
-// SWAP TARGET: Replace localStorage reads/writes with POST /action-plan/create, etc.
-// completedDates lives on the action plan object — backend must store and return this field.
-// Confirm with backend that completedDates: { "YYYY-MM-DD": true } is the agreed shape before swapping.
+import * as Responses from './response.js'
+import { getJSON, postJSON } from './api.js'
 
-import { getItem, setItem, KEYS } from './storageAdapter.js'
-import { formatScheduleLabel } from '../schedule.js'
-
-// Helper to safely read the list of action plans from storage, ensuring we always get an array back.
-async function safeReadActionPlans() {
-  const list = await getItem(KEYS.ACTION_PLANS)
-  return Array.isArray(list) ? list : []
-}
-
-// Normalization helper to ensure consistent shape for action plans, especially around schedule/frequency and completedDates.
-function normalizePlan(plan) {
-  const normalizedPlan = { ...(plan || {}) }
-
-  if (normalizedPlan.assigneeId != null) {
-    normalizedPlan.assigneeId = String(normalizedPlan.assigneeId)
-  }
-
-  if (normalizedPlan.schedule && !normalizedPlan.frequency) {
-    normalizedPlan.frequency = normalizedPlan.schedule
-  }
-
-  if (!normalizedPlan.frequencyLabel) {
-    normalizedPlan.frequencyLabel = formatScheduleLabel(normalizedPlan.schedule || normalizedPlan.frequency)
-  }
-
-  if (!normalizedPlan.completedDates || typeof normalizedPlan.completedDates !== 'object' || Array.isArray(normalizedPlan.completedDates)) {
-    normalizedPlan.completedDates = {}
-  }
-
-  return normalizedPlan
-}
-
-// CRUD functions for action plans, using localStorage as the backend for now. Will swap to real API calls once backend is ready.
+// Create a new action plan
 export async function actionPlanCreate(plan) {
   try {
-    const list = await safeReadActionPlans()
-    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `ap-${Date.now()}`
-    const item = {
-      ...normalizePlan(plan),
-      id,
-    }
-    list.push(item)
-    await setItem(KEYS.ACTION_PLANS, list)
-    return { status_code: 200, data: item }
+    const payload = (plan && typeof plan.toJSON === 'function') ? plan.toJSON() : (plan || {})
+    const info = await postJSON('/action-plan/create', payload)
+    return new Responses.CreateActionPlanResponse(info.status, info.data)
   } catch (err) {
-    if (err && err.name === 'AbortError') throw err
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.CreateActionPlanResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // Retrieves a single action plan by id.
 export async function actionPlanGet(id) {
   try {
-    const list = await safeReadActionPlans()
-    const found = list.find((p) => String(p.id) === String(id)) || null
-    if (!found) return { status_code: 500, error: 'Not found' }
-    return { status_code: 200, data: found }
+    const info = await getJSON(`/action-plan/get/${id}`)
+    return new Responses.GetActionPlanResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.GetActionPlanResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // If goalId is provided, returns only action plans for that goal. Otherwise returns all action plans.
 export async function actionPlanList(goalId, options) {
+  // maintain existing flexible signature: actionPlanList(options) or actionPlanList(goalId, options)
   if (goalId && typeof goalId === 'object' && !Array.isArray(goalId)) {
     options = goalId
     goalId = undefined
   }
 
   const signal = options?.signal || null
-
   if (signal?.aborted) {
     const err = new Error('Aborted')
     err.name = 'AbortError'
@@ -80,66 +38,45 @@ export async function actionPlanList(goalId, options) {
   }
 
   try {
-    const list = await safeReadActionPlans()
-    const res = goalId == null ? list : list.filter((p) => String(p.goalId) === String(goalId))
-
-    if (signal?.aborted) {
-      const err = new Error('Aborted')
-      err.name = 'AbortError'
-      throw err
-    }
-
-    return { status_code: 200, data: res }
+    // backend endpoint supports optional query ?goalId=...
+    const url = goalId ? `/action-plan/list?goalId=${encodeURIComponent(String(goalId))}` : '/action-plan/list'
+    const info = await getJSON(url)
+    return new Responses.ListActionPlanResponse(info.status, info.data)
   } catch (err) {
     if (err && err.name === 'AbortError') throw err
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.ListActionPlanResponse(500, { error: err?.message || String(err) })
   }
 }
 
-// For updates, we allow partial updates to any field on the action plan, but we always return the full updated object for convenience. If the id field is included in changes, it will be ignored to prevent changing the identity of the action plan.
+// Update an action plan (partial allowed)
 export async function actionPlanUpdate(id, changes) {
   try {
-    const list = await safeReadActionPlans()
-    const idx = list.findIndex((p) => String(p.id) === String(id))
-    if (idx === -1) return { status_code: 500, error: 'Not found' }
-
-    const updated = normalizePlan({
-      ...list[idx],
-      ...changes,
-      id: list[idx].id,
-    })
-
-    list[idx] = updated
-    await setItem(KEYS.ACTION_PLANS, list)
-    return { status_code: 200, data: updated }
+    const payload = (changes && typeof changes.toJSON === 'function') ? changes.toJSON() : (changes || {})
+    payload.id = id
+    const info = await postJSON('/action-plan/update', payload)
+    return new Responses.UpdateActionPlanResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.UpdateActionPlanResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // Deletes the specified action plan by id. Returns the id of the deleted plan on success.
 export async function actionPlanDelete(id) {
   try {
-    const list = await safeReadActionPlans()
-    const filtered = list.filter((p) => String(p.id) !== String(id))
-    if (filtered.length === list.length) return { status_code: 500, error: 'Not found' }
-    await setItem(KEYS.ACTION_PLANS, filtered)
-    return { status_code: 200, data: { id } }
+    const info = await getJSON(`/action-plan/delete/${id}`)
+    return new Responses.DeleteResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.DeleteResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // Deletes all action plans associated with the specified goalId. Returns the number of deleted plans on success.
 export async function actionPlanDeleteByGoal(goalId) {
   try {
-    const list = await safeReadActionPlans()
-    const filtered = list.filter((p) => String(p.goalId) !== String(goalId))
-    const removed = list.length - filtered.length
-    await setItem(KEYS.ACTION_PLANS, filtered)
-    return { status_code: 200, data: { goalId, removed } }
+    const info = await postJSON('/action-plan/delete-by-goal', { goalId })
+    return new Responses.DeleteResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.DeleteResponse(500, { error: err?.message || String(err) })
   }
 }
 

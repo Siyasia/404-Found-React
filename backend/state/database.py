@@ -109,7 +109,57 @@ class Database:
             "CREATE TABLE IF NOT EXISTS game_profiles (id INTEGER PRIMARY KEY, coins INTEGER, inventory TEXT)"
         )
         self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, price INTEGER, type TEXT, path TEXT UNIQUE, placement TEXT)"
+            "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER, type TEXT, path TEXT UNIQUE, placement TEXT)"
+        )
+
+        # Goals table for the new habit system
+        self.__connection.execute(
+            "CREATE TABLE IF NOT EXISTS goals ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "title TEXT, "
+            "goal TEXT, "
+            "goalType TEXT, "
+            "whyItMatters TEXT, "
+            "startDate TEXT, "
+            "endDate TEXT, "
+            "assigneeId TEXT, "
+            "assigneeName TEXT, "
+            "triggers TEXT, "
+            "replacements TEXT, "
+            "makeItEasier TEXT, "
+            "savingFor TEXT, "
+            "rewardGoalTitle TEXT, "
+            "rewardGoalCostCoins INTEGER, "
+            "milestoneRewards TEXT, "
+            "createdAt TEXT, "
+            "createdById TEXT, "
+            "createdByName TEXT, "
+            "createdByRole TEXT, "
+            "location TEXT, "
+            "meta TEXT"
+            ")"
+        )
+
+        # Action plans table (also known as action_plans)
+        self.__connection.execute(
+            "CREATE TABLE IF NOT EXISTS action_plans ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "goalId INTEGER, "
+            "title TEXT, "
+            "notes TEXT, "
+            "assigneeId TEXT, "
+            "assigneeName TEXT, "
+            "schedule TEXT, "
+            "frequency TEXT, "
+            "frequencyLabel TEXT, "
+            "completedDates TEXT, "
+            "streak INTEGER, "
+            "createdAt TEXT, "
+            "createdById TEXT, "
+            "createdByName TEXT, "
+            "createdByRole TEXT, "
+            "meta TEXT"
+            ")"
         )
 
     @staticmethod
@@ -176,8 +226,6 @@ class Database:
             print("Failed to create item 'Long Eyelashes'")
         if create_item("Wide", "/eyes/eyes10", 30, "avatar", "Eyes") is None:
             print("Failed to create item 'Wide'")
-        if create_item("Closed", "/eyes/eyes11", 10, "avatar", "Eyes") is None:
-            print("Failed to create item 'Closed'")
 
         if create_item("Curved", "/mouths/mouth2", 15, "avatar", "Mouths") is None:
             print("Failed to create item 'Curved'")

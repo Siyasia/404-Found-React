@@ -16,7 +16,6 @@ export function useItems() {
             //safely try to get the items list
             try {
                 const itemList = await getItemList();
-                console.log("RAW RESPONSE:", itemList);
 
                 if (itemList.error) {
                     setError(itemList.error);

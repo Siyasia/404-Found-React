@@ -1,8 +1,8 @@
 // PHASE 6: Local calendar API for the new habit system.
 // This reads action plans from local storage and expands them into calendar-friendly day entries.
 
-import { getItem, KEYS } from './storageAdapter.js'
 import { isDueOnDate, computeCurrentStreak } from '../schedule.js'
+import {actionPlanList} from "./actionPlans.js";
 
 function pad(num) {
   return String(num).padStart(2, '0')
@@ -13,8 +13,11 @@ function toISO(date) {
 }
 
 async function readActionPlans() {
-  const list = await getItem(KEYS.ACTION_PLANS)
-  return Array.isArray(list) ? list : []
+  const list = await actionPlanList()
+  if (list.status_code === 200) {
+    return list?.plans ? Array.isArray(list.plans) ? list.plans : [list.plans] : []
+  }
+  return []
 }
 
 function getSchedule(plan) {

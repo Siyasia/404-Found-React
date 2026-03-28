@@ -1,76 +1,60 @@
 // This mirrors the local-storage CRUD style used by actionPlans.js.
 
-import { getItem, setItem, KEYS } from './storageAdapter.js'
+import * as Responses from './response.js'
+import { getJSON, postJSON } from './api.js'
 
-// Helper function to read the goals list safely, ensuring it returns an array.
-async function safeReadGoals() {
-  const list = await getItem(KEYS.GOALS)
-  return Array.isArray(list) ? list : []
-}
-
-// Create a new goal or update an existing one if an ID is provided.
+// Create a new goal
 export async function goalCreate(goal) {
   try {
-    const list = await safeReadGoals()
-    const id = goal?.id || ((typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `g-${Date.now()}`)
-    const item = { ...goal, id }
-    list.push(item)
-    await setItem(KEYS.GOALS, list)
-    return { status_code: 200, data: item }
+    const payload = (goal && typeof goal.toJSON === 'function') ? goal.toJSON() : (goal || {})
+    const info = await postJSON('/goals/create', payload)
+    return new Responses.CreateGoalResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.CreateGoalResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // Retrieve a specific goal by its ID.
 export async function goalGet(id) {
   try {
-    const list = await safeReadGoals()
-    const found = list.find((g) => String(g.id) === String(id)) || null
-    if (!found) return { status_code: 500, error: 'Not found' }
-    return { status_code: 200, data: found }
+    const info = await getJSON(`/goals/get/${id}`)
+    return new Responses.GetGoalResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.GetGoalResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // List all goals.
 export async function goalList() {
   try {
-    const list = await safeReadGoals()
-    return { status_code: 200, data: list }
+    const info = await getJSON('/goals/list')
+    return new Responses.ListGoalResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.ListGoalResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // Update an existing goal by its ID with the provided changes.
 export async function goalUpdate(id, changes) {
   try {
-    const list = await safeReadGoals()
-    const idx = list.findIndex((g) => String(g.id) === String(id))
-    if (idx === -1) return { status_code: 500, error: 'Not found' }
-    const updated = { ...list[idx], ...changes, id: list[idx].id }
-    list[idx] = updated
-    await setItem(KEYS.GOALS, list)
-    return { status_code: 200, data: updated }
+    const payload = (changes && typeof changes.toJSON === 'function') ? changes.toJSON() : (changes || {})
+    // keep id in payload to match backend expectations
+    payload.id = id
+    const info = await postJSON('/goals/update', payload)
+    return new Responses.UpdateGoalResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.UpdateGoalResponse(500, { error: err?.message || String(err) })
   }
 }
 
 // Delete a goal by its ID.
 export async function goalDelete(id) {
   try {
-    const list = await safeReadGoals()
-    const filtered = list.filter((g) => String(g.id) !== String(id))
-    if (filtered.length === list.length) return { status_code: 500, error: 'Not found' }
-    await setItem(KEYS.GOALS, filtered)
-    return { status_code: 200, data: { id } }
+    const info = await getJSON(`/goals/delete/${id}`)
+    return new Responses.DeleteResponse(info.status, info.data)
   } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+    return new Responses.DeleteResponse(500, { error: err?.message || String(err) })
   }
 }
 
-// Export all functions as a default object for easy import elsewhere.
 export default { goalCreate, goalGet, goalList, goalUpdate, goalDelete }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
-import { Task } from '../models';
+import { Task, Goal, ActionPlan } from '../models';
 import Toast from '../components/Toast.jsx';
 import {taskList, taskUpdate, taskListPending} from '../lib/api/tasks.js';
 import { childCreate, childGet, childList, childDelete, childUpdate } from '../lib/api/children.js';
@@ -121,7 +121,7 @@ const normalizeTab = (tab) => {
       try {
         const gResp = await goalList();
         if (gResp && gResp.status_code === 200) {
-          setGoals(Array.isArray(gResp.data) ? gResp.data : []);
+          setGoals(Array.isArray(gResp.goals) ? gResp.goals.map(Goal.from) : []);
         }
       } catch (err) {
         console.error('Failed to load goals', err);
@@ -130,7 +130,7 @@ const normalizeTab = (tab) => {
       try {
         const apResp = await actionPlanList();
         if (apResp && apResp.status_code === 200) {
-          setActionPlans(Array.isArray(apResp.data) ? apResp.data : []);
+          setActionPlans(Array.isArray(apResp.plans) ? apResp.plans.map(ActionPlan.from) : []);
         }
       } catch (err) {
         console.error('Failed to load action plans', err);
@@ -423,7 +423,7 @@ const normalizeTab = (tab) => {
           return { success: false };
         }
 
-        const createdApId = apResp?.data?.id || apResp?.data?._id || null;
+        const createdApId = apResp?.id || apResp?.data?.id || apResp?.data?._id || null;
         if (createdApId) createdActionPlanIds.push(createdApId);
       }
 
@@ -431,7 +431,7 @@ const normalizeTab = (tab) => {
       try {
         const gResp = await goalList();
         if (gResp && gResp.status_code === 200) {
-          setGoals(Array.isArray(gResp.data) ? gResp.data : []);
+          setGoals(Array.isArray(gResp.goals) ? gResp.goals.map(Goal.from) : []);
         }
       } catch (err) {
         console.warn('[ParentDashboard] Failed to refresh goals after save', err);
@@ -440,7 +440,7 @@ const normalizeTab = (tab) => {
       try {
         const apResp = await actionPlanList();
         if (apResp && apResp.status_code === 200) {
-          setActionPlans(Array.isArray(apResp.data) ? apResp.data : []);
+          setActionPlans(Array.isArray(apResp.plans) ? apResp.plans.map(ActionPlan.from) : []);
         }
       } catch (err) {
         console.warn('[ParentDashboard] Failed to refresh action plans after save', err);
@@ -841,7 +841,7 @@ const normalizeTab = (tab) => {
                         type="button"
                         className="btn"
                         onClick={() => {
-                          setEditingGoal(goal);
+                          setEditingGoal(Goal.from(goal));
                           setTab('assign');
                           setWizardKey((k) => k + 1);
                         }}
