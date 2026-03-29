@@ -15,7 +15,6 @@ import Login from './auth/Login.jsx';
 import Signup from './auth/Signup.jsx';
 import Splash from './auth/Splash.jsx';
 
-
 export default function App() {
   return (
     <Layout>
