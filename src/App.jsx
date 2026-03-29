@@ -13,13 +13,17 @@ import CalendarPage from './pages/CalendarPage.jsx';
 import Avatar from './pages/Avatar.jsx';
 import Login from './auth/Login.jsx';
 import Signup from './auth/Signup.jsx';
+import Splash from './auth/Splash.jsx';
+
 
 export default function App() {
   return (
     <Layout>
       <Routes>
         {/* Login / role selection lives at the root URL */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Splash />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
         {/* Main app */}
         <Route path="/home" element={<RoleHomeRouter />} /> {/* Centralized homepage routing based on user role */}
