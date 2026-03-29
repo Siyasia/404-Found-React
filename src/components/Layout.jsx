@@ -11,89 +11,128 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const onLoginPage = location.pathname === '/';
+  // Treat all auth pages as public/auth screens
+  const isAuthPage =
+    location.pathname === '/' ||
+    location.pathname === '/login' ||
+    location.pathname === '/signup';
 
   const handleLogout = () => {
-    setUser(null);       // clears context and user info
-    navigate('/');       // back to login
+    setUser(null);
+    navigate('/');
   };
 
   const handleProfile = () => {
     navigate('/profile');
-  }
+  };
 
-  // Only show a role label if user and user.role exist; prevents errors if user is missing
   const roleLabel = user?.role ? ROLE_LABEL[user.role] || user.role : null;
-  const homePath = '/home'; // Centralized homepage route that will redirect based on role
+  const homePath = user ? '/home' : '/';
 
   return (
     <>
-      <header className="site-header">
-        <div className="container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link to={homePath} className="brand" aria-label="Go to home" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-            <img
-              src="/c4fd8e6f-5ad7-4f61-971d-7f495278396c.png"
-              alt="Next Steps logo"
-              style={{ height: '32px', width: 'auto', display: 'block' }}
-            />
-          </Link>
+      {/* Hide the header completely on splash/login/signup */}
+      {!isAuthPage && (
+        <header className="site-header">
+          <div
+            className="container"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+          >
+            <Link
+              to={homePath}
+              className="brand"
+              aria-label="Go to home"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <img
+                src="/c4fd8e6f-5ad7-4f61-971d-7f495278396c.png"
+                alt="Next Steps logo"
+                style={{ height: '32px', width: 'auto', display: 'block' }}
+              />
+            </Link>
 
-          <nav className="site-nav">
-            {isParent ? (
-              <>
-                <NavLink to="/parent/dashboard?tab=children" className="nav-link">Children</NavLink>
-                <NavLink to="/parent/dashboard?tab=assign" className="nav-link">Assign tasks</NavLink>
-                <NavLink to="/parent/dashboard?tab=my-tasks" className="nav-link">My tasks</NavLink>
-                <NavLink to="/parent/dashboard?tab=goals" className="nav-link">Goals</NavLink>
-                <NavLink to="/calendar" className="nav-link">Calendar</NavLink>
-                <NavLink to="/parent/dashboard?tab=approvals" className="nav-link">Approvals</NavLink>
-              </>
-            ) : (
-              <>
-                {/* <NavLink to="/features" className="nav-link">Features</NavLink> */}
-                {canCreate && (
-                  <>
-                    <NavLink to="/habit" className="nav-link">Habit Wizard</NavLink>
-                  </>
-                )}
-                {useGame && (
-                  <>
-                    <NavLink to="/shop" className="nav-link">Shop</NavLink>
-                    <NavLink to="/avatar" className="nav-link">Avatar</NavLink>
-                  </>
-                )}
-              </>
-            )}
-          </nav>
+            <nav className="site-nav">
+              {isParent ? (
+                <>
+                  <NavLink to="/parent/dashboard?tab=children" className="nav-link">
+                    Children
+                  </NavLink>
+                  <NavLink to="/parent/dashboard?tab=assign" className="nav-link">
+                    Assign tasks
+                  </NavLink>
+                  <NavLink to="/parent/dashboard?tab=my-tasks" className="nav-link">
+                    My tasks
+                  </NavLink>
+                  <NavLink to="/parent/dashboard?tab=goals" className="nav-link">
+                    Goals
+                  </NavLink>
+                  <NavLink to="/calendar" className="nav-link">
+                    Calendar
+                  </NavLink>
+                  <NavLink to="/parent/dashboard?tab=approvals" className="nav-link">
+                    Approvals
+                  </NavLink>
+                </>
+              ) : (
+                <>
+                  {canCreate && (
+                    <NavLink to="/habit" className="nav-link">
+                      Habit Wizard
+                    </NavLink>
+                  )}
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }} />
+                  {useGame && (
+                    <>
+                      <NavLink to="/shop" className="nav-link">
+                        Shop
+                      </NavLink>
+                      <NavLink to="/avatar" className="nav-link">
+                        Avatar
+                      </NavLink>
+                    </>
+                  )}
+                </>
+              )}
+            </nav>
 
-          {user && !onLoginPage && (
-            <div style={{ marginLeft: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ fontWeight: 500 }}>
-                Welcome, {user.name}
-                {roleLabel ? ` (${roleLabel})` : ''}
-              </span>
-              <button
-                type="button"
-                className ="btn btn-ghost"
-                onClick={handleProfile}
-                style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
-                >
-                Profile
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={handleLogout}
-                style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }} />
+
+            {user && (
+              <div
+                style={{
+                  marginLeft: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}
               >
-                Log out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
+                <span style={{ fontWeight: 500 }}>
+                  Welcome, {user.name}
+                  {roleLabel ? ` (${roleLabel})` : ''}
+                </span>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={handleProfile}
+                  style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
+                >
+                  Profile
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={handleLogout}
+                  style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
+                >
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+      )}
 
       <main>{children}</main>
     </>
