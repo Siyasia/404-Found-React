@@ -24,7 +24,7 @@ export default function Layout({ children }) {
 
   // Only show a role label if user and user.role exist; prevents errors if user is missing
   const roleLabel = user?.role ? ROLE_LABEL[user.role] || user.role : null;
-  const homePath = isParent ? '/parent' : '/home';
+  const homePath = '/home'; // Centralized homepage route that will redirect based on role
 
   return (
     <>

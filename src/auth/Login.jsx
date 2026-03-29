@@ -19,7 +19,6 @@ export default function Login() {
   const [activeTab, setActiveTab] = useState('admin');
 
   // Profile selection UI removed; always show manual login form
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -27,7 +26,6 @@ export default function Login() {
     if (activeTab === 'child') {
       const trimmedCode = childCode.trim();
 
-    //Sprint 5 addition: Login uses Username flow for children:
     // Sprint 5 addition: Login uses Username flow for children:
     if (trimmedCode) {
       if (!trimmedCode.includes('#')) {
@@ -86,10 +84,10 @@ export default function Login() {
       return;
     }
 
-
     setUser(response.user);
+    navigate('/home'); // Let RoleHomeRouter decide where to send the user based on their role
     
-    // Navigate based on user role
+    {/* // Navigate based on user role - commenting this out for now since RoleHomeRouter will handle it, but keeping the logic here for reference in case we want to do any role-based redirects at login in the future
     const userRole = response.user.role || response.user.type;
     console.log('User logged in with role:', userRole, 'Full user:', response.user);
     
@@ -99,12 +97,11 @@ export default function Login() {
       navigate('/provider');
     } else {
       navigate('/home');
-    }
+    } */}
+
   };
 
-
   // Removed profile cards and helpers
-
   return (
     <section className="container" style={{ maxWidth: '960px', paddingTop: '3rem', textAlign: 'center' }}>
       <div className="card" style={{ padding: '2.25rem 2rem', maxWidth: '520px', margin: '0 auto', textAlign: 'left' }}>

@@ -1,14 +1,13 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
-
-import Home from './pages/Home.jsx';
+import RoleHomeRouter from './components/RoleHomeRouter.jsx';
 import Profile from './pages/Profile.jsx';
 import Features from './pages/Features.jsx';
 import Shop from './pages/Shop.jsx';
 import ParentHomepage from './Parents/ParentHomepage.jsx';
 import ParentDashboard from './Parents/ParentDashboard.jsx';
 import ProviderDashboard from './Provider/ProviderDashboard.jsx';
+import ChildHomepage from './Child/ChildHomepage.jsx';
 import HabitWizardPage from './pages/HabitWizardPage.jsx'; // Temporary page for testing the Habit Wizard component
 import CalendarPage from './pages/CalendarPage.jsx';
 import Avatar from './pages/Avatar.jsx';
@@ -23,7 +22,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
 
         {/* Main app */}
-        <Route path="/home" element={<Home />} />
+        <Route path="/home" element={<RoleHomeRouter />} /> {/* Centralized homepage routing based on user role */}
         <Route path="/features" element={<Features />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/habit" element={<HabitWizardPage />} />
@@ -32,11 +31,12 @@ export default function App() {
         <Route path="/parent" element={<ParentHomepage />} />
         <Route path="/parent/dashboard" element={<ParentDashboard />} />
         <Route path="/provider" element={<ProviderDashboard />} />
+        <Route path="/child" element={<ChildHomepage />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/avatar" element={<Avatar />} />
-        <Route path="*" element={<Home />} />
+        <Route path="*" element={<RoleHomeRouter />} />
 
       </Routes>
     </Layout>
