@@ -4,7 +4,7 @@ import { useUser } from '../UserContext.jsx';
 import { loginAdult, loginChild } from '../lib/api/authentication.js';
 import {createGameProfile, getGameProfile} from "../lib/api/game.js";
 import {GameProfile} from "../models/index.js";
-import './auth.css';
+import './Auth.css';
 
 export default function Login() {
 
