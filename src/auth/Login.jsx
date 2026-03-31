@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { loginAdult, loginChild } from '../lib/api/authentication.js';
 import {createGameProfile, getGameProfile} from "../lib/api/game.js";
 import {GameProfile} from "../models/index.js";
+import './auth.css';
 
 export default function Login() {
 
@@ -101,41 +102,85 @@ export default function Login() {
 
   };
 
-  // Removed profile cards and helpers
   return (
-    <section className="container" style={{ maxWidth: '960px', paddingTop: '3rem', textAlign: 'center' }}>
-      <div className="card" style={{ padding: '2.25rem 2rem', maxWidth: '520px', margin: '0 auto', textAlign: 'left' }}>
-          <h1 style={{ marginBottom: '.75rem' }}>Welcome back to Next Steps</h1>
+    <section className="ns-auth-page">
+      <div className="ns-auth-shell">
+        <aside className="ns-auth-hero">
+          <div className="ns-auth-badge">
+            <span className="ns-auth-badge-dot" />
+            Welcome back
+          </div>
 
-          {/* styling to create separate tabs for admins vs children accounts */}
-          <div className='tabs' style={{ display: 'flex', marginBottom: '1.5rem' }}>
+          <div className="ns-auth-brand">
+            <h1>NextSteps</h1>
+            <p>
+              Small steps. Big progress. Log in to keep building routines, tracking wins,
+              and moving forward.
+            </p>
+          </div>
+
+          <div className="ns-auth-highlight-grid">
+            <div className="ns-auth-highlight">
+              <strong>Adult accounts</strong>
+              <span>Parents, providers, and users log in here with email or username.</span>
+            </div>
+
+            <div className="ns-auth-highlight">
+              <strong>Child accounts</strong>
+              <span>Children use their username#code and password from their parent.</span>
+            </div>
+
+            <div className="ns-auth-highlight">
+              <strong>Same real flow</strong>
+              <span>This matches your current app instead of inventing extra steps.</span>
+            </div>
+          </div>
+
+          <div className="ns-auth-journey" aria-hidden="true">
+            <div className="ns-auth-journey-line" />
+            <div className="ns-auth-step ns-auth-step--1">Log in</div>
+            <div className="ns-auth-step ns-auth-step--2">Plan</div>
+            <div className="ns-auth-step ns-auth-step--3">Track</div>
+            <div className="ns-auth-step ns-auth-step--4">Grow</div>
+          </div>
+        </aside>
+
+        <div className="ns-auth-card">
+          <h2>Log in</h2>
+          <p className="ns-auth-card-sub">
+            Use the same credentials and flows your app already supports.
+          </p>
+
+          <div className="ns-auth-tabs" role="tablist" aria-label="Login type">
             <button
               type="button"
-              onClick={() => setActiveTab('admin')}
-              className="btn"
-              style={{ marginTop: '1.25rem', width: '100%', marginLeft: '1rem', marginRight: '0.5rem' }}
+              className={`ns-auth-tab ${activeTab === 'admin' ? 'is-active' : ''}`}
+              onClick={() => {
+                setActiveTab('admin');
+                setError('');
+              }}
             >
               Admin Login
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab('child')}
-              className="btn"
-              style={{ marginTop: '1.25rem', width: '100%', marginLeft: '0.5rem', marginRight: '1rem'  }}
+              className={`ns-auth-tab ${activeTab === 'child' ? 'is-active' : ''}`}
+              onClick={() => {
+                setActiveTab('child');
+                setError('');
+              }}
             >
               Child Login
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ marginTop: '.75rem' }}>
-
-            {/* admin tab (for users, parents, providers) */}
+          <form onSubmit={handleSubmit} className="ns-auth-form">
             {activeTab === 'admin' && (
               <>
-                <label className="auth-label">
+                <label className="ns-auth-label">
                   <span>
-                    Email or Username<span aria-hidden="true" className="required-asterisk">*</span>
+                    Email or Username <span className="ns-required">*</span>
                   </span>
                   <input
                     type="text"
@@ -145,34 +190,27 @@ export default function Login() {
                   />
                 </label>
 
-                <label className="auth-label">
+                <label className="ns-auth-label">
                   <span>
-                  Password <span style={{ color: '#b91c1c'}}>*</span>
+                    Password <span className="ns-required">*</span>
                   </span>
-                  <div className="password-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="ns-auth-password-row">
                     <input
                       id="login-password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
-                      aria-describedby="login-password-visibility-toggle"
+                      aria-describedby="login-password-toggle"
                     />
                     <button
                       type="button"
-                      id="login-password-visibility-toggle"
+                      id="login-password-toggle"
+                      className="ns-auth-show-btn"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                       onClick={() => setShowPassword((v) => !v)}
-                      className="icon-button"
-                      style={{
-                        border: '1px solid #ccc',
-                        background: 'white',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                      }}
                     >
-                      {showPassword ? ' Hide' : ' Show'}
+                      {showPassword ? 'Hide' : 'Show'}
                     </button>
                   </div>
                 </label>
@@ -181,9 +219,9 @@ export default function Login() {
 
             {activeTab === 'child' && (
               <>
-                <label className="auth-label">
+                <label className="ns-auth-label">
                   <span>
-                    Child Login (username#code) <span style={{ color: '#b91c1c'}}>*</span>
+                    Child Login (username#code) <span className="ns-required">*</span>
                   </span>
                   <input
                     type="text"
@@ -193,9 +231,9 @@ export default function Login() {
                   />
                 </label>
 
-                <label className="auth-label">
+                <label className="ns-auth-label">
                   <span>
-                    Child Password <span style={{ color: '#b91c1c'}}>*</span>
+                    Child Password <span className="ns-required">*</span>
                   </span>
                   <input
                     type="password"
@@ -204,22 +242,25 @@ export default function Login() {
                     placeholder="Enter your password"
                   />
                 </label>
+
+                <p className="ns-auth-helper">
+                  Child accounts are created under a parent account and use the
+                  parent-generated login code.
+                </p>
               </>
             )}
 
-            {error && (
-              <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.9rem' }}>{error}</p>
-            )}
+            {error && <p className="ns-auth-error">{error}</p>}
 
-            <button type="submit" className="btn btn-primary" style={{ marginTop: '1.25rem', width: '100%' }}>
+            <button type="submit" className="btn btn-primary ns-auth-submit">
               Continue
             </button>
 
-            <div style={{ marginTop: '1.25rem', fontSize: '.85rem' }}>
-              <span>Don&apos;t have an account? <a href="/signup">Sign Up</a>.</span>
+            <div className="ns-auth-switch">
+              Don&apos;t have an account? <Link to="/signup">Sign Up</Link>.
             </div>
-
           </form>
+        </div>
       </div>
     </section>
   );

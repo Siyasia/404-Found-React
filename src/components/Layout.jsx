@@ -11,7 +11,12 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const onLoginPage = location.pathname === '/';
+  // Treat all auth pages as public/auth screens
+  const isAuthPage =
+    location.pathname === '/' ||
+    location.pathname === '/login' ||
+    location.pathname === '/signup';
+
 
   const handleLogout = () => {
     setUser(null);       // clears context and user info
@@ -27,8 +32,10 @@ export default function Layout({ children }) {
   const homePath = '/home'; // Centralized homepage route that will redirect based on role
 
   return (
-    <>
+    <> 
+    {!isAuthPage && (
       <header className="site-header">
+        {/* Hide the header completely on splash/login/signup */}
         <div className="container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Link to={homePath} className="brand" aria-label="Go to home" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
             <img
@@ -68,7 +75,7 @@ export default function Layout({ children }) {
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }} />
 
-          {user && !onLoginPage && (
+          {user && (
             <div style={{ marginLeft: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontWeight: 500 }}>
                 Welcome, {user.name}
@@ -89,11 +96,12 @@ export default function Layout({ children }) {
                 style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
               >
                 Log out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+      )}
 
       <main>{children}</main>
     </>
