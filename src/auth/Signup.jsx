@@ -4,7 +4,7 @@ import { useUser } from '../UserContext.jsx';
 import { signupAdult } from '../lib/api/authentication.js';
 import {createGameProfile} from "../lib/api/game.js";
 import {GameProfile} from "../models/index.js";
-import './auth.css';
+import './Auth.css';
 
 export default function Signup() {
   const navigate = useNavigate();
