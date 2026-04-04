@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from fastapi import Depends
 
 import state
+import util
 from modules.datatypes import UserInfo, ChildInfo
 from state.database import Database
 from state import SQLHelper
@@ -236,3 +237,24 @@ def friends_remove(req: FriendRequest, response: fastapi.Response, user: UserInf
         db.write()
 
     return {"friends": friends}
+
+@router.get("/friends/get/{username}")
+def get_friend_profile(username: str, response: fastapi.Response, user: UserInfo = Depends(state.require_user)):
+    if not username or not username.strip():
+        response.status_code = 400
+        return {"error": "username is required"}
+
+    with Database() as db:
+        if "#" in username:
+            row = db.execute(*SQLHelper.child_get_by_username_code(*username.split("#", 1))).fetchone()
+        else:
+            row = db.execute(*SQLHelper.user_get_by_username(username.strip())).fetchone()
+        if not row:
+            response.status_code = 404
+            return {"error": "user not found"}
+
+        obj = dict(row)
+        if "password" in obj:
+            del obj["password"]
+
+        return {"user": obj}
