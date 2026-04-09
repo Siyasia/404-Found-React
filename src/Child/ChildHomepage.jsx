@@ -133,7 +133,7 @@ export default function ChildHome() {
     if (!user) return;
 
     userUpdate({ id: user.id, theme: newTheme }).then((updated) => {
-      setUser(updated);
+      useUser();
     });
 
     setThemeOpen(false);
