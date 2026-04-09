@@ -144,6 +144,19 @@ def task_list_pending(response: fastapi.Response, user: UserInfo = Depends(state
     response.status_code = 200
     return {"tasks": out}
 
+@router.get("/task/list/child")
+def get_child_tasks(response: fastapi.Response, user: ChildInfo = Depends(state.require_user)):
+    with Database() as db:
+        if not db.try_execute("SELECT * FROM tasks WHERE needsApproval = 0 AND childCode = ?", (user.code,)):
+            response.status_code = 500
+            return response
+        rows = db.cursor().fetchall()
+    out = []
+    for row in rows:
+        out.append(row_to_task(row))
+    response.status_code = 200
+    return {"tasks": out}
+
 def row_to_task(row) -> dict:
     data = dict(row)
     if data.get("steps"):

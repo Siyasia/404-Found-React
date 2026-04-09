@@ -11,7 +11,7 @@ import {
 import EmptyState from '../components/EmptyState.jsx';
 import ThemeModal from './ThemeModal.jsx';
 import { useUser } from '../UserContext.jsx';
-import { taskList, taskUpdate } from '../lib/api/tasks.js';
+import { taskList, taskUpdate, childTaskList } from '../lib/api/tasks.js';
 import { userGet } from '../lib/api/authentication.js';
 import { userUpdate } from '../lib/api/user.js';
 
@@ -45,42 +45,31 @@ export default function ChildHome() {
     if (fetchedOnce.current) return;
     fetchedOnce.current = true;
 
-    const controller = new AbortController();
-    let active = true;
-
     async function fetchData() {
       setTasksLoading(true);
       try {
-        const fetchedUser = await userGet({ signal: controller.signal });
-        if (active && fetchedUser) {
+        const fetchedUser = await userGet();
+        if (fetchedUser) {
           setUser(fetchedUser);
           setThemeChoice(fetchedUser.theme || 'pink');
         }
 
-        const storedTasks = await taskList({ signal: controller.signal });
+        const storedTasks = await childTaskList();
+        console.log(JSON.stringify(storedTasks));
         if (
-          active &&
           storedTasks &&
-          (okStatus(storedTasks.status_code) || okStatus(storedTasks.status)) &&
+          okStatus(storedTasks.status_code) &&
           Array.isArray(storedTasks.tasks)
         ) {
           setTasks(storedTasks.tasks.map((t) => Task.from(t)));
         }
-      } catch (err) {
-        if (err?.name !== 'AbortError') {
-          console.error('Error fetching child tasks:', err);
-        }
       } finally {
-        if (active) setTasksLoading(false);
+        setTasksLoading(false);
       }
     }
 
     fetchData();
 
-    return () => {
-      active = false;
-      controller.abort();
-    };
   }, [user?.id, setUser]);
 
   useEffect(() => {
@@ -144,7 +133,7 @@ export default function ChildHome() {
     if (!user) return;
 
     userUpdate({ id: user.id, theme: newTheme }).then((updated) => {
-      setUser(updated);
+      useUser();
     });
 
     setThemeOpen(false);
