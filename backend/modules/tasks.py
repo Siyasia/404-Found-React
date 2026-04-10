@@ -147,7 +147,7 @@ def task_list_pending(response: fastapi.Response, user: UserInfo = Depends(state
 @router.get("/task/list/child")
 def get_child_tasks(response: fastapi.Response, user: ChildInfo = Depends(state.require_user)):
     with Database() as db:
-        if not db.try_execute("SELECT * FROM tasks WHERE needsApproval = 0 AND childCode = ?", (user.code,)):
+        if not db.try_execute("SELECT * FROM tasks WHERE needsApproval = 0 AND (childCode = ? OR assigneeId = ?)", (user.code, user.id)):
             response.status_code = 500
             return response
         rows = db.cursor().fetchall()

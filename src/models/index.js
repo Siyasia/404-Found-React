@@ -68,10 +68,10 @@ export class Schedule {
 export class Task {
   constructor(props = {}) {
     // assign all known properties so code can read t.title, t.status, etc.
-    this.id = props.id ?? String(Date.now());
-    this.assigneeId = props.assigneeId ?? null;
+    this.id = parseInt(props.id) ?? 0;
+    this.assigneeId = parseInt(props.assigneeId) ?? 0;
     this.assigneeName = props.assigneeName ?? '';
-    this.childCode = props.childCode ?? '';
+    this.childCode = props.childCode ?? 0;
     this.title = props.title ?? '';
     this.notes = props.notes ?? '';
     this.taskType = props.taskType ?? 'simple';
