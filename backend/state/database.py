@@ -82,6 +82,7 @@ class Database:
         ensure_column("children", "username", "TEXT")
         ensure_column("children", "friends", "TEXT")
         ensure_column("children", "password", "TEXT") #Sprint 5 addon for Passwords for children
+        ensure_column("tasks", "childCode", "ITNEGER")
 
         # Users table (matches backend `UserInfo` model)
         self.__connection.execute(
