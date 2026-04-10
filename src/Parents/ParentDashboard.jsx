@@ -499,21 +499,43 @@ const normalizeTab = (tab) => {
 
   const handleToggleTaskStatus = (taskId) => {
     console.log('[ParentDashboard] Toggle status', taskId);
-    setTasks((prev) => {
-      const updated = prev.map((t) => {
-        const obj = (t && typeof t.toJSON === 'function') ? t.toJSON() : t;
-        if (!obj) return Task.from(obj);
-        if (obj.id === taskId) obj.status = obj.status === 'done' ? 'pending' : 'done';
-        return Task.from(obj);
+    const prevTasks = tasks || [];
+    const task = prevTasks.find((t) => t.id === taskId);
+    if (!task) {
+      console.warn('[ParentDashboard] Task not found for toggle', taskId);
+      return;
+    }
+
+    const new_status = task.status === 'done' ? 'pending' : 'done';
+
+    // Create a new updated array (do not mutate existing objects)
+    const updated = prevTasks.map((t) => (t.id === taskId ? { ...t, status: new_status } : t));
+
+    // Optimistically update UI
+    setTasks(updated);
+
+    // Persist change; if it fails, revert to previous tasks and notify
+    taskUpdate({ id: taskId, status: new_status })
+      .then((resp) => {
+        if (resp && resp.status_code === 200) {
+          const changed = updated.find((t) => t.id === taskId);
+          if (changed) {
+            setTaskSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
+            setTimeout(() => setTaskSuccess(''), 2500);
+          }
+          // Optionally persist via saveTasks (keeps local cache in sync)
+          saveTasks(updated);
+        } else {
+          console.error('[ParentDashboard] taskUpdate failed', resp);
+          setTasks(prevTasks); // revert
+          alert('Failed to update task. Please try again.');
+        }
+      })
+      .catch((err) => {
+        console.error('[ParentDashboard] taskUpdate error', err);
+        setTasks(prevTasks); // revert
+        alert('Failed to update task. Please try again.');
       });
-      saveTasks(updated);
-      const changed = updated.find((t) => t.id === taskId);
-      if (changed) {
-        setTaskSuccess(`Marked ${changed.title || 'task'} ${changed.status === 'done' ? 'done' : 'not done'}.`);
-        setTimeout(() => setTaskSuccess(''), 2500);
-      }
-      return updated;
-    });
   };
 
   const providerPendingTasks = pendingTasks.filter(
