@@ -187,6 +187,10 @@ class Database:
             print("Failed to create item 'Default Hair'")
         if create_item("Default Shirt", "/shirts/shirt1", 0, "Default", "Shirts") is None:
             print("Failed to create item 'Default Shirt'")
+        if create_item("Default Pants", "/pants/pants1", 0, "Default", "Pants") is None:
+            print("Failed to create item 'Default Pants'")
+        if create_item("Default Shoes", "/shoes/shoes1", 0, "Default", "Shoes") is None:
+            print("Failed to create item 'Default Shoes'")
 
         if create_item("Angry", "/eyebrows/eyebrows2", 10, "avatar", "Eyebrows") is None:
             print("Failed to create item 'Angry'")
@@ -281,15 +285,15 @@ class Database:
             print("Failed to create item 'Upward'")
         if create_item("Semi-Bowl", "/hair/hair16", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Semi-Bowl'")
-        if create_item("idk1", "/hair/hair17", 35, "avatar", "Hair") is None:
+        if create_item("Curled Afro", "/hair/hair17", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Cornrows'")
         if create_item("Sideswept", "/hair/hair18", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Sideswept'")
-        if create_item("idk2", "/hair/hair19", 35, "avatar", "Hair") is None:
+        if create_item("Styled Afro", "/hair/hair19", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Curled Afro 1'")
         if create_item("Pixie 2", "/hair/hair20", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Pixie 2'")
-        if create_item("idk3", "/hair/hair21", 35, "avatar", "Hair") is None:
+        if create_item("Locs", "/hair/hair21", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Curled Afro 2'")
         if create_item("Ponytail", "/hair/hair22", 35, "avatar", "Hair") is None:
             print("Failed to create item 'Ponytail'")
@@ -327,6 +331,58 @@ class Database:
             print("Failed to create item 'Plain Hoodie'")
         if create_item("Star Hoodie", "/outerwear/outerwear3", 45, "avatar", "Outerwear") is None:
             print("Failed to create item 'Star Hoodie'")
+
+        if create_item("Skinny Jeans", "/pants/pants2", 20, "avatar", "Pants") is None:
+            print("Failed to create item 'Skinny Jeans'")
+        if create_item("Hi-Rise Jeans", "/pants/pants3", 20, "avatar", "Pants") is None:
+            print("Failed to create item 'Hi-Rise Jeans'")
+        if create_item("Cuffed Jeans", "/pants/pants4", 25, "avatar", "Pants") is None:
+            print("Failed to create item 'Cuffed Jeans'")
+        if create_item("Jean Shorts", "/pants/pants5", 15, "avatar", "Pants") is None:
+            print("Failed to create item 'Jean Shorts'")
+        if create_item("Long Jean Shorts", "/pants/pants6", 15, "avatar", "Pants") is None:
+            print("Failed to create item 'Long Jean Shorts'")
+        if create_item("Cargo Shorts", "/pants/pants7", 20, "avatar", "Pants") is None:
+            print("Failed to create item 'Cargo Shorts'")
+        if create_item("Cargo Pants", "/pants/pants8", 20, "avatar", "Pants") is None:
+            print("Failed to create item 'Cargo Pants'")
+        if create_item("Sweatpants", "/pants/pants9", 30, "avatar", "Pants") is None:
+            print("Failed to create item 'Sweatpants'")
+        if create_item("Slacks", "/pants/pants10", 35, "avatar", "Pants") is None:
+            print("Failed to create item 'Slacks'")
+        if create_item("Pencil Skirt", "/pants/pants11", 25, "avatar", "Pants") is None:
+            print("Failed to create item 'Pencil Skirt'")
+        if create_item("Straight Skirt", "/pants/pants12", 25, "avatar", "Pants") is None:
+            print("Failed to create item 'Straight Skirt'")
+        if create_item("Circle Skirt", "/pants/pants13", 20, "avatar", "Pants") is None:
+            print("Failed to create item 'Circle Skirt'")
+        if create_item("Mermaid Skirt", "/pants/pants14", 30, "avatar", "Pants") is None:
+            print("Failed to create item 'Mermaid Skirt'")
+        if create_item("Layered Skirt", "/pants/pants15", 20, "avatar", "Pants") is None:
+            print("Failed to create item 'Layered Skirt'")
+
+        if create_item("Loafers", "/shoes/shoes2", 30, "shoes", "Shoes") is None:
+            print("Failed to create item 'Loafers'")
+        if create_item("Sneakers", "/shoes/shoes3", 20, "shoes", "Shoes") is None:
+            print("Failed to create item 'Sneakers'")
+        if create_item("Slides", "/shoes/shoes4", 15, "shoes", "Shoes") is None:
+            print("Failed to create item 'Slides'")
+        if create_item("Sandals", "/shoes/shoes5", 20, "shoes", "Shoes") is None:
+            print("Failed to create item 'Sandals'")
+        if create_item("Slippers", "/shoes/shoes6", 15, "shoes", "Shoes") is None:
+            print("Failed to create item 'Slippers'")
+        if create_item("Heels", "/shoes/shoes7", 30, "shoes", "Shoes") is None:
+            print("Failed to create item 'Heels'")
+        if create_item("Ruffled Bow", "/shoes/shoes8", 30, "shoes", "Shoes") is None:
+            print("Failed to create item 'Ruffled Bow'")
+        if create_item("Leg Warmers", "/shoes/shoes9", 25, "shoes", "Shoes") is None:
+            print("Failed to create item 'Leg Warmers'")
+        if create_item("Hi-Top Sneakers", "/shoes/shoes10", 20, "shoes", "Shoes") is None:
+            print("Failed to create item 'Hi-Top Sneakers'")
+        if create_item("Cowboy Boots", "/shoes/shoes11", 30, "shoes", "Shoes") is None:
+            print("Failed to create item 'Cowboy Boots'")
+        if create_item("Fur Boots", "/shoes/shoes12", 25, "shoes", "Shoes") is None:
+            print("Failed to create item 'Fur Boots'")
 
         if create_item("coins", "/images/coins", 0, "money", "money") is None:
             print("Failed to create item 'coins")
