@@ -462,8 +462,8 @@ def goal_update_partial(fields: dict, goal_id: int):
 
 
 def goal_list(owner_id: int):
-    query = "SELECT * FROM goals WHERE createdById = ?"
-    return query, (owner_id,)
+    query = "SELECT * FROM goals WHERE createdById = ? OR assigneeId = ?"
+    return query, (owner_id, owner_id)
 
 
 # Action plan helpers
