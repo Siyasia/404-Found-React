@@ -27,6 +27,8 @@ export function DisplayAvatar({ invItems }) {
             {equipped.eyebrows && <img src={`${equipped.eyebrows.path}-${equipped.eyebrows.color ?? 1}full.PNG`} style={layer} />}
             {equipped.eyes && <img src={`${equipped.eyes.path}-${equipped.eyes.color ?? 1}full.PNG`} style={layer} />}
             {equipped.mouths && <img src={`${equipped.mouths.path}full.PNG`} style={layer} />}
+            {equipped.shoes && <img src={`${equipped.shoes.path}-${equipped.shoes.color ?? 1}full.PNG`} style={layer} />}        
+            {equipped.pants && <img src={`${equipped.pants.path}-${equipped.pants.color ?? 1}full.PNG`} style={layer} />}            
             {equipped.shirts && <img src={`${equipped.shirts.path}-${equipped.shirts.color ?? 1}full.PNG`} style={layer} />}
             {equipped.outerwear && <img src={`${equipped.outerwear.path}-${equipped.outerwear.color ?? 1}full.PNG`} style={layer} />}
 
