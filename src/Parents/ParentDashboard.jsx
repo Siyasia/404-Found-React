@@ -324,150 +324,198 @@ const normalizeTab = (tab) => {
   // Handle Habit Wizard submit: map payload, create/update goal, then create action plans.
   // PHASE 3: this saves the new habit system only. It does NOT create legacy Task records.
   const handleWizardSubmit = async (payload) => {
-    setTaskError('');
-    setWizardSaving(true);
+  setTaskError('');
+  setWizardSaving(true);
 
-    try {
-      const mapped = mapWizardPayload(payload);
-      const { goal, actionPlans: mappedPlans } = mapped;
+  try {
+    const mapped = mapWizardPayload(payload);
+    const { goal, actionPlans: mappedPlans } = mapped;
 
-      if (!goal.assigneeId) {
-        setTaskError('Please choose who this goal is for before saving.');
+    const existingPlansForGoal =
+      editingGoal && editingGoal.id
+        ? (actionPlans || []).filter((p) => String(p.goalId) === String(editingGoal.id))
+        : [];
+
+    if (!goal.assigneeId) {
+      setTaskError('Please choose who this goal is for before saving.');
+      return { success: false };
+    }
+
+    // Stamp creator + assignee display metadata before save.
+    goal.createdById = user?.id || null;
+    goal.createdByName = user?.name || '';
+    goal.createdByRole = user?.role || 'parent';
+
+    const assigneeMatch = (children || []).find(
+      (c) => String(c.id) === String(goal.assigneeId)
+    );
+    goal.assigneeName = goal.assigneeName || assigneeMatch?.name || user?.name || '';
+
+    // Defensive validation: every action plan must have a real schedule.
+    for (let i = 0; i < mappedPlans.length; i += 1) {
+      const plan = mappedPlans[i];
+      if (!plan || !plan.schedule || !plan.schedule.repeat) {
+        const title = plan?.title || `task #${i + 1}`;
+        setTaskError(
+          `Wizard task "${title}" is missing scheduling information. Please set a schedule and try again.`
+        );
+        return { success: false };
+      }
+    }
+
+    let goalId = null;
+
+    if (editingGoal && editingGoal.id) {
+      const updateResp = await goalUpdate(editingGoal.id, goal);
+      if (!updateResp || updateResp.status_code !== 200) {
+        setTaskError(updateResp?.error ? String(updateResp.error) : 'Failed to update goal.');
         return { success: false };
       }
 
-      // PHASE 3: stamp creator + assignee display metadata before save.
-      goal.createdById = user?.id || null;
-      goal.createdByName = user?.name || '';
-      goal.createdByRole = user?.role || 'parent';
+      // Response id is stored at the top level, not under data.id
+      goalId = updateResp?.id || editingGoal.id;
 
-      const assigneeMatch = (children || []).find((c) => String(c.id) === String(goal.assigneeId));
-      goal.assigneeName = goal.assigneeName || assigneeMatch?.name || user?.name || '';
-
-      // Defensive validation: all action plans must keep a normalized schedule.
-      for (let i = 0; i < mappedPlans.length; i += 1) {
-        const plan = mappedPlans[i];
-        if (!plan || !plan.schedule || !plan.schedule.repeat) {
-          const title = plan?.title || `task #${i + 1}`;
-          setTaskError(`Wizard task "${title}" is missing scheduling information. Please set a schedule and try again.`);
-          return { success: false };
-        }
+      const deleteOldPlansResp = await actionPlanDeleteByGoal(goalId);
+      if (!deleteOldPlansResp || deleteOldPlansResp.status_code !== 200) {
+        console.error(
+          '[ParentDashboard] Failed to replace existing action plans during edit',
+          deleteOldPlansResp
+        );
+        setTaskError('Failed to replace the previous action plans for this goal.');
+        return { success: false };
+      }
+    } else {
+      const createResp = await goalCreate(goal);
+      if (!createResp || createResp.status_code !== 200) {
+        setTaskError(createResp?.error ? String(createResp.error) : 'Failed to create goal.');
+        return { success: false };
       }
 
-      let goalId = null;
-
-      if (editingGoal && editingGoal.id) {
-        const updateResp = await goalUpdate(editingGoal.id, goal);
-        if (!updateResp || updateResp.status_code !== 200) {
-          setTaskError(updateResp?.error ? String(updateResp.error) : 'Failed to update goal.');
-          return { success: false };
-        }
-
-        goalId = updateResp?.data?.id || updateResp?.data?._id || editingGoal.id;
-
-        try {
-          await actionPlanDeleteByGoal(goalId);
-        } catch (err) {
-          console.error('[ParentDashboard] Failed to replace existing action plans during edit', err);
-          setTaskError('Failed to replace the previous action plans for this goal.');
-          return { success: false };
-        }
-      } else {
-        const createResp = await goalCreate(goal);
-        if (!createResp || createResp.status_code !== 200) {
-          setTaskError(createResp?.error ? String(createResp.error) : 'Failed to create goal.');
-          return { success: false };
-        }
-
-        goalId = createResp?.data?.id || createResp?.data?._id || null;
-      }
-
-      const createdActionPlanIds = [];
-
-      for (const plan of mappedPlans) {
-        const nextPlan = {
-          ...plan,
-          goalId,
-          assigneeId: plan.assigneeId ?? goal.assigneeId ?? null,
-          createdById: user?.id || null,
-          createdByName: user?.name || '',
-          createdByRole: user?.role || 'parent',
-        };
-
-        const planAssignee = (children || []).find((c) => String(c.id) === String(nextPlan.assigneeId));
-        nextPlan.assigneeName = nextPlan.assigneeName || planAssignee?.name || goal.assigneeName || '';
-
-        const apResp = await actionPlanCreate(nextPlan);
-        if (!apResp || apResp.status_code !== 200) {
-          console.error('[ParentDashboard] actionPlanCreate failed', apResp);
-
-          // Best-effort rollback for partially-created bundles.
-          for (const createdId of createdActionPlanIds) {
-            try {
-              // eslint-disable-next-line no-await-in-loop
-              await actionPlanDelete(createdId);
-            } catch {
-              // ignore rollback failure
-            }
-          }
-
-          if (!editingGoal && goalId) {
-            try {
-              await goalDelete(goalId);
-            } catch {
-              // ignore rollback failure
-            }
-          }
-
-          setTaskError(apResp?.error ? String(apResp.error) : 'Failed to create action plan.');
-          return { success: false };
-        }
-
-        const createdApId = apResp?.id || apResp?.data?.id || apResp?.data?._id || null;
-        if (createdApId) createdActionPlanIds.push(createdApId);
-      }
-
-      // Refresh new-system state after save.
-      try {
-        const gResp = await goalList();
-        if (gResp && gResp.status_code === 200) {
-          setGoals(Array.isArray(gResp.goals) ? gResp.goals.map(Goal.from) : []);
-        }
-      } catch (err) {
-        console.warn('[ParentDashboard] Failed to refresh goals after save', err);
-      }
-
-      try {
-        const apResp = await actionPlanList();
-        if (apResp && apResp.status_code === 200) {
-          setActionPlans(Array.isArray(apResp.plans) ? apResp.plans.map(ActionPlan.from) : []);
-        }
-      } catch (err) {
-        console.warn('[ParentDashboard] Failed to refresh action plans after save', err);
-      }
-
-      // PHASE 3: clear the wizard draft and reset edit mode after a successful save.
-      try {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(WIZARD_CONFIG.DRAFT_STORAGE_KEY);
-        }
-      } catch {
-        // ignore localStorage cleanup failure
-      }
-
-      setEditingGoal(null);
-      setWizardKey((k) => k + 1);
-      setTaskSuccess(editingGoal ? 'Goal updated successfully.' : 'Goal saved successfully.');
-      setTimeout(() => setTaskSuccess(''), 3000);
-      return { success: true };
-    } catch (err) {
-      console.error('[ParentDashboard] handleWizardSubmit error', err);
-      setTaskError('Unexpected error creating goal.');
-      return { success: false };
-    } finally {
-      setWizardSaving(false);
+      // Response id is stored at the top level, not under data.id
+      goalId = createResp?.id || null;
     }
-  };
+
+    if (!goalId) {
+      setTaskError('Goal saved, but no goal id was returned.');
+      return { success: false };
+    }
+
+    const createdActionPlanIds = [];
+
+    for (const plan of mappedPlans) {
+      const nextPlan = {
+        ...plan,
+        goalId,
+        assigneeId: plan.assigneeId ?? goal.assigneeId ?? null,
+        createdById: user?.id || null,
+        createdByName: user?.name || '',
+        createdByRole: user?.role || 'parent',
+      };
+
+      const planAssignee = (children || []).find(
+        (c) => String(c.id) === String(nextPlan.assigneeId)
+      );
+      nextPlan.assigneeName =
+        nextPlan.assigneeName || planAssignee?.name || goal.assigneeName || '';
+
+      const apResp = await actionPlanCreate(nextPlan);
+      if (!apResp || apResp.status_code !== 200) {
+        console.error('[ParentDashboard] actionPlanCreate failed', apResp);
+
+        // Rollback: delete any action plans that were created for this goal during this save attempt.
+        for (const createdId of createdActionPlanIds) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await actionPlanDelete(createdId);
+          } catch {
+            // ignore rollback failure
+          }
+        }
+
+        // Rollback: delete the goal if it was newly created.
+        if (!editingGoal && goalId) {
+          try {
+            await goalDelete(goalId);
+          } catch {
+            // ignore rollback failure
+          }
+        }
+
+        // Attempt to restore any deleted plans from the previous version of the goal (if editing), 
+        // but ignore any failures since the data is already lost at this point.
+        if (editingGoal && existingPlansForGoal.length > 0) {
+          for (const oldPlan of existingPlansForGoal) {
+            try {
+              const oldPlanJson =
+                typeof oldPlan?.toJSON === 'function' ? oldPlan.toJSON() : { ...oldPlan };
+
+              const { id, ...restoredPlan } = oldPlanJson;
+
+              // eslint-disable-next-line no-await-in-loop
+              await actionPlanCreate({
+                ...restoredPlan,
+                goalId,
+              });
+            } catch (restoreErr) {
+              console.error(
+                '[ParentDashboard] Failed to restore previous action plan',
+                restoreErr
+              );
+            }
+          }
+        }
+
+        setTaskError(apResp?.error ? String(apResp.error) : 'Failed to create action plan.');
+        return { success: false };
+      }
+
+      const createdApId = apResp?.id || null;
+      if (createdApId) createdActionPlanIds.push(createdApId);
+    }
+
+    // Refresh goals after save.
+    try {
+      const gResp = await goalList();
+      if (gResp && gResp.status_code === 200) {
+        setGoals(Array.isArray(gResp.goals) ? gResp.goals.map(Goal.from) : []);
+      }
+    } catch (err) {
+      console.warn('[ParentDashboard] Failed to refresh goals after save', err);
+    }
+
+    // Refresh action plans after save.
+    try {
+      const apResp = await actionPlanList();
+      if (apResp && apResp.status_code === 200) {
+        setActionPlans(Array.isArray(apResp.plans) ? apResp.plans.map(ActionPlan.from) : []);
+      }
+    } catch (err) {
+      console.warn('[ParentDashboard] Failed to refresh action plans after save', err);
+    }
+
+    // Clear wizard draft and exit edit mode after success.
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(WIZARD_CONFIG.DRAFT_STORAGE_KEY);
+      }
+    } catch {
+      // ignore localStorage cleanup failure
+    }
+
+    setEditingGoal(null);
+    setWizardKey((k) => k + 1);
+    setTaskSuccess(editingGoal ? 'Goal updated successfully.' : 'Goal saved successfully.');
+    setTimeout(() => setTaskSuccess(''), 3000);
+
+    return { success: true };
+  } catch (err) {
+    console.error('[ParentDashboard] handleWizardSubmit error', err);
+    setTaskError('Unexpected error creating goal.');
+    return { success: false };
+  } finally {
+    setWizardSaving(false);
+  }
+};
 
   // PHASE 3: deleting a goal removes its action plans first, then the goal.
   const handleDeleteGoal = async (goalId) => {
