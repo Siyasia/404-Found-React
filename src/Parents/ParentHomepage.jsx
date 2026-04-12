@@ -4,8 +4,12 @@ import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import { childList } from '../lib/api/children.js';
 import { taskList, taskUpdate, taskListPending, taskCreate } from '../lib/api/tasks.js';
-import { Task } from '../models';
+import { goalList } from '../lib/api/goals.js';
+import { actionPlanList } from '../lib/api/actionPlans.js';
+import { Task, Goal, ActionPlan } from '../models';
 import Toast from '../components/Toast.jsx';
+import togglePlanCompletion from '../lib/actionPlanCompletion.js';
+import { isDueOnDate, toLocalISODate, formatScheduleLabel } from '../lib/schedule.js';
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
@@ -20,12 +24,10 @@ function formatDate() {
   }).format(new Date());
 }
 
-// this normalization is needed because some API responses use "childId" while others use "assigneeId" for the same purpose, and we want to treat them interchangeably.
 function normalizeId(val) {
   return val === undefined || val === null ? null : String(val);
 }
 
-//
 function getTaskType(task) {
   return task?.taskType || task?.type || 'simple';
 }
@@ -40,7 +42,7 @@ function getFrequency(task) {
 
 function isDueToday(task, now = new Date()) {
   const freq = getFrequency(task) || 'daily';
-  const day = now.getDay(); // 0=Sun
+  const day = now.getDay();
   if (freq === 'daily') return true;
   if (freq === 'weekdays') return day >= 1 && day <= 5;
   if (freq === 'weekends') return day === 0 || day === 6;
@@ -66,6 +68,23 @@ function isMalformed(task) {
   const typeValid = !type || ['simple', 'build-habit', 'break-habit'].includes(type);
   const repeatValid = !repeat || ['daily', 'weekdays', 'weekends', 'weekly', 'monthly'].includes(repeat);
   return !hasName || !type || !hasAssignee || !typeValid || !repeatValid;
+}
+
+function getPlanSchedule(plan) {
+  if (plan?.schedule && typeof plan.schedule === 'object') return plan.schedule;
+  if (plan?.frequency && typeof plan.frequency === 'object') return plan.frequency;
+  return null;
+}
+
+function isPlanCompletedToday(plan, todayIso) {
+  if (!plan?.completedDates || typeof plan.completedDates !== 'object') return false;
+  return plan.completedDates[todayIso] === true;
+}
+
+function getPlanFrequencyLabel(plan) {
+  if (plan?.frequencyLabel) return plan.frequencyLabel;
+  const schedule = getPlanSchedule(plan);
+  return schedule ? formatScheduleLabel(schedule) : 'Scheduled';
 }
 
 function Chip({ active, onClick, children, title }) {
@@ -136,8 +155,11 @@ export default function ParentHomepage() {
   const [children, setChildren] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [pendingTasks, setPendingTasks] = useState([]);
-  const [todayTab, setTodayTab] = useState('tasks'); // tasks | habits | approvals
-  const [familyTab, setFamilyTab] = useState('kids'); // kids | pending | habits
+  const [goals, setGoals] = useState([]);
+  const [actionPlans, setActionPlans] = useState([]);
+
+  const [todayTab, setTodayTab] = useState('tasks');
+  const [familyTab, setFamilyTab] = useState('kids');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
@@ -152,10 +174,12 @@ export default function ParentHomepage() {
       setLoading(true);
       setError('');
       try {
-        const [childResp, taskResp, pendingResp] = await Promise.all([
+        const [childResp, taskResp, pendingResp, goalResp, planResp] = await Promise.all([
           childList(),
           taskList(),
           taskListPending(),
+          goalList(),
+          actionPlanList(),
         ]);
 
         if (childResp.status_code === 200 && Array.isArray(childResp.children)) {
@@ -171,6 +195,14 @@ export default function ParentHomepage() {
         if (pendingResp.status_code === 200 && Array.isArray(pendingResp.tasks)) {
           setPendingTasks(pendingResp.tasks.map(Task.from));
         }
+
+        if (goalResp.status_code === 200 && Array.isArray(goalResp.goals)) {
+          setGoals(goalResp.goals.map(Goal.from));
+        }
+
+        if (planResp.status_code === 200 && Array.isArray(planResp.plans)) {
+          setActionPlans(planResp.plans.map(ActionPlan.from));
+        }
       } catch (err) {
         console.error('[ParentHomepage] load error', err);
         setError('Failed to load data from server.');
@@ -180,7 +212,6 @@ export default function ParentHomepage() {
     }
 
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const greeting = useMemo(() => {
@@ -192,7 +223,41 @@ export default function ParentHomepage() {
 
   const userId = useMemo(() => normalizeId(user?.id), [user]);
   const childIds = useMemo(() => new Set(children.map((c) => normalizeId(c.id))), [children]);
-  const todayIso = todayString();
+  const todayIso = toLocalISODate();
+
+  const visibleAssigneeIds = useMemo(() => {
+    const ids = new Set();
+    if (userId) ids.add(String(userId));
+    children.forEach((child) => {
+      if (child?.id != null) ids.add(String(child.id));
+    });
+    return ids;
+  }, [children, userId]);
+
+  const visibleGoals = useMemo(
+    () =>
+      goals.filter(
+        (goal) =>
+          visibleAssigneeIds.has(String(goal.assigneeId)) ||
+          String(goal.createdById) === String(user?.id)
+      ),
+    [goals, visibleAssigneeIds, user?.id]
+  );
+
+  const visibleGoalIds = useMemo(
+    () => new Set(visibleGoals.map((goal) => String(goal.id))),
+    [visibleGoals]
+  );
+
+  const visibleActionPlans = useMemo(
+    () =>
+      actionPlans.filter(
+        (plan) =>
+          visibleGoalIds.has(String(plan.goalId)) ||
+          visibleAssigneeIds.has(String(plan.assigneeId))
+      ),
+    [actionPlans, visibleGoalIds, visibleAssigneeIds]
+  );
 
   const assigneeOptions = useMemo(() => {
     const options = [];
@@ -218,7 +283,6 @@ export default function ParentHomepage() {
     [tasks, childIds]
   );
 
-  // Include tasks/habits assigned to kids AND to the parent.
   const tasksForToday = useMemo(
     () =>
       tasks.filter((t) => {
@@ -244,14 +308,12 @@ export default function ParentHomepage() {
 
   const habitsDueToday = useMemo(
     () =>
-      tasksForToday.filter(
-        (t) =>
-          !t.needsApproval &&
-          getTaskType(t) !== 'simple' &&
-          isDueToday(t) &&
-          !completedToday(t, todayIso)
-      ),
-    [tasksForToday, todayIso]
+      visibleActionPlans.filter((plan) => {
+        const schedule = getPlanSchedule(plan);
+        if (!schedule) return false;
+        return isDueOnDate(schedule, todayIso) && !isPlanCompletedToday(plan, todayIso);
+      }),
+    [visibleActionPlans, todayIso]
   );
 
   const malformedTasks = useMemo(() => tasks.filter(isMalformed), [tasks]);
@@ -259,17 +321,23 @@ export default function ParentHomepage() {
   const kidsNeedingAttention = useMemo(() => {
     const list = children
       .map((child) => {
-        const kidTasks = tasksForKids.filter((t) => normalizeId(getAssigneeId(t)) === normalizeId(child.id));
+        const childId = normalizeId(child.id);
+
+        const kidTasks = tasksForKids.filter(
+          (t) => normalizeId(getAssigneeId(t)) === childId
+        );
+
         const kidPending = kidTasks.filter(
           (t) => !t.needsApproval && getTaskType(t) === 'simple' && t.status !== 'done'
         ).length;
-        const kidHabitsDue = kidTasks.filter(
-          (t) =>
-            !t.needsApproval &&
-            getTaskType(t) !== 'simple' &&
-            isDueToday(t) &&
-            !completedToday(t, todayIso)
-        ).length;
+
+        const kidHabitsDue = visibleActionPlans.filter((plan) => {
+          if (normalizeId(plan.assigneeId) !== childId) return false;
+          const schedule = getPlanSchedule(plan);
+          if (!schedule) return false;
+          return isDueOnDate(schedule, todayIso) && !isPlanCompletedToday(plan, todayIso);
+        }).length;
+
         return {
           child,
           pending: kidPending,
@@ -281,14 +349,16 @@ export default function ParentHomepage() {
       .sort((a, b) => b.total - a.total);
 
     return list.slice(0, 4);
-  }, [children, tasksForKids, todayIso]);
+  }, [children, tasksForKids, visibleActionPlans, todayIso]);
 
   const handleToggleTaskStatus = async (taskId) => {
     const target = tasks.find((t) => t.id === taskId);
     if (!target) return;
+
     const nextStatus = target.status === 'done' ? 'pending' : 'done';
     const payload = { id: taskId, status: nextStatus };
     const resp = await taskUpdate(payload);
+
     if (resp.status_code === 200) {
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? Task.from({ ...t, status: nextStatus }) : t))
@@ -300,27 +370,15 @@ export default function ParentHomepage() {
     }
   };
 
-  const handleToggleHabitCompleted = async (taskId) => {
-    const today = todayString();
-    const target = tasks.find((t) => t.id === taskId);
-    if (!target) return;
-    const dates = Array.isArray(target.completedDates) ? [...target.completedDates] : [];
-    const already = completedToday(target, today);
-    const newDates = already
-      ? dates.filter((d) => {
-          const parsed = new Date(d);
-          if (Number.isNaN(parsed.getTime())) return true;
-          return parsed.toISOString().slice(0, 10) !== today;
-        })
-      : [...dates, today];
+  const handleToggleHabitCompleted = async (plan) => {
+    const result = await togglePlanCompletion({
+      plan,
+      todayISO: todayIso,
+      setActionPlans,
+    });
 
-    const payload = { id: taskId, completedDates: newDates };
-    const resp = await taskUpdate(payload);
-    if (resp.status_code === 200) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? Task.from({ ...t, completedDates: newDates }) : t))
-      );
-      setToast(already ? 'Marked not done for today.' : 'Marked done for today.');
+    if (result) {
+      setToast('Marked habit done for today.');
       setTimeout(() => setToast(''), 2500);
     } else {
       setError('Failed to update habit.');
@@ -329,16 +387,19 @@ export default function ParentHomepage() {
 
   const quickReview = () => {
     if (todayTab === 'approvals') return navigate('/parent/dashboard?tab=approvals');
+    if (todayTab === 'habits') return navigate('/parent/dashboard?tab=goals');
     return navigate('/parent/dashboard?tab=my-tasks');
   };
 
   const handleQuickAssign = async (e) => {
     e.preventDefault();
     setError('');
+
     if (!draftChildId) {
       setError('Please choose who to assign the task to.');
       return;
     }
+
     const title = draftTitle.trim();
     if (!title) {
       setError('Please enter a task name.');
@@ -403,11 +464,8 @@ export default function ParentHomepage() {
   }
 
   const pageMaxWidth = { maxWidth: '1200px', margin: '0 auto', padding: '0 0 1.25rem' };
-
   const sectionGap = '16px';
 
-  // --- Layout helpers (reduce wasted whitespace + add per-card scrolling) ---
-  // Using clamp keeps it responsive while still giving the cards consistent height.
   const cardBase = {
     padding: '0.9rem 1.0rem',
     border: '1px solid rgba(226,232,240,.9)',
@@ -418,7 +476,6 @@ export default function ParentHomepage() {
   };
 
   const cardHeights = {
-    // Align with the “User” home feel: compact top row, slightly taller second row.
     top: 'clamp(240px, 34vh, 280px)',
     mid: 'clamp(240px, 40vh, 320px)',
   };
@@ -444,6 +501,7 @@ export default function ParentHomepage() {
   return (
     <div className="parent-shell">
       <Toast message={toast} type="success" onClose={() => setToast('')} />
+
       <div
         className="parent-home"
         style={{
@@ -453,7 +511,6 @@ export default function ParentHomepage() {
           gap: sectionGap,
         }}
       >
-        {/* HERO */}
         <div className="hero-row" style={{ padding: '0.35rem 0' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'end' }}>
             <div style={{ textAlign: 'left' }}>
@@ -507,7 +564,7 @@ export default function ParentHomepage() {
           >
             <h2 style={{ marginBottom: '0.35rem' }}>Malformed habit data</h2>
             <p className="sub" style={{ marginBottom: '0.75rem' }}>
-              We found data we cannot parse. Please manage these in the dashboard.
+              We found legacy task data we cannot parse. Please manage these in the dashboard.
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button
@@ -528,7 +585,6 @@ export default function ParentHomepage() {
           </div>
         )}
 
-        {/* TOP GRID (like user home) */}
         <div
           style={{
             display: 'grid',
@@ -537,7 +593,6 @@ export default function ParentHomepage() {
             alignItems: 'start',
           }}
         >
-          {/* TODAY */}
           <div
             className="card"
             style={{
@@ -632,9 +687,9 @@ export default function ParentHomepage() {
 
               {todayTab === 'habits' && (
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {habitsDueToday.slice(0, 6).map((t) => (
+                  {habitsDueToday.slice(0, 6).map((plan) => (
                     <li
-                      key={t.id}
+                      key={plan.id}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -647,9 +702,9 @@ export default function ParentHomepage() {
                       <label style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                         <input
                           type="checkbox"
-                          aria-label={`Mark ${t.title || t.name} done for today`}
+                          aria-label={`Mark ${plan.title} done for today`}
                           checked={false}
-                          onChange={() => handleToggleHabitCompleted(t.id)}
+                          onChange={() => handleToggleHabitCompleted(plan)}
                         />
                         <span style={{ minWidth: 0 }}>
                           <div
@@ -660,20 +715,20 @@ export default function ParentHomepage() {
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {t.title || t.name}
+                            {plan.title || 'Habit'}
                           </div>
                           <div style={{ fontSize: '.85rem', color: '#64748b' }}>
-                            For {t.assigneeName || 'child'} · {t.frequency || 'daily'}
+                            For {plan.assigneeName || 'child'} · {getPlanFrequencyLabel(plan)}
                           </div>
                         </span>
                       </label>
                       <button
                         type="button"
                         className="btn btn-ghost"
-                        onClick={() => navigate('/parent/dashboard?tab=my-tasks')}
+                        onClick={() => navigate('/parent/dashboard?tab=goals')}
                         style={{ height: '34px' }}
                       >
-                        View
+                        Manage
                       </button>
                     </li>
                   ))}
@@ -740,7 +795,6 @@ export default function ParentHomepage() {
             </div>
           </div>
 
-          {/* RIGHT SIDE STATS + CTA */}
           <div
             style={{
               display: 'grid',
@@ -773,12 +827,11 @@ export default function ParentHomepage() {
               label="Habits"
               number={habitsDueToday.length}
               detail="due today"
-              onClick={() => navigate('/parent/dashboard?tab=my-tasks')}
+              onClick={() => navigate('/parent/dashboard?tab=goals')}
             />
           </div>
         </div>
 
-        {/* SECOND ROW */}
         <div
           style={{
             display: 'grid',
@@ -787,7 +840,6 @@ export default function ParentHomepage() {
             alignItems: 'start',
           }}
         >
-          {/* QUICK ASSIGN (UI like user home) */}
           <div
             className="card"
             style={{
@@ -861,7 +913,6 @@ export default function ParentHomepage() {
             </form>
           </div>
 
-          {/* FAMILY PANEL */}
           <div
             className="card"
             style={{
@@ -972,9 +1023,9 @@ export default function ParentHomepage() {
 
               {familyTab === 'habits' && (
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {habitsDueToday.slice(0, 5).map((t) => (
+                  {habitsDueToday.slice(0, 5).map((plan) => (
                     <li
-                      key={t.id}
+                      key={plan.id}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -986,14 +1037,16 @@ export default function ParentHomepage() {
                     >
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.title || t.name}
+                          {plan.title || 'Habit'}
                         </div>
-                        <div style={{ fontSize: '.85rem', color: '#64748b' }}>For {t.assigneeName || 'child'}</div>
+                        <div style={{ fontSize: '.85rem', color: '#64748b' }}>
+                          For {plan.assigneeName || 'child'} · {getPlanFrequencyLabel(plan)}
+                        </div>
                       </div>
                       <button
                         type="button"
                         className="btn btn-ghost"
-                        onClick={() => handleToggleHabitCompleted(t.id)}
+                        onClick={() => handleToggleHabitCompleted(plan)}
                         style={{ height: '34px' }}
                       >
                         Done today
