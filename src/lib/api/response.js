@@ -14,7 +14,8 @@ class Response {
 export class CreateResponse extends Response {
     constructor(status, json_data) {
         super(status, json_data);
-        this.id = json_data.id || null;
+        this.data = json_data ?? null;
+        this.id = json_data?.id ?? json_data?._id ?? null;
     }
 }
 
