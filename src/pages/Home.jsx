@@ -40,8 +40,8 @@ export default function Home() {
 
         if (!active) return
 
-        const nextGoals = Array.isArray(goalResponse?.data) ? goalResponse.data : []
-        const nextPlans = Array.isArray(planResponse?.data) ? planResponse.data : []
+        const nextGoals = Array.isArray(goalResponse?.goals) ? goalResponse.goals : []
+        const nextPlans = Array.isArray(planResponse?.plans) ? planResponse.plans : []
         const totalCoins = Number(coinsResponse?.data?.total || 0)
 
         setGoals(nextGoals)
