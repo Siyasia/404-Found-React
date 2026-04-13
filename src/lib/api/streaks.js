@@ -2,6 +2,7 @@
 // This file owns completion persistence, streak recomputation, badge awarding, and coin totals.
 
 import { getItem, setItem, KEYS } from './storageAdapter.js'
+import { actionPlanList } from './actionPlans.js'
 import { BADGE_DEFINITIONS, mergeEarnedBadges } from './badges.js'
 import {
   toLocalISODate,
@@ -13,8 +14,8 @@ import {
 export const COINS_PER_COMPLETION = 20
 
 async function readPlans() {
-  const list = await getItem(KEYS.ACTION_PLANS)
-  return Array.isArray(list) ? list : []
+  const resp = await actionPlanList()
+  return resp?.status_code === 200 && Array.isArray(resp?.plans) ? resp.plans : []
 }
 
 async function persistPlans(list) {
