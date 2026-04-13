@@ -2,7 +2,7 @@
 // This file owns completion persistence, streak recomputation, badge awarding, and coin totals.
 
 import { getItem, setItem, KEYS } from './storageAdapter.js'
-import { actionPlanList } from './actionPlans.js'
+import { actionPlanList, actionPlanUpdate } from './actionPlans.js'
 import { BADGE_DEFINITIONS, mergeEarnedBadges } from './badges.js'
 import {
   toLocalISODate,
@@ -217,10 +217,31 @@ export async function markComplete(actionPlanId, dateISO = toLocalISODate(), mil
     plan.currentStreak = stats.current
     plan.bestStreak = stats.longest
     plan.totalCompletions = stats.totalCompletions
-    plan.awardedMilestones = Array.from(new Set([...existingAwardedMilestones, ...hitMilestones.map((m) => m.days)]))
+    plan.awardedMilestones = Array.from(
+      new Set([...existingAwardedMilestones, ...hitMilestones.map((m) => m.days)])
+    )
 
-    list[idx] = plan
-    await persistPlans(list)
+    const updateResp = await actionPlanUpdate(plan.id, {
+      completedDates: plan.completedDates,
+      streak: stats.current,
+      meta: {
+        ...(plan.meta || {}),
+        currentStreak: stats.current,
+        bestStreak: stats.longest,
+        totalCompletions: stats.totalCompletions,
+        earnedBadges: allEarnedBadges,
+        awardedMilestones: plan.awardedMilestones,
+        badgeEarnedDates,
+        rewardedCompletionDates: plan.rewardedCompletionDates || {},
+      },
+    })
+
+    if (!updateResp || updateResp.status_code !== 200) {
+      return {
+        status_code: 500,
+        error: updateResp?.error || 'Failed to persist action plan update',
+      }
+    }
 
     return {
       status_code: 200,
