@@ -4,6 +4,8 @@
 import { getItem, setItem, KEYS } from './storageAdapter.js'
 import { actionPlanList, actionPlanUpdate } from './actionPlans.js'
 import { BADGE_DEFINITIONS, mergeEarnedBadges } from './badges.js'
+import { getGameProfile, updateGameProfile } from './game.js'
+
 import {
   toLocalISODate,
   isDueOnDate,
@@ -94,24 +96,50 @@ function evaluateBadges({ current, longest, totalCompletions }) {
 }
 
 // Main API functions for marking completions and incompletions, which handle all the logic around updating streaks, awarding badges, and adjusting coin totals.
-async function readCoinStore() {
-  const store = await getItem(KEYS.COINS)
-  return store && typeof store === 'object' && !Array.isArray(store) ? store : {}
+async function readCurrentProfile() {
+  const resp = await getGameProfile()
+
+  const ok =
+    resp &&
+    (resp.status_code === 200 ||
+      resp.status === 200 ||
+      resp.status_code === '200' ||
+      resp.status === '200')
+
+  if (!ok) return null
+
+  return resp?.game_profile ?? resp?.profile ?? null
 }
 
-// For testing and debugging: a function to reset all streak and reward data.
+// Retrieves the current coin total for the user. This is used to display the user's coins and to calculate new totals when marking completions.
 export async function getCoins(userId) {
-  const store = await readCoinStore()
-  const total = userId == null ? 0 : Number(store[String(userId)] || 0)
-  return { status_code: 200, data: { total } }
+  const profile = await readCurrentProfile()
+  const total = Number(profile?.coins || 0)
+
+  return {
+    status_code: profile ? 200 : 500,
+    data: { total },
+  }
 }
 
+// This function updates the user's coin total by a specified amount. It ensures that the total never goes negative and persists the new total to the backend.
 async function setCoins(userId, total) {
-  if (userId == null) return 0
-  const store = await readCoinStore()
-  store[String(userId)] = Math.max(0, Number(total) || 0)
-  await setItem(KEYS.COINS, store)
-  return store[String(userId)]
+  const safeTotal = Math.max(0, Number(total) || 0)
+
+  const resp = await updateGameProfile({ coins: safeTotal })
+
+  const ok =
+    resp &&
+    (resp.status_code === 200 ||
+      resp.status === 200 ||
+      resp.status_code === '200' ||
+      resp.status === '200')
+
+  if (!ok) {
+    throw new Error(resp?.error || 'Failed to persist coins to backend')
+  }
+
+  return safeTotal
 }
 
 function normalizeMilestones(milestoneRewards = []) {
