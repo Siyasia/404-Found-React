@@ -267,7 +267,7 @@ export default function Profile() {
             </h2>
 
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <DisplayAvatar invItems={invItems} />
+              <DisplayAvatar invItems={friendInvItems} />
             </div>
 
             <div style={{ marginTop: '1rem', textAlign: 'left' }}>
