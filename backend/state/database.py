@@ -107,11 +107,12 @@ class Database:
         )
         
         self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS game_profiles (id INTEGER PRIMARY KEY, coins INTEGER, inventory TEXT)"
+            "CREATE TABLE IF NOT EXISTS game_profiles (id INTEGER PRIMARY KEY, coins INTEGER, inventory TEXT, meta TEXT)"
         )
         self.__connection.execute(
             "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER, type TEXT, path TEXT UNIQUE, placement TEXT)"
         )
+        ensure_column("game_profiles", "meta", "TEXT") # Allows for future expansion of game profile features without needing DB schema changes
 
         # Goals table for the new habit system
         self.__connection.execute(
