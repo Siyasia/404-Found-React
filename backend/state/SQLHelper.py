@@ -531,3 +531,8 @@ def action_plan_list(owner_id: int):
 def action_plan_list_by_goal(goal_id: int):
     query = "SELECT * FROM action_plans WHERE goalId = ?"
     return query, (goal_id,)
+
+# adding functionality to check if child code exists when creating a child account
+def child_code_exists(code: str):
+    query = "SELECT id FROM children WHERE code = ?"
+    return query, (code,)

@@ -46,7 +46,7 @@ export default function HabitWizardPage() {
     throw new Error(createdGoal?.error || 'Failed to create goal.');
   }
 
-  const goalId = createdGoal.data?.id;
+  const goalId = createdGoal.id;
 
   for (const plan of actionPlans) {
     const nextPlan = {
