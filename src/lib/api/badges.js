@@ -1,7 +1,6 @@
-// Minimal badge storage API for the new action-plan reward system.
-// This stays local-storage based for now so later backend swap is isolated to this file.
+//Updated badges to be sent to backend and stored in game profile meta, with earned dates.
 
-import { getItem, setItem, KEYS } from './storageAdapter.js'
+import { getGameProfile, updateGameProfile } from './game.js'
 
 export const BADGE_DEFINITIONS = [
   {
@@ -46,47 +45,86 @@ export const BADGE_DEFINITIONS = [
   },
 ]
 
-async function readBadgeStore() {
-  const store = await getItem(KEYS.BADGES)
-  return store && typeof store === 'object' && !Array.isArray(store) ? store : {}
+function ensureObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {}
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? [...value] : []
+}
+
+async function readCurrentProfile() {
+  const resp = await getGameProfile()
+
+  const ok =
+    resp &&
+    (resp.status_code === 200 ||
+      resp.status === 200 ||
+      resp.status_code === '200' ||
+      resp.status === '200')
+
+  if (!ok) return null
+
+  return resp?.game_profile ?? resp?.profile ?? null
 }
 
 export async function getEarnedBadges(userId) {
-  if (userId == null) return { status_code: 200, data: [] }
-  const store = await readBadgeStore()
-  const bucket = store[String(userId)]
-  if (!bucket || typeof bucket !== 'object') return { status_code: 200, data: [] }
+  const profile = await readCurrentProfile()
+  if (!profile) {
+    return { status_code: 500, data: [], earnedDates: {} }
+  }
+
+  const meta = ensureObject(profile.meta)
+
   return {
     status_code: 200,
-    data: Array.isArray(bucket.badges) ? bucket.badges : [],
-    earnedDates: bucket.earnedDates && typeof bucket.earnedDates === 'object' ? bucket.earnedDates : {},
+    data: ensureArray(meta.earnedBadges),
+    earnedDates: ensureObject(meta.badgeEarnedDates),
   }
 }
 
 export async function mergeEarnedBadges(userId, badgeIds = [], badgeEarnedDates = {}) {
-  if (userId == null) return { status_code: 200, data: [] }
-
-  const store = await readBadgeStore()
-  const key = String(userId)
-  const current = store[key] && typeof store[key] === 'object' ? store[key] : {}
-  const existingIds = Array.isArray(current.badges) ? current.badges : []
-  const mergedIds = Array.from(new Set([...existingIds, ...badgeIds.filter(Boolean)]))
-  const mergedDates = {
-    ...(current.earnedDates && typeof current.earnedDates === 'object' ? current.earnedDates : {}),
+  const profile = await readCurrentProfile()
+  if (!profile) {
+    return { status_code: 500, error: 'Failed to load game profile for badges' }
   }
 
-  Object.entries(badgeEarnedDates || {}).forEach(([badgeId, earnedAt]) => {
+  const currentMeta = ensureObject(profile.meta)
+  const existingIds = ensureArray(currentMeta.earnedBadges)
+  const mergedIds = Array.from(new Set([...existingIds, ...badgeIds.filter(Boolean)]))
+
+  const mergedDates = {
+    ...ensureObject(currentMeta.badgeEarnedDates),
+  }
+
+  Object.entries(ensureObject(badgeEarnedDates)).forEach(([badgeId, earnedAt]) => {
     if (badgeId && earnedAt && !mergedDates[badgeId]) {
       mergedDates[badgeId] = earnedAt
     }
   })
 
-  store[key] = {
-    badges: mergedIds,
-    earnedDates: mergedDates,
+  const nextMeta = {
+    ...currentMeta,
+    earnedBadges: mergedIds,
+    badgeEarnedDates: mergedDates,
   }
 
-  await setItem(KEYS.BADGES, store)
+  const updateResp = await updateGameProfile({ meta: nextMeta })
+
+  const ok =
+    updateResp &&
+    (updateResp.status_code === 200 ||
+      updateResp.status === 200 ||
+      updateResp.status_code === '200' ||
+      updateResp.status === '200')
+
+  if (!ok) {
+    return {
+      status_code: 500,
+      error: updateResp?.error || 'Failed to persist badges to backend',
+    }
+  }
+
   return { status_code: 200, data: mergedIds, earnedDates: mergedDates }
 }
 
