@@ -246,15 +246,19 @@ def get_friend_profile(username: str, response: fastapi.Response, user: UserInfo
 
     with Database() as db:
         if "#" in username:
-            row = db.execute(*SQLHelper.child_get_by_username_code(*username.split("#", 1))).fetchone()
+            user_row = db.execute(*SQLHelper.child_get_by_username_code(*username.split("#", 1))).fetchone()
         else:
-            row = db.execute(*SQLHelper.user_get_by_username(username.strip())).fetchone()
-        if not row:
+            user_row = db.execute(*SQLHelper.user_get_by_username(username.strip())).fetchone()
+        if not user_row:
             response.status_code = 404
             return {"error": "user not found"}
 
-        obj = dict(row)
-        if "password" in obj:
-            del obj["password"]
+        user_obj = dict(user_row)
+        user_id = user_obj.get("id")
+        profile_row = db.execute(*SQLHelper.get_game_profile(user_id)).fetchone()
+        if profile_row:
+            user_obj["game_profile"] = dict(profile_row)
+    if "password" in user_obj:
+        del user_obj["password"]
 
-        return {"user": obj}
+    return {"user": user_obj}
