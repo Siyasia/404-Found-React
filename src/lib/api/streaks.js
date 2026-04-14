@@ -309,8 +309,27 @@ export async function markIncomplete(actionPlanId, dateISO = toLocalISODate()) {
     plan.bestStreak = stats.longest
     plan.totalCompletions = stats.totalCompletions
 
-    list[idx] = plan
-    await persistPlans(list)
+    const updateResp = await actionPlanUpdate(plan.id, {
+      completedDates: plan.completedDates,
+      streak: stats.current,
+      meta: {
+        ...(plan.meta || {}),
+        currentStreak: stats.current,
+        bestStreak: stats.longest,
+        totalCompletions: stats.totalCompletions,
+        earnedBadges: Array.isArray(plan.earnedBadges) ? plan.earnedBadges : [],
+        awardedMilestones: Array.isArray(plan.awardedMilestones) ? plan.awardedMilestones : [],
+        badgeEarnedDates: ensureObject(plan.badgeEarnedDates),
+        rewardedCompletionDates: ensureObject(plan.rewardedCompletionDates),
+      },
+    })
+
+    if (!updateResp || updateResp.status_code !== 200) {
+      return {
+        status_code: 500,
+        error: updateResp?.error || 'Failed to persist action plan update',
+      }
+    }
 
     const coinsResp = await getCoins(plan.assigneeId)
 
@@ -333,10 +352,4 @@ export async function markIncomplete(actionPlanId, dateISO = toLocalISODate()) {
   } catch (err) {
     return { status_code: 500, error: err?.message || String(err) }
   }
-}
-
-export default {
-  getCoins,
-  markComplete,
-  markIncomplete,
 }
