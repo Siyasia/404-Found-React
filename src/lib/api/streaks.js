@@ -1,7 +1,3 @@
-// Local streak + rewards API for the new action-plan system.
-// This file owns completion persistence, streak recomputation, badge awarding, and coin totals.
-
-import { getItem, setItem, KEYS } from './storageAdapter.js'
 import { actionPlanList, actionPlanUpdate } from './actionPlans.js'
 import { BADGE_DEFINITIONS, mergeEarnedBadges } from './badges.js'
 import { getGameProfile, updateGameProfile } from './game.js'
@@ -18,10 +14,6 @@ export const COINS_PER_COMPLETION = 20
 async function readPlans() {
   const resp = await actionPlanList()
   return resp?.status_code === 200 && Array.isArray(resp?.plans) ? resp.plans : []
-}
-
-async function persistPlans(list) {
-  await setItem(KEYS.ACTION_PLANS, list)
 }
 
 function ensureObject(value) {
