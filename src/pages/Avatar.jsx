@@ -92,10 +92,30 @@ export default function Avatar() {
             14: '#BE3F3C',
             15: '#825929',
             16: '#55330A'
-        }
+        },
+        Pants: {
+            1: '#2A2828',
+            2: '#E1EAEA',
+            3: '#DB5B4C',
+            4: '#E66695',
+            5: '#CE68D1',
+            6: '#9343DD',
+            7: '#4643DD',
+            8: '#4398DD',
+            9: '#43DBDD',
+            10: '#43DD7C',
+            11: '#A8DD43',
+            12: '#F0DC71',
+            13: '#DD8642',
+            14: '#BE3F3C',
+            15: '#55330A',
+            16: '#B0A56B'
+        },
+        Shoes: null
     }
     COLOR_MAP.Eyebrows = COLOR_MAP.Hair;
     COLOR_MAP.Outerwear = COLOR_MAP.Shirts;
+    COLOR_MAP.Shoes = COLOR_MAP.Pants;
 
     if (loading || itemLoading) return <p>Loading...</p>;
 
@@ -129,7 +149,7 @@ export default function Avatar() {
 
         //find the default item for the placement unequipping
         const defaultItem = items.find( i=> i.type === 'Default' && i.placement === item.placement);
-        if (!defaultItem) return;
+        if (!defaultItem && i.placement !== 'Outerwear') return;
 
         //prevent user from unequipping a default item
         if (invItem.id === defaultItem.id) return;
@@ -139,6 +159,10 @@ export default function Avatar() {
             //unequip the current item
             if (inv.id === itemID) {
                 return { ...inv, equipped: false};
+            }
+            if (inv.placement === 'Outerwear') {
+                return { ...inv, equipped: false};
+                return inv;
             }
             //equip the default item with same color
             if (inv.id === defaultItem.id) {

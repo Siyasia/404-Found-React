@@ -3,14 +3,17 @@ import { useGameProfile } from '../components/useGameProfile.jsx';
 import { GameProfile } from '../models/index.js';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
+import { DisplayAvatar  } from '../components/DisplayAvatar.jsx';
 
 export default function Shop() {
 
   const { profile, saveProfile, loading, error } = useGameProfile();
   const { items, loading: itemLoading, error: itemError } = useItems();
   const invItems = useInventory(profile, items);
-  const [modal, setModal] = React.useState(null); 
+  const [modal, setModal] = useState(null); 
   const [chosenCategory, setChosenCategory] = useState('all');
+  const [preview, setPreview] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   if (loading || itemLoading) return <p>Loading...</p>;
 
@@ -77,12 +80,27 @@ export default function Shop() {
     });
 
     updated.inventory.sort((a, b) => a.id - b.id);
-    showModal(`You bought a(n) ${item.name}!`)
+    showModal(`You bought a(n) ${item.name} ${item.placement}!`)
 
     console.log("Saving profile ID:", updated.id);
     //update user's profile with item and coin info
     await saveProfile(updated);
+
   };
+
+  const getPreviewInventory = () => {
+    if (!preview) return invItems;
+
+    //remove currently equipped item for display purposes
+    const filtered = invItems.filter(
+      i => !(i.equipped && i.placement === preview.placement)
+    );
+
+    return [
+      ...filtered,
+      { ...preview, equipped: true }
+    ]
+  }
 
   return (
     <section className="container" style={{ 
@@ -186,6 +204,20 @@ export default function Shop() {
                 >
                   {owned ? 'Owned' : 'Buy'}
                 </button>
+                <button
+                  onClick={() => { setPreview(item); setPreviewOpen(true); }}
+                  disabled={owned}
+                  style={{
+                    borderColor: '#aaa8d0',
+                    borderRadius: '10px',
+                    padding: '0.5rem 1rem', 
+                    fontSize: '0.9rem',
+                    backgroundColor: owned ? '#a9add9b4' : '#d1d5ffb4',
+                    cursor: owned ? 'not-allowed' : 'pointer'
+                  }}
+                  >
+                    Preview
+                  </button>
               </div>
             );
           })}
@@ -206,6 +238,54 @@ export default function Shop() {
           <div className="modal-content" style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
             <p>{modal}</p>
             <button onClick={closeModal} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {previewOpen && preview && (
+        <div className="modal" style={{
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          backgroundColor: 'rgba(0,0,0,0.5)', 
+          display: 'flex', justifyContent: 'center', 
+          alignItems: 'center' }}
+
+        onClick={() => setPreviewOpen(false)}
+        >
+
+          <div className="modal-content" 
+            onClick={(e) => e.stopPropagation()} 
+            style={{
+            padding: '2rem',
+            borderRadius: '12px',
+            textAlign: 'center',
+            width: '300px',
+            backgroundColor: '#fff'
+          }}
+          >
+          <h2>Preview</h2>
+
+        <DisplayAvatar invItems={getPreviewInventory()} />
+
+          <h3 style={{ marginTop: '1rem' }}>{preview.name}</h3>
+          <p>{preview.price} coins</p>
+
+            <div style={{ marginTop: '1rem' }}>
+              <button
+                onClick={() => { buyItem(preview); setPreviewOpen(false); }} style={{
+                  marginRight: '.5rem'
+                }}
+              >
+                Buy
+              </button>
+
+              <button onClick={() => { setPreviewOpen(false); setPreview(null); }}>
+                Close
+              </button>
+              </div>
           </div>
         </div>
       )}

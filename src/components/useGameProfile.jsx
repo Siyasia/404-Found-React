@@ -2,6 +2,18 @@ import { useEffect, useState } from "react";
 import { getGameProfile, updateGameProfile } from "../lib/api/game";
 import { GameProfile } from "../models";
 import { useItems } from "./useItems";
+import { getJSON } from "../lib/api/api";
+
+export async function getFriendProfile(username) {
+    try {
+        username = username.replace("#", "%23")
+        const response = await getJSON(`/friends/get/${username}`)
+
+        return { status: response.status, data: response.data };
+    } catch (err) {
+        return { status: 500, data: { error: 'Request failed' } };
+    }
+}
 
 //used to load and update game profiles on relevant pages (shop, profile, etc)
 export function useGameProfile() {
@@ -87,4 +99,5 @@ export function useGameProfile() {
     return {
         profile, setProfile, saveProfile, loading: loading || itemsLoading, error
     };
+
 }

@@ -1,41 +1,37 @@
-import { useEffect, useState } from "react";
-import { getItemList, getGameProfile } from "../lib/api/game";
+import { useMemo } from "react";
 
-//used to load items from database
 export function useInventory(profile, itemList) {
+  return useMemo(() => {
+    if (!profile || !itemList) return [];
 
-    //initialize inventory and error
-    const [items, setItems] = useState([]);
+    let inventory = [];
 
-    useEffect(() => {
+    try {
+      inventory = Array.isArray(profile.inventory)
+        ? profile.inventory
+        : JSON.parse(profile.inventory || "[]");
+    } catch {
+      inventory = [];
+    }
 
-        //if either parameter is null, return
-        if (!profile || !itemList) return;
+    const itemMap = new Map(
+      itemList.map(item => [item.id, item])
+    );
 
-        //ensures that inventory is always present, default to empty
-        const inventory = profile.inventory ?? [];
+    return inventory
+      .map(invItem => {
+      const fullItem = itemMap.get(invItem.id ?? invItem.itemId);
+        if (!fullItem) return null;
 
-        //create a map of all items
-        const itemMap = new Map(
-            itemList.map(item => [item.id, item])
-        );
-
-        //search the full list of items for matches to inventory IDs
-        const merged = inventory.map(invItem => {
-            //fullItem stores the entire information for the item
-            const fullItem = itemMap.get(invItem.id);
-            if (!fullItem) return null;
-
-            return {
-                ...fullItem,
-                equipped: invItem.equipped,
-                color: invItem.color
-            };
-        }).filter(Boolean);
-
-        setItems(merged);
-
-    }, [profile, itemList]);
-
-    return items;
+        return {
+          ...fullItem,
+          equipped: invItem.equipped,
+          color: invItem.color
+        };
+      })
+      .filter(Boolean);
+  }, [
+    profile?.inventory,
+    itemList
+  ]);
 }
