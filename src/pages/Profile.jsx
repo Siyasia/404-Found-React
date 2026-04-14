@@ -1,11 +1,12 @@
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import React, { useState, useEffect } from 'react';
-import { friendsList, friendsAdd, friendsRemove } from '../lib/api/friends.js';
+import {friendsList, friendsAdd, friendsRemove, friendsProfileGet} from '../lib/api/friends.js';
 import { useGameProfile } from '../components/useGameProfile';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
 import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
+import { GameProfile } from "../models";
 
 export default function Profile() {
   
@@ -17,9 +18,15 @@ export default function Profile() {
   const [friends, setFriends] = useState([]);
   const [friendInput, setFriendInput] = useState('');
   const [friendError, setFriendError] = useState('');
+  const [friendProfile, setFriendProfile] = useState(null);
+  const [loadingFriend, setLoadingFriend] = useState(false);
 
   const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
   const palette = user?.palette || 'gold';
+  const friendInvItems = useInventory(
+    friendProfile?.game_profile,
+    items
+  );
 
   //Sprint 5: Comparing parent / provider for friends
   useEffect(() => {
@@ -124,7 +131,34 @@ export default function Profile() {
               <ul className="friendsList">
                 {friends.map((f) => (
                   <li key={f} className="friendsListRow">
-                    <span>{f}</span>
+                    <span
+                      style={{
+                        textDecoration: 'underline',
+                        cursor: loadingFriend ? 'wait' : 'pointer',
+                        opacity: loadingFriend ? 0.5 : 1
+                      }}
+                      onClick={async () => {
+                        setLoadingFriend(true);
+                        try {
+                          const response = await friendsProfileGet(f);
+
+                          if (response.status !== 200) {
+                            setFriendError("");
+                            return;
+                          }
+
+                          const user = response.data.user;
+                          const normalized = {
+                            ...user,
+                            game_profile: GameProfile.from(user.game_profile)
+                          };
+                          setFriendProfile(normalized);
+                        } finally {
+                          setLoadingFriend(false);
+                        }
+                      }}>
+                        {f}
+                    </span>
                     <button
                       className="btn"
                       onClick={async () => {
@@ -198,6 +232,63 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {friendProfile && items && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => {
+            setFriendProfile(null);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              padding: '2rem',
+              borderRadius: '12px',
+              width: '350px',
+              textAlign: 'center'
+            }}
+          >
+            <h2>
+              {friendProfile.username}
+              {friendProfile.code ? `#${friendProfile.code}` : ''}
+            </h2>
+
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <DisplayAvatar invItems={invItems} />
+            </div>
+
+            <div style={{ marginTop: '1rem', textAlign: 'left' }}>
+              <p><strong>Tasks:</strong> {friendProfile.stats?.tasksCompleted || 0}</p>
+              <p><strong>Habits:</strong> {friendProfile.stats?.habitsBuilt || 0}</p>
+              <p><strong>Streak:</strong> {friendProfile.stats?.longestStreak || 0}</p>
+            </div>
+
+            <button
+              className="btn"
+              style={{ marginTop: '1rem' }}
+              onClick={() => {
+                setFriendProfile(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 }
