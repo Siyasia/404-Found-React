@@ -423,7 +423,20 @@ export class GameProfile {
   constructor(props = {}) {
     this.id = props.id ?? null;
     this.coins = props.coins ?? 0;
-    this.inventory = Array.isArray(props.inventory) ? props.inventory.slice() : [];
+    let inventory = props.inventory;
+
+    if (typeof inventory === "string") {
+      try {
+        inventory = JSON.parse(inventory || "[]");
+      } catch (e) {
+        console.error("Inventory parse failed:", inventory);
+        inventory = [];
+      }
+    }
+
+    this.inventory = Array.isArray(inventory)
+      ? inventory.slice()
+      : [];
     this.meta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
       ? { ...props.meta }
       : {};
