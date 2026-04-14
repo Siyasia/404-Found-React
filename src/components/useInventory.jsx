@@ -4,7 +4,15 @@ export function useInventory(profile, itemList) {
   return useMemo(() => {
     if (!profile || !itemList) return [];
 
-    const inventory = profile.inventory ?? [];
+    let inventory = [];
+
+    try {
+      inventory = Array.isArray(profile.inventory)
+        ? profile.inventory
+        : JSON.parse(profile.inventory || "[]");
+    } catch {
+      inventory = [];
+    }
 
     const itemMap = new Map(
       itemList.map(item => [item.id, item])
@@ -12,7 +20,7 @@ export function useInventory(profile, itemList) {
 
     return inventory
       .map(invItem => {
-        const fullItem = itemMap.get(invItem.id);
+      const fullItem = itemMap.get(invItem.id ?? invItem.itemId);
         if (!fullItem) return null;
 
         return {
