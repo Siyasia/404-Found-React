@@ -14,54 +14,66 @@ export function UserProvider({ children }) {
   const [user, setUserState] = useState(null);
   const [authReady, setAuthReady] = useState(false); // tracks if we've attempted to load user (successfully or not)
 
+  // Applies theme classes to the body based on user preferences ( added the dark mode to persist thorugh sessions and page reloads)
   const applyTheme = (prefs) => {
     if (typeof document === 'undefined') return;
+
     const body = document.body;
-    const palette = prefs?.palette || 'gold';
-    const mode = prefs?.themeMode || prefs?.mode || (prefs?.theme === 'dark' ? 'dark' : 'light');
+    const mode =
+      prefs?.themeMode ||
+      prefs?.mode ||
+      (prefs?.theme === 'dark' ? 'dark' : 'light');
 
     body.classList.remove(
-      'mode-light', 'mode-dark',
-      'theme-gold', 'theme-cool', 'theme-morning',
-      'theme-blue', 'theme-pink', 'theme-light', 'theme-dark'
+      'mode-light',
+      'mode-dark',
+      'theme-gold',
+      'theme-cool',
+      'theme-morning',
+      'theme-blue',
+      'theme-pink',
+      'theme-light',
+      'theme-dark'
     );
 
     body.classList.add(mode === 'dark' ? 'mode-dark' : 'mode-light');
-
-    if (palette === 'cool') body.classList.add('theme-cool');
-    else if (palette === 'morning') body.classList.add('theme-morning');
-    else body.classList.add('theme-gold');
   };
 
   const setUser = useCallback((newUser) => {
-    const mode = newUser?.themeMode || (newUser?.theme === 'dark' ? 'dark' : newUser?.theme) || 'light';
-    const palette = newUser?.palette || 'gold';
+    const mode =
+      newUser?.themeMode ||
+      (newUser?.theme === 'dark' ? 'dark' : 'light');
+
     const isChild = newUser?.role === 'child' || (newUser?.code && !newUser?.role);
     const normalized = isChild ? { ...newUser, role: 'child', type: 'child' } : newUser;
-    const instance = normalized ? User.from({ ...normalized, themeMode: mode, theme: mode, palette }) : null;
+
+    const instance = normalized
+      ? User.from({ ...normalized, themeMode: mode, theme: mode })
+      : null;
+
     setUserState(instance);
 
     try {
-        if (instance) {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            try {
-              localStorage.setItem('user', JSON.stringify(instance.toJSON()));
-            } catch (e) {
-              console.warn('Failed to persist user to localStorage', e);
-            }
+      if (instance) {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          try {
+            localStorage.setItem('user', JSON.stringify(instance.toJSON()));
+          } catch (e) {
+            console.warn('Failed to persist user to localStorage', e);
           }
-          applyTheme(instance);
-        } else {
+        }
+        applyTheme(instance);
+      } else {
         if (typeof window !== 'undefined' && window.localStorage) {
           localStorage.removeItem('user');
         }
         try { logout(); } catch (e) { /* ignore logout errors */ }
-          applyTheme({});
+        applyTheme({ themeMode: 'light' });
       }
     } catch (err) {
       console.error('Failed to set user', err);
     }
-  }, []);  
+  }, []);
 
   // Expose setUser to external functions like nullifyLogin
   useEffect(() => {

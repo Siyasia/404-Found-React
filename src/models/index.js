@@ -343,9 +343,9 @@ export class User {
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
     this.type = this.role;
-    this.themeMode = props.themeMode ?? props.theme ?? 'light';
-    this.palette = props.palette ?? 'gold';
+    this.themeMode = props.themeMode ?? (props.theme === 'dark' ? 'dark' : 'light');
     this.theme = this.themeMode;
+    this.palette = null;
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
     this.code = props.code ?? null;
@@ -373,7 +373,6 @@ export class User {
       type: this.type,
       theme: this.themeMode,
       themeMode: this.themeMode,
-      palette: this.palette,
       profilePic: this.profilePic,
       stats: this.stats,
       code: this.code,

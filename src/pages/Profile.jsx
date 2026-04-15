@@ -7,6 +7,7 @@ import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
 import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
 import { GameProfile } from "../models";
+import { userUpdate } from '../lib/api/user.js';
 
 export default function Profile() {
   
@@ -22,7 +23,6 @@ export default function Profile() {
   const [loadingFriend, setLoadingFriend] = useState(false);
 
   const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
-  const palette = user?.palette || 'gold';
   const friendInvItems = useInventory(
     friendProfile?.game_profile,
     items
@@ -53,14 +53,16 @@ export default function Profile() {
 
 
 
-  const handleModeChange = (event) => {
+  const handleModeChange = async (event) => {
     const themeMode = event.target.value;
-    setUser({ ...user, themeMode, theme: themeMode });
-  };
+    const nextUser = { ...user, themeMode, theme: themeMode };
+    setUser(nextUser);
 
-  const handlePaletteChange = (event) => {
-    const palette = event.target.value;
-    setUser({ ...user, palette });
+    try {
+      await userUpdate({ id: user.id, theme: themeMode });
+    } catch (err) {
+      console.error('Failed to save appearance mode', err);
+    }
   };
 
 
@@ -179,30 +181,8 @@ export default function Profile() {
 
       <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '820px', marginTop: '1rem' }}>
         <h3 style={{ marginTop: 0 }}>Theme</h3>
-        <p className="sub" style={{ marginBottom: '1rem' }}>Choose your palette and mode.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', alignItems: 'start' }}>
-          <div>
-            <p style={{ fontWeight: 600, marginBottom: '0.6rem' }}>Palette</p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {[
-                { value: 'gold', label: 'Gold Dust' },
-                { value: 'cool', label: 'Cool Systems' },
-                { value: 'morning', label: 'Morning Routine' },
-              ].map((opt) => (
-                <label key={opt.value} className="auth-label" style={{ width: 'fit-content', margin: 0, padding: '0.35rem 0.5rem' }}>
-                  <span style={{ fontWeight: 600 }}>{opt.label}</span>
-                  <input
-                    type="radio"
-                    name="palette"
-                    value={opt.value}
-                    checked={palette === opt.value}
-                    onChange={handlePaletteChange}
-                    style={{ width: 'auto' }}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
+        <p className="sub" style={{ marginBottom: '1rem' }}>Choose your appearance mode.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem', alignItems: 'start' }}>
           <div>
             <p style={{ fontWeight: 600, marginBottom: '0.6rem' }}>Mode</p>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -254,7 +234,10 @@ export default function Profile() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#fff',
+              background: 'var(--card-bg)',
+              color: 'var(--text-dark)',
+              border: '1px solid var(--card-border)',
+              boxShadow: 'var(--card-shadow)',
               padding: '2rem',
               borderRadius: '12px',
               width: '350px',
