@@ -81,6 +81,7 @@ class Database:
 
         ensure_column("children", "username", "TEXT")
         ensure_column("children", "friends", "TEXT")
+        ensure_column("children", "incomingFriendRequests", "TEXT")
         ensure_column("children", "password", "TEXT") #Sprint 5 addon for Passwords for children
         ensure_column("children", "childCode", "INTEGER")
 
@@ -89,6 +90,7 @@ class Database:
             "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, password TEXT, name TEXT, age INTEGER, role TEXT, createdAt TEXT, type TEXT, theme TEXT, profilePic TEXT, stats TEXT, code TEXT, meta TEXT)"
         )
         ensure_column("users", "friends", "TEXT")
+        ensure_column("users", "incomingFriendRequests", "TEXT")
 
         # Tasks table (represents frontend Task objects)
         self.__connection.execute(
