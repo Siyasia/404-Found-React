@@ -54,14 +54,13 @@ export default function CalendarPage() {
 
         if (!cancelled) {
           if (goalResp?.status_code === 200) {
-            setGoals(Array.isArray(goalResp.data) ? goalResp.data : [])
+            setGoals(Array.isArray(goalResp.goals) ? goalResp.goals : [])
           } else {
-            setGoals([])
-            setError('Could not load goals for the calendar.')
-          }
-
+          setGoals([])
+          setError('Could not load goals for the calendar.')
+        }
           if (childResp?.status_code === 200 && Array.isArray(childResp.children)) {
-            setChildren(childResp.children)
+          setChildren(childResp.children)
           }
         }
       } catch (err) {

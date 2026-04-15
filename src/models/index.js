@@ -343,9 +343,9 @@ export class User {
     this.role = props.role ?? props.type ?? 'user';
     this.createdAt = props.createdAt ?? null;
     this.type = this.role;
-    this.themeMode = props.themeMode ?? props.theme ?? 'light';
-    this.palette = props.palette ?? 'gold';
+    this.themeMode = props.themeMode ?? (props.theme === 'dark' ? 'dark' : 'light');
     this.theme = this.themeMode;
+    this.palette = null;
     this.profilePic = props.profilePic ?? '';
     this.stats = props.stats ?? {};
     this.code = props.code ?? null;
@@ -373,7 +373,6 @@ export class User {
       type: this.type,
       theme: this.themeMode,
       themeMode: this.themeMode,
-      palette: this.palette,
       profilePic: this.profilePic,
       stats: this.stats,
       code: this.code,
@@ -517,6 +516,11 @@ export class GameItem {
 export class ActionPlan {
   constructor(props = {}) {
     const p = props || {};
+    const meta =
+      p.meta && typeof p.meta === 'object' && !Array.isArray(p.meta)
+        ? { ...p.meta }
+        : {};
+
     this.id = p.id ?? p.planId ?? p._id ?? null;
     this.goalId = p.goalId ?? p.goal_id ?? p.goal ?? null;
     this.title = p.title ?? p.name ?? '';
@@ -525,27 +529,82 @@ export class ActionPlan {
     if (this.assigneeId != null) this.assigneeId = String(this.assigneeId);
     this.assigneeName = p.assigneeName ?? p.assignedToName ?? p.ownerName ?? '';
 
-    // schedule / frequency normalization
     this.schedule = p.schedule ?? p.frequency ?? null;
     this.frequency = this.schedule;
-    this.frequencyLabel = p.frequencyLabel ?? (this.schedule ? (typeof this.schedule === 'object' ? (this.schedule.label || null) : String(this.schedule)) : '');
+    this.frequencyLabel =
+      p.frequencyLabel ??
+      (this.schedule
+        ? typeof this.schedule === 'object'
+          ? this.schedule.label || null
+          : String(this.schedule)
+        : '');
 
-    // completion tracking
     if (p.completedDates && typeof p.completedDates === 'object' && !Array.isArray(p.completedDates)) {
       this.completedDates = { ...p.completedDates };
     } else {
       this.completedDates = {};
     }
 
-    this.streak = p.streak ?? 0;
+    this.streak = Number(p.streak ?? meta.currentStreak ?? 0) || 0;
+    this.currentStreak = Number(p.currentStreak ?? meta.currentStreak ?? this.streak ?? 0) || 0;
+    this.bestStreak = Number(p.bestStreak ?? meta.bestStreak ?? 0) || 0;
+
+    this.totalCompletions =
+      Number(
+        p.totalCompletions ??
+        meta.totalCompletions ??
+        Object.keys(this.completedDates).filter((d) => this.completedDates[d] === true).length
+      ) || 0;
+
+    this.earnedBadges = Array.isArray(p.earnedBadges)
+      ? [...p.earnedBadges]
+      : Array.isArray(meta.earnedBadges)
+        ? [...meta.earnedBadges]
+        : [];
+
+    this.awardedMilestones = Array.isArray(p.awardedMilestones)
+      ? [...p.awardedMilestones]
+      : Array.isArray(meta.awardedMilestones)
+        ? [...meta.awardedMilestones]
+        : [];
+
+    this.badgeEarnedDates =
+      p.badgeEarnedDates && typeof p.badgeEarnedDates === 'object' && !Array.isArray(p.badgeEarnedDates)
+        ? { ...p.badgeEarnedDates }
+        : meta.badgeEarnedDates && typeof meta.badgeEarnedDates === 'object' && !Array.isArray(meta.badgeEarnedDates)
+          ? { ...meta.badgeEarnedDates }
+          : {};
+
+    this.rewardedCompletionDates =
+      p.rewardedCompletionDates &&
+      typeof p.rewardedCompletionDates === 'object' &&
+      !Array.isArray(p.rewardedCompletionDates)
+        ? { ...p.rewardedCompletionDates }
+        : meta.rewardedCompletionDates &&
+          typeof meta.rewardedCompletionDates === 'object' &&
+          !Array.isArray(meta.rewardedCompletionDates)
+          ? { ...meta.rewardedCompletionDates }
+          : {};
+
     this.createdAt = p.createdAt ?? new Date().toISOString();
     this.createdById = p.createdById ?? p.ownerId ?? null;
     this.createdByName = p.createdByName ?? p.ownerName ?? '';
     this.createdByRole = p.createdByRole ?? null;
 
-    // extra fields stored in meta
-    this.meta = p.meta && typeof p.meta === 'object' && !Array.isArray(p.meta) ? { ...p.meta } : {};
-    Object.keys(p).forEach((k) => { if (!(k in this)) this.meta[k] = p[k]; });
+    this.meta = {
+      ...meta,
+      currentStreak: this.currentStreak,
+      bestStreak: this.bestStreak,
+      totalCompletions: this.totalCompletions,
+      earnedBadges: [...this.earnedBadges],
+      awardedMilestones: [...this.awardedMilestones],
+      badgeEarnedDates: { ...this.badgeEarnedDates },
+      rewardedCompletionDates: { ...this.rewardedCompletionDates },
+    };
+
+    Object.keys(p).forEach((k) => {
+      if (!(k in this)) this.meta[k] = p[k];
+    });
   }
 
   static from(obj) {
@@ -570,13 +629,33 @@ export class ActionPlan {
       frequencyLabel: this.frequencyLabel,
       completedDates: { ...(this.completedDates || {}) },
       streak: this.streak,
+      currentStreak: this.currentStreak,
+      bestStreak: this.bestStreak,
+      totalCompletions: this.totalCompletions,
+      earnedBadges: Array.isArray(this.earnedBadges) ? [...this.earnedBadges] : [],
+      awardedMilestones: Array.isArray(this.awardedMilestones) ? [...this.awardedMilestones] : [],
+      badgeEarnedDates: { ...(this.badgeEarnedDates || {}) },
+      rewardedCompletionDates: { ...(this.rewardedCompletionDates || {}) },
       createdAt: this.createdAt,
       createdById: this.createdById,
       createdByName: this.createdByName,
       createdByRole: this.createdByRole,
-      meta: { ...(this.meta || {}) },
+      meta: {
+        ...(this.meta || {}),
+        currentStreak: this.currentStreak,
+        bestStreak: this.bestStreak,
+        totalCompletions: this.totalCompletions,
+        earnedBadges: Array.isArray(this.earnedBadges) ? [...this.earnedBadges] : [],
+        awardedMilestones: Array.isArray(this.awardedMilestones) ? [...this.awardedMilestones] : [],
+        badgeEarnedDates: { ...(this.badgeEarnedDates || {}) },
+        rewardedCompletionDates: { ...(this.rewardedCompletionDates || {}) },
+      },
     };
-    Object.keys(this.meta || {}).forEach((k) => { out[k] = this.meta[k]; });
+
+    Object.keys(this.meta || {}).forEach((k) => {
+      out[k] = this.meta[k];
+    });
+
     return out;
   }
 }

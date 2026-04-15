@@ -1,13 +1,24 @@
-import {getJSON, patchJSON, postJSON} from './api';
+import { getJSON, patchJSON, postJSON } from './api';
 import {
   CreateGameProfileResponse,
-  GetGameProfileResponse, GetItemListResponse, GetItemResponse,
-  UpdateGameProfileResponse
+  GetGameProfileResponse,
+  GetItemListResponse,
+  GetItemResponse,
+  UpdateGameProfileResponse,
 } from './response';
 
+function normalizeProfilePayload(value) {
+  if (!value) return {};
+
+  if (typeof value.toJSON === 'function') {
+    return value.toJSON();
+  }
+
+  return { ...value };
+}
 
 export async function updateGameProfile(gameProfile) {
-  const json = gameProfile.toJSON();
+  const json = normalizeProfilePayload(gameProfile);
   const info = await patchJSON('/game/profile', json);
   return new UpdateGameProfileResponse(info.status, info.data);
 }
@@ -18,7 +29,7 @@ export async function getGameProfile() {
 }
 
 export async function createGameProfile(gameProfile) {
-  const json = gameProfile.toJSON();
+  const json = normalizeProfilePayload(gameProfile);
   const info = await postJSON('/game/profile', json);
   return new CreateGameProfileResponse(info.status, info.data);
 }

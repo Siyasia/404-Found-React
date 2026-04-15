@@ -135,6 +135,8 @@ class GameProfile(pydantic.BaseModel):
     id: int = 0
     coins: int = 0
     inventory: List[ItemField] = []
+    meta: Optional[dict] = {} 
+    "Additional game-related fields can be added here as needed."
 
 
 class GoalInfo(pydantic.BaseModel):

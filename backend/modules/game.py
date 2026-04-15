@@ -20,11 +20,23 @@ def row_to_profile(row) -> dict:
             data["inventory"] = json.loads(data["inventory"])
         except Exception:
             data["inventory"] = []
+    else:
+        data["inventory"] = []
+
     if data.get("equipped"):
         try:
             data["equipped"] = json.loads(data["equipped"])
         except Exception:
             data["equipped"] = []
+
+    if data.get("meta"):
+        try:
+            data["meta"] = json.loads(data["meta"])
+        except Exception:
+            data["meta"] = {}
+    else:
+        data["meta"] = {}
+
     return data
 
 
