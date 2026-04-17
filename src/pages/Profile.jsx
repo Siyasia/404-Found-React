@@ -1,7 +1,14 @@
 import { useUser } from '../UserContext.jsx';
 import { ROLE } from '../Roles/roles.js';
 import React, { useState, useEffect } from 'react';
-import {friendsList, friendsAdd, friendsRemove, friendsProfileGet} from '../lib/api/friends.js';
+import {
+  friendsList,
+  friendsAdd,
+  friendsRemove,
+  friendsAccept,
+  friendsDecline,
+  friendsProfileGet
+} from '../lib/api/friends.js';
 import { useGameProfile } from '../components/useGameProfile';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
@@ -17,8 +24,10 @@ export default function Profile() {
   const invItems = useInventory(profile, items);
 
   const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
   const [friendInput, setFriendInput] = useState('');
   const [friendError, setFriendError] = useState('');
+  const [friendNotice, setFriendNotice] = useState('');
   const [friendProfile, setFriendProfile] = useState(null);
   const [loadingFriend, setLoadingFriend] = useState(false);
 
@@ -29,11 +38,15 @@ export default function Profile() {
   );
 
   //Sprint 5: Comparing parent / provider for friends
-  useEffect(() => {
+  //Updated in Sprint 7:
+    useEffect(() => {
     async function load() {
       if (user?.role === ROLE.PARENT || user?.role === ROLE.PROVIDER) return;
       const res = await friendsList();
-      if (res.status === 200 && res.data?.friends) setFriends(res.data.friends);
+      if (res.status === 200) {
+        setFriends(res.data?.friends || []);
+        setFriendRequests(res.data?.requests || []);
+      }
     }
     load();
   }, [user]);
@@ -103,6 +116,7 @@ export default function Profile() {
           <h3 style={{ marginTop: 0 }}>Friends</h3>
 
           {friendError && <p style={{ color: 'crimson' }}>{friendError}</p>}
+          {friendNotice && <p style={{ color: 'var(--text-muted, #666)' }}>{friendNotice}</p>}
 
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <input
@@ -114,19 +128,77 @@ export default function Profile() {
               className="btn"
               onClick={async () => {
                 setFriendError('');
+                setFriendNotice('');
                 const value = friendInput.trim();
                 if (!value) return;
                 const res = await friendsAdd(value);
-                if (res.status !== 200) { setFriendError(res.data?.error || 'Failed to add friend'); return; }
+                if (res.status !== 200) {
+                  setFriendError(res.data?.error || 'Failed to send friend request');
+                  return;
+                }
                 setFriends(res.data.friends || []);
+                setFriendRequests(res.data.requests || []);
+                setFriendNotice(res.data?.message || 'Friend request sent.');
                 setFriendInput('');
               }}
             >
               Add
             </button>
           </div>
-          
+
+          <div className="friendsBox" style={{ marginBottom: '1rem' }}>
+            <h4 style={{ marginTop: 0 }}>Pending Friend Requests</h4>
+            {friendRequests.length === 0 ? (
+              <p style={{ margin: 0 }}>No pending requests.</p>
+            ) : (
+              <ul className="friendsList">
+                {friendRequests.map((requester) => (
+                  <li key={requester} className="friendsListRow">
+                    <span>{requester}</span>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        className="btn"
+                        onClick={async () => {
+                          setFriendError('');
+                          setFriendNotice('');
+                          const res = await friendsAccept(requester);
+                          if (res.status !== 200) {
+                            setFriendError(res.data?.error || 'Failed to accept friend request');
+                            return;
+                          }
+                          setFriends(res.data.friends || []);
+                          setFriendRequests(res.data.requests || []);
+                          setFriendNotice(res.data?.message || 'Friend request accepted.');
+                        }}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={async () => {
+                          setFriendError('');
+                          setFriendNotice('');
+                          const res = await friendsDecline(requester);
+                          if (res.status !== 200) {
+                            setFriendError(res.data?.error || 'Failed to decline friend request');
+                            return;
+                          }
+                          setFriends(res.data.friends || []);
+                          setFriendRequests(res.data.requests || []);
+                          setFriendNotice(res.data?.message || 'Friend request declined.');
+                        }}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="friendsBox">
+            <h4 style={{ marginTop: 0 }}>Friend List</h4>
             {friends.length === 0 ? (
               <p style={{ margin: 0 }}>No friends yet.</p>
             ) : (
@@ -140,33 +212,41 @@ export default function Profile() {
                         opacity: loadingFriend ? 0.5 : 1
                       }}
                       onClick={async () => {
+                        setFriendError('');
+                        setFriendNotice('');
                         setLoadingFriend(true);
                         try {
                           const response = await friendsProfileGet(f);
-
                           if (response.status !== 200) {
-                            setFriendError("");
+                            setFriendError(response.data?.error || 'Failed to load friend profile');
                             return;
                           }
 
-                          const user = response.data.user;
+                          const friendUser = response.data.user;
                           const normalized = {
-                            ...user,
-                            game_profile: GameProfile.from(user.game_profile)
+                            ...friendUser,
+                            game_profile: GameProfile.from(friendUser.game_profile)
                           };
                           setFriendProfile(normalized);
                         } finally {
                           setLoadingFriend(false);
                         }
                       }}>
-                        {f}
+                      {f}
                     </span>
                     <button
                       className="btn"
                       onClick={async () => {
+                        setFriendError('');
+                        setFriendNotice('');
                         const res = await friendsRemove(f);
-                        if (res.status !== 200) { setFriendError(res.data?.error || 'Failed to remove'); return; }
+                        if (res.status !== 200) {
+                          setFriendError(res.data?.error || 'Failed to remove');
+                          return;
+                        }
                         setFriends(res.data.friends || []);
+                        setFriendRequests(res.data.requests || []);
+                        setFriendNotice('Friend removed.');
                       }}
                     >
                       Remove

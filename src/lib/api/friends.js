@@ -1,5 +1,5 @@
 //Sprint 5 addon file to aid backend with friendlist:
-
+//Refreshed in Sprint 7:
 import { getJSON, postJSON } from './api';
 
 export async function friendsList() {
@@ -14,6 +14,16 @@ export async function friendsAdd(friend) {
 
 export async function friendsRemove(friend) {
   const info = await postJSON('/friends/remove', { friend });
+  return { status: info.status, data: info.data };
+}
+
+export async function friendsAccept(friend) {
+  const info = await postJSON('/friends/accept', { friend });
+  return { status: info.status, data: info.data };
+}
+
+export async function friendsDecline(friend) {
+  const info = await postJSON('/friends/decline', { friend });
   return { status: info.status, data: info.data };
 }
 

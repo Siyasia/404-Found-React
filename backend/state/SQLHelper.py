@@ -147,14 +147,14 @@ def user_get(user_id: int):
     If callers need the user's habits, use `user_get_with_habits`.
     """
     query = (
-        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta, friends "
+        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta, friends, incomingFriendRequests "
         "FROM users WHERE id = ?"
     )
     return query, (user_id,)
 
 def user_get_by_email(email: str):
     query = (
-        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta, friends "
+        "SELECT id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta, friends, incomingFriendRequests "
         "FROM users WHERE email = ? OR username = ?"
     )
     return query, (email, email)
@@ -193,6 +193,11 @@ def user_get_by_username(username: str):
 def user_set_friends(user_id: int, friends_json: str):
     query = "UPDATE users SET friends = ? WHERE id = ?"
     return query, (friends_json, user_id)
+
+#Sprint 7 addition:
+def user_set_incoming_friend_requests(user_id: int, requests_json: str):
+    query = "UPDATE users SET incomingFriendRequests = ? WHERE id = ?"
+    return query, (requests_json, user_id)
 
 def task_create(info: TaskInfo):
     query = (
@@ -310,7 +315,7 @@ def child_update_partial(fields: dict, child_id: int):
     if not fields:
         raise ValueError("no fields to update")
 
-    allowed = {"parentId", "name", "username", "age", "code", "createdAt", "theme", "password", "friends"}
+    allowed = {"parentId", "name", "username", "age", "code", "createdAt", "theme", "password", "friends", "incomingFriendRequests"}
     set_clauses = []
     params = []
 
@@ -334,6 +339,11 @@ def child_update_partial(fields: dict, child_id: int):
 def child_set_friends(child_id: int, friends_json: str):
     query = "UPDATE children SET friends = ? WHERE id = ?"
     return query, (friends_json, child_id)
+
+#Sprint 7 Addition to add friends:
+def child_set_incoming_friend_requests(child_id: int, requests_json: str):
+    query = "UPDATE children SET incomingFriendRequests = ? WHERE id = ?"
+    return query, (requests_json, child_id)
 
 def formed_habit_list(userId):
     query = "SELECT * FROM formed_habits WHERE userId = ?"
