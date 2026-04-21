@@ -173,9 +173,9 @@ export default function MissionsBoard({
             {readyTasks.length === 0 ? (
               <p className="missions-board__empty app-helper-text">{emptyReadyText}</p>
             ) : (
-              readyTasks.map((task) => (
+              readyTasks.map((task, index) => (
                 <ReadyTaskCard
-                  key={task.id}
+                  key={task.id || task.tempId || `ready-task-${index}`}
                   task={task}
                   showAssignee={showAssignee}
                   onOpenTask={onOpenTask}
@@ -194,9 +194,9 @@ export default function MissionsBoard({
             {finishedTasks.length === 0 ? (
               <p className="missions-board__empty app-helper-text">{emptyFinishedText}</p>
             ) : (
-              finishedTasks.map((task) => (
+              finishedTasks.map((task, index) => (
                 <FinishedTaskCard
-                  key={task.id}
+                  key={task.id || task.tempId || `finished-task-${index}`}
                   task={task}
                   showAssignee={showAssignee}
                   onOpenTask={onOpenTask}

@@ -213,8 +213,8 @@ export default function FocusMissionPanel({
               </div>
 
               <div className="focus-mission__checklist-list">
-                {checklist.map((item) => (
-                  <label key={item.id} className="focus-mission__checklist-item">
+                {checklist.map((item, index) => (
+                  <label key={item.id || item.tempId || `checklist-item-${index}`} className="focus-mission__checklist-item">
                     <input
                       type="checkbox"
                       checked={item?.isCompleted === true}
