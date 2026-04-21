@@ -201,7 +201,7 @@ def user_set_incoming_friend_requests(user_id: int, requests_json: str):
 
 def task_create(info: TaskInfo):
     query = (
-        "INSERT INTO tasks (assigneeId, assigneeName, childCode, title, notes, taskType, steps, habitToBreak, replacements, frequency, streak, completedDates, status, createdAt, createdById, createdByName, createdByRole, needsApproval, targetType, targetName, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO tasks (assigneeId, assigneeName, title, notes, taskType, steps, habitToBreak, replacements, frequency, streak, completedDates, status, createdAt, createdById, createdByName, createdByRole, needsApproval, targetType, targetName, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     steps_json = json.dumps(info.steps) if info.steps else None
     replacements_json = json.dumps(info.replacements) if info.replacements else None
@@ -212,7 +212,6 @@ def task_create(info: TaskInfo):
     return query, (
         info.assigneeId,
         info.assigneeName,
-        info.childCode,
         info.title,
         info.notes,
         info.taskType,
@@ -274,9 +273,9 @@ def task_list(assignee_id: int):
     return query, (assignee_id,)
 
 
-def child_task_list(child_code: int):
-    query = "SELECT * FROM tasks WHERE assigneeId IN (SELECT children.id FROM children WHERE code = ?)"
-    return query, (child_code,)
+def child_task_list(child_id: int):
+    query = "SELECT * FROM tasks WHERE assigneeId = ?"
+    return query, (child_id,)
 
 #Sprint 5 Change: Including Username when creating child as well as a password:
 def child_create(child: ChildInfo, hashed_password: str):
@@ -294,6 +293,10 @@ def child_get_by_username_code(username: str, code: str):
 def child_get_by_code(code: str):
     query = "SELECT * FROM children WHERE code = ?"
     return query, (code,)
+
+def child_get_by_id(child_id: int):
+    query = "SELECT * FROM children WHERE id = ?"
+    return query, (child_id,)
 
 def child_delete(child_id: int):
     query = "DELETE FROM children WHERE id = ?"
@@ -368,10 +371,10 @@ def user_update_partial(fields: dict, user_id: int):
     sql = f"UPDATE users SET {set_clause} WHERE id = ?"
     return sql, tuple(params)
 
-def task_list_pending(childCode: int):
-    query = "SELECT * FROM tasks WHERE childCode IN (SELECT code FROM children WHERE code = ?) AND needsApproval = 1 AND createdByRole = 'provider'"
+def task_list_pending(child_id: int):
+    query = "SELECT * FROM tasks WHERE assigneeId = ? AND needsApproval = 1 AND createdByRole = 'provider'"
 
-    return query, (childCode,)
+    return query, (child_id,)
 
 def get_game_profile(userId: int):
     query = "SELECT * FROM game_profiles WHERE id = ?"
