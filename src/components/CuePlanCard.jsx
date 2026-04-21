@@ -101,13 +101,16 @@ export default function CuePlanCard({
             description={emptyDescription}
           />
         ) : (
-          safeSections.map((section) => {
+          safeSections.map((section, sectionIndex) => {
             const total = section.items.length;
             const done = section.items.filter((i) => i?.isComplete).length;
             const allDone = total > 0 && done === total;
 
             return (
-              <div className={`cueCard__group ${allDone ? 'is-all-done' : ''}`} key={section.key || section.label}>
+              <div
+                className={`cueCard__group ${allDone ? 'is-all-done' : ''}`}
+                key={section.key || section.label || `cue-section-${sectionIndex}`}
+              >
                 <div className="cueCard__groupHeader">
                   <span className="cueCard__groupTitle app-meta-label">{section.label}</span>
                   <span className="cueCard__groupCount app-micro-text">{done}/{total}</span>
@@ -115,7 +118,7 @@ export default function CuePlanCard({
                 </div>
 
                 <div className="cueCard__groupItems">
-                  {section.items.map((item) => {
+                  {section.items.map((item, itemIndex) => {
                     const clickValue = item?.raw ?? item;
                     const isComplete = !!item?.isComplete;
 
@@ -124,7 +127,7 @@ export default function CuePlanCard({
 
                     return (
                       <button
-                        key={item.id}
+                        key={item.id || item.tempId || `${section.key || section.label || sectionIndex}-item-${itemIndex}`}
                         type="button"
                         className={`cueCard__item ${isComplete ? 'is-complete' : ''} ${habitTypeClass}`}
                         aria-pressed={isComplete}
