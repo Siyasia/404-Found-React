@@ -40,16 +40,17 @@ export default function HabitWizard({
 
   // ---- Custom hooks ----
   // Main wizard state and actions
-  const wizard = useHabitWizard(initialValues, today, draftApiUrl, authToken, onDraftSave);
+  const wizard = useHabitWizard(initialValues, today, draftApiUrl, authToken, onDraftSave, context);
   // Title validation (runs on blur)
   const { isValidating: isValidatingTitle, error: titleError, validate: validateTitle } = 
     useTitleValidation(wizard.state.title, titleValidationUrl, authToken);
 
-  // NC: ( new chnage ) Read current user so we can default assignee in `self` context
+  // Read current user so we can default assignee(s) in `self` context.
   const { user } = useUser();
-  const currentAssignee = wizard.state.assignee;
+  const currentAssignees = wizard.state.assignees;
   const selfAssigneeId = user?.id || null;
-  const setAssignee = wizard.setAssignee;
+  const setAssignees = wizard.setAssignees;
+  const allowMultipleAssignees = context === 'parent' && !initialValues;
 
   // ---- Handlers ----
   // When a suggestion chip is clicked: either call external handler or fill the task form title
@@ -144,11 +145,24 @@ export default function HabitWizard({
             onRewardGoalTitleChange={wizard.setRewardGoalTitle}
             rewardGoalCostCoins={wizard.state.rewardGoalCostCoins}
             onRewardGoalCostCoinsChange={wizard.setRewardGoalCostCoins}
+            rewardType={wizard.state.rewardType}
+            rewardShopItemId={wizard.state.rewardShopItemId}
+            onRewardTypeChange={wizard.setRewardType}
+            onRewardShopItemIdChange={wizard.setRewardShopItemId}
             completionsNeeded={wizard.completionsNeeded}
             error={wizard.state.errors.rewards}
           />
         );
-      case 'review':
+      case 'review': {
+        const allPeople = [
+          ...(parentUser ? [{ id: String(parentUser.id), name: parentUser.name || 'You' }] : []),
+          ...availableChildren.map((c) => ({ id: String(c.id), name: c.name })),
+        ];
+        const reviewAssignees = wizard.state.assignees;
+        const reviewAssigneeNames = reviewAssignees.map((id) => {
+          const match = allPeople.find((p) => p.id === String(id));
+          return match ? match.name : id;
+        });
         return (
           <ReviewLaunchStep
             goal={wizard.goalSummary}
@@ -162,27 +176,27 @@ export default function HabitWizard({
             onRewardGoalTitleChange={wizard.setRewardGoalTitle}
             onRewardGoalCostCoinsChange={wizard.setRewardGoalCostCoins}
             onJumpToStep={wizard.jumpToStep}
-            onSubmit={() => wizard.handleFinish(onSubmit)} // Call the finish handler with the onSubmit prop
+            onSubmit={() => wizard.handleFinish(onSubmit)}
             saving={saving}
+            assignees={reviewAssignees}
+            assigneeNames={reviewAssigneeNames}
           />
         );
+      }
       default:
         return null;
     }
   };
-  // NC: ( new chnage ) If the wizard is used in `self` context, default the assignee to the current user id
-  // so created goals are assigned to the creator by default.
+  // If the wizard is used in `self` context, default the assignee to the current user id.
   const assigneeInitRef = useRef(false);
   useEffect(() => {
     if (assigneeInitRef.current) return;
     if (context !== 'self') return;
-    // Only set when there's a valid self id and no explicit assignee yet
-    if (selfAssigneeId != null && (currentAssignee === null || currentAssignee === undefined || currentAssignee === '')) {
-      setAssignee(selfAssigneeId);
+    if (selfAssigneeId != null && currentAssignees.length === 0) {
+      setAssignees([String(selfAssigneeId)]);
     }
     assigneeInitRef.current = true;
-  // deliberately only run when context or self id change on first mount
-  }, [context, currentAssignee, selfAssigneeId, setAssignee]);
+  }, [context, currentAssignees.length, selfAssigneeId, setAssignees]);
 
   return (
     <div className={embedded ? 'hw-container hw-embedded' : 'hw-container'}>
@@ -210,27 +224,73 @@ export default function HabitWizard({
         {context === 'parent' && (
           <div className="hw-assignee-panel hw-mt12">
             <div>
-              <div className="hw-assignee-title">Assign this goal</div>
+              <div className="hw-assignee-title">Assign this goal to</div>
               <div className="hw-assignee-subtitle">
-                Pick who this goal and its action plans belong to.
+                {allowMultipleAssignees
+                  ? 'Select one or more people. A separate goal will be created for each.'
+                  : 'Choose who this goal and its action plans belong to.'}
               </div>
             </div>
             <div className="hw-assignee-control">
-              <select
-                className="hw-input"
-                value={wizard.state.assignee || ''}
-                onChange={(e) => wizard.setAssignee(e.target.value)}
-              >
-                <option value="">Select assignee</option>
+              <div className="hw-assignee-options">
                 {parentUser ? (
-                  <option value={parentUser.id}>{parentUser.name || 'You'} (you)</option>
+                  <label
+                    className={`hw-assignee-option${currentAssignees.includes(String(parentUser.id)) ? ' is-selected' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={currentAssignees.includes(String(parentUser.id))}
+                      onChange={() => {
+                        const nextId = String(parentUser.id);
+                        if (allowMultipleAssignees) {
+                          wizard.toggleAssignee(nextId);
+                          return;
+                        }
+                        wizard.setAssignees(
+                          currentAssignees.includes(nextId) ? [] : [nextId]
+                        );
+                      }}
+                    />
+                    <span>{parentUser.name || 'You'} <em>(you)</em></span>
+                  </label>
                 ) : null}
-                {availableChildren.map((child) => (
-                  <option key={child.id} value={child.id}>
-                    {child.name}
-                  </option>
-                ))}
-              </select>
+                {availableChildren.map((child) => {
+                  const childId = String(child.id);
+                  return (
+                    <label
+                      key={child.id}
+                      className={`hw-assignee-option${currentAssignees.includes(childId) ? ' is-selected' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={currentAssignees.includes(childId)}
+                        onChange={() => {
+                          if (allowMultipleAssignees) {
+                            wizard.toggleAssignee(childId);
+                            return;
+                          }
+                          wizard.setAssignees(
+                            currentAssignees.includes(childId) ? [] : [childId]
+                          );
+                        }}
+                      />
+                      <span>{child.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {wizard.state.assignees.length > 0 ? (
+                <div className="hw-assignee-summary">
+                  {allowMultipleAssignees
+                    ? `Creating for: ${wizard.state.assignees.length} ${wizard.state.assignees.length === 1 ? 'person' : 'people'}`
+                    : 'Assigned to 1 person'}
+                </div>
+              ) : null}
+              {wizard.state.errors.assignees ? (
+                <div className="hw-mt8">
+                  <div className="hw-error">{wizard.state.errors.assignees}</div>
+                </div>
+              ) : null}
             </div>
           </div>
         )}

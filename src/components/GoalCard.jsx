@@ -74,14 +74,14 @@ export default function GoalCard({
       <div className="goalCardHeader">
         <div className="goalCardMain">
           <div className="goalCardTitleRow">
-            <h3 className="goalCardTitle">{title}</h3>
-            <span className="dashboardInlineChip">{typeLabel}</span>
+            <h3 className="goalCardTitle app-card-title">{title}</h3>
+            <span className="dashboardInlineChip app-micro-text" data-type={typeLabel}>{typeLabel}</span>
           </div>
 
           <div className="goalCardMeta">
-            <span>For {assignee}</span>
-            <span>{startLabel}</span>
-            <span>
+            <span className="app-micro-text">For {assignee}</span>
+            <span className="app-micro-text">{startLabel}</span>
+            <span className="app-micro-text">
               {planCount} plan{planCount === 1 ? '' : 's'}
             </span>
           </div>
@@ -89,7 +89,7 @@ export default function GoalCard({
 
         <button
           type="button"
-          className="btn btn-ghost"
+          className="btn btn-ghost app-button-label"
           onClick={() => setExpanded((prev) => !prev)}
         >
           {expanded ? 'Hide details' : 'View details'}
@@ -99,19 +99,19 @@ export default function GoalCard({
       {expanded && (
         <div className="goalCardBody">
           <section className="goalCardSection">
-            <div className="dashboard-section-label">Goal summary</div>
-            <div className="goalCardBodyText">
-              <strong>{title}</strong>
+            <div className="dashboard-section-label app-panel-title">Goal summary</div>
+            <div className="goalCardBodyText app-body-text">
+              <strong className="app-card-title">{title}</strong>
               {goal.startDate ? ` · ${goal.startDate}` : ''}
               {goal.endDate ? ` – ${goal.endDate}` : goal.startDate ? ' – ongoing' : ''}
             </div>
             {goal.whyItMatters && (
-              <div className="goalCardMutedText">Why it matters: {goal.whyItMatters}</div>
+              <div className="goalCardMutedText app-helper-text">Why it matters: {goal.whyItMatters}</div>
             )}
           </section>
 
           <section className="goalCardSection">
-            <div className="dashboard-section-label">Pattern & support</div>
+            <div className="dashboard-section-label app-panel-title">Pattern & support</div>
             <ul className="goalCardBulletList">
               {goal.location && <li>Location: {goal.location}</li>}
               {triggers.length > 0 && <li>Triggers: {triggers.join(', ')}</li>}
@@ -121,13 +121,13 @@ export default function GoalCard({
                 triggers.length === 0 &&
                 supports.length === 0 &&
                 replacements.length === 0 && (
-                  <li className="goalCardMutedText">No extra support details were added.</li>
+                  <li className="goalCardMutedText app-helper-text">No extra support details were added.</li>
                 )}
             </ul>
           </section>
 
           <section className="goalCardSection">
-            <div className="dashboard-section-label">Action plans</div>
+            <div className="dashboard-section-label app-panel-title">Action plans</div>
             <HabitPlanList
               plans={normalizedPlans}
               todayISO={todayISO}
@@ -143,15 +143,15 @@ export default function GoalCard({
           </section>
 
           <section className="goalCardSection">
-            <div className="dashboard-section-label">Rewards</div>
+            <div className="dashboard-section-label app-panel-title">Rewards</div>
             {(goal.rewardGoalTitle || goal.rewardGoalCostCoins || goal.savingFor) ? (
-              <ul className="goalCardBulletList">
+              <ul className="goalCardBulletList app-body-text">
                 {goal.savingFor && <li>Saving for: {goal.savingFor}</li>}
                 {goal.rewardGoalTitle && <li>Reward goal: {goal.rewardGoalTitle}</li>}
                 {goal.rewardGoalCostCoins && <li>Cost: {goal.rewardGoalCostCoins} coins</li>}
               </ul>
             ) : (
-              <div className="goalCardMutedText">No reward details added yet.</div>
+              <div className="goalCardMutedText app-helper-text">No reward details added yet.</div>
             )}
           </section>
         </div>

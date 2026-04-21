@@ -1,5 +1,3 @@
-//Updated badges to be sent to backend and stored in game profile meta, with earned dates.
-
 import { getGameProfile, updateGameProfile } from './game.js'
 
 export const BADGE_DEFINITIONS = [
@@ -45,8 +43,22 @@ export const BADGE_DEFINITIONS = [
   },
 ]
 
+function isOk(response) {
+  return Boolean(
+    response &&
+      (
+        response.status_code === 200 ||
+        response.status === 200 ||
+        response.status_code === '200' ||
+        response.status === '200'
+      )
+  )
+}
+
 function ensureObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {}
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? { ...value }
+    : {}
 }
 
 function ensureArray(value) {
@@ -54,27 +66,39 @@ function ensureArray(value) {
 }
 
 async function readCurrentProfile() {
-  const resp = await getGameProfile()
-
-  const ok =
-    resp &&
-    (resp.status_code === 200 ||
-      resp.status === 200 ||
-      resp.status_code === '200' ||
-      resp.status === '200')
-
-  if (!ok) return null
-
-  return resp?.game_profile ?? resp?.profile ?? null
+  const response = await getGameProfile()
+  if (!isOk(response)) return null
+  return response?.game_profile ?? response?.profile ?? null
 }
 
-export async function getEarnedBadges(userId) {
+function getProfileMeta(profile) {
+  return ensureObject(profile?.meta)
+}
+
+export function evaluateBadgeIds({ current = 0, longest = 0, totalCompletions = 0 } = {}) {
+  return BADGE_DEFINITIONS
+    .filter((badge) => {
+      try {
+        return badge.condition({ current, longest, totalCompletions }) === true
+      } catch {
+        return false
+      }
+    })
+    .map((badge) => badge.id)
+}
+
+export async function getEarnedBadges() {
   const profile = await readCurrentProfile()
+
   if (!profile) {
-    return { status_code: 500, data: [], earnedDates: {} }
+    return {
+      status_code: 500,
+      data: [],
+      earnedDates: {},
+    }
   }
 
-  const meta = ensureObject(profile.meta)
+  const meta = getProfileMeta(profile)
 
   return {
     status_code: 200,
@@ -83,22 +107,32 @@ export async function getEarnedBadges(userId) {
   }
 }
 
-export async function mergeEarnedBadges(userId, badgeIds = [], badgeEarnedDates = {}) {
+export async function mergeEarnedBadges(badgeIds = [], badgeEarnedDates = {}) {
   const profile = await readCurrentProfile()
+
   if (!profile) {
-    return { status_code: 500, error: 'Failed to load game profile for badges' }
+    return {
+      status_code: 500,
+      error: 'Failed to load game profile for badges',
+    }
   }
 
-  const currentMeta = ensureObject(profile.meta)
+  const currentMeta = getProfileMeta(profile)
   const existingIds = ensureArray(currentMeta.earnedBadges)
-  const mergedIds = Array.from(new Set([...existingIds, ...badgeIds.filter(Boolean)]))
+  const existingDates = ensureObject(currentMeta.badgeEarnedDates)
 
-  const mergedDates = {
-    ...ensureObject(currentMeta.badgeEarnedDates),
-  }
+  const mergedIds = Array.from(
+    new Set([
+      ...existingIds,
+      ...ensureArray(badgeIds).filter(Boolean),
+    ])
+  )
+
+  const mergedDates = { ...existingDates }
 
   Object.entries(ensureObject(badgeEarnedDates)).forEach(([badgeId, earnedAt]) => {
-    if (badgeId && earnedAt && !mergedDates[badgeId]) {
+    if (!badgeId || !earnedAt) return
+    if (!mergedDates[badgeId]) {
       mergedDates[badgeId] = earnedAt
     }
   })
@@ -109,27 +143,78 @@ export async function mergeEarnedBadges(userId, badgeIds = [], badgeEarnedDates 
     badgeEarnedDates: mergedDates,
   }
 
-  const updateResp = await updateGameProfile({ meta: nextMeta })
+  const updateResponse = await updateGameProfile({
+    meta: nextMeta,
+  })
 
-  const ok =
-    updateResp &&
-    (updateResp.status_code === 200 ||
-      updateResp.status === 200 ||
-      updateResp.status_code === '200' ||
-      updateResp.status === '200')
-
-  if (!ok) {
+  if (!isOk(updateResponse)) {
     return {
       status_code: 500,
-      error: updateResp?.error || 'Failed to persist badges to backend',
+      error: updateResponse?.error || 'Failed to persist badges to game profile',
     }
   }
 
-  return { status_code: 200, data: mergedIds, earnedDates: mergedDates }
+  return {
+    status_code: 200,
+    data: mergedIds,
+    earnedDates: mergedDates,
+  }
+}
+
+export async function awardBadgesFromStats(stats = {}, earnedAt = null) {
+  const computedBadgeIds = evaluateBadgeIds(stats)
+
+  if (computedBadgeIds.length === 0) {
+    const existing = await getEarnedBadges()
+    return {
+      status_code: existing.status_code,
+      data: existing.data || [],
+      earnedDates: existing.earnedDates || {},
+      newBadges: [],
+    }
+  }
+
+  const existing = await getEarnedBadges()
+  if (existing.status_code !== 200) {
+    return {
+      status_code: 500,
+      error: 'Failed to read existing badges before award',
+    }
+  }
+
+  const existingIds = ensureArray(existing.data)
+  const newBadges = computedBadgeIds.filter((id) => !existingIds.includes(id))
+
+  if (newBadges.length === 0) {
+    return {
+      status_code: 200,
+      data: existingIds,
+      earnedDates: ensureObject(existing.earnedDates),
+      newBadges: [],
+    }
+  }
+
+  const timestamp = earnedAt || new Date().toISOString()
+  const newBadgeDates = {}
+
+  newBadges.forEach((badgeId) => {
+    newBadgeDates[badgeId] = timestamp
+  })
+
+  const merged = await mergeEarnedBadges(newBadges, newBadgeDates)
+
+  return {
+    status_code: merged.status_code,
+    data: merged.data || existingIds,
+    earnedDates: merged.earnedDates || ensureObject(existing.earnedDates),
+    newBadges,
+  }
 }
 
 export default {
   BADGE_DEFINITIONS,
+  evaluateBadgeIds,
   getEarnedBadges,
   mergeEarnedBadges,
+  awardBadgesFromStats,
 }

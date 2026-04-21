@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';          // React and lazy loading
 import PropTypes from 'prop-types';                // Prop types
 import { formatScheduleSummary, toLocalISODate, isDueOnDate } from '../../lib/schedule.js'; // Date helpers
+import { CUE_PRESETS } from '../../lib/cuePresets.js';
 
 // Lazy-load the schedule picker to reduce initial bundle size
 const SchedulePicker = React.lazy(() => import('../SchedulePicker.jsx'));
@@ -21,6 +22,14 @@ const BREAK_EXAMPLES = [
 
 // Options for "Make it easier" section (used in DetailsStep)
 const EASIER_OPTIONS = ['Prepare materials', 'Set reminders', 'Start very small'];
+const CUE_DETAIL_OPTIONS = {
+  morning: ['Right after waking up', 'After breakfast', 'Before leaving home'],
+  afterschool: ['Right after school', 'After snack', 'Before homework'],
+  afternoon: ['After lunch', 'During a break', 'Before practice'],
+  afterdinner: ['Right after dinner', 'Before cleanup', 'After dishes'],
+  evening: ['After homework', 'After shower', 'Before relaxing'],
+  bedtime: ['Before brushing teeth', 'After brushing teeth', 'Right before bed'],
+};
 
 // Simple inline error display component
 function ErrorText({ message }) {
@@ -436,17 +445,30 @@ DetailsStep.propTypes = {
 // -------------------- Task Card (used in ActionPlansStep) --------------------
 export function TaskCard({ task, index, onEdit, onRemove }) {
   const scheduleSummary = task?.schedule ? formatScheduleSummary(task.schedule) : '';
+  const cueLabel = task?.cueLabel || task?.meta?.cueLabel || '';
+  const cueDetail = task?.cueDetail || task?.meta?.cueDetail || '';
+  const cueDisplay = cueDetail || cueLabel || task?.cue || '';
+
   return (
     <div className="hw-task-card">
       <div className="hw-between-row">
         <div>
           <strong>{task.title}</strong>
+
           <div className="muted hw-mt4">
-            {task.cue ? `${task.cue} · ` : ''}
+            {cueDisplay ? `${cueDisplay} · ` : ''}
             {task.startDate || ''}
             {task.endDate ? ` – ${task.endDate}` : ''}
             {task.timeOfDay ? ` · ${task.timeOfDay}` : ''}
           </div>
+
+          {cueLabel && (
+            <div className="hw-task-card-cue">
+              Cue: {cueLabel}
+              {cueDetail && cueDetail !== cueLabel ? ` · ${cueDetail}` : ''}
+            </div>
+          )}
+
           {scheduleSummary && <div className="muted">{scheduleSummary}</div>}
         </div>
         <div>
@@ -482,6 +504,10 @@ export function ActionPlansStep({
   const isEditing = editingIndex !== null && editingIndex !== undefined;
   const scheduleValue = taskForm?.schedule || null;
   const scheduleSummary = scheduleValue ? formatScheduleSummary(scheduleValue) : '';
+  const selectedCuePreset = taskForm?.cuePreset || '';
+  const selectedCueLabel = taskForm?.cueLabel || '';
+  const cueDetailValue = taskForm?.cueDetail ?? taskForm?.cue ?? '';
+  const cueDetailOptions = selectedCuePreset ? (CUE_DETAIL_OPTIONS[selectedCuePreset] || []) : [];
 
   return (
     <div className="hw-phase2">
@@ -597,44 +623,12 @@ export function ActionPlansStep({
           </div>
         </div>
 
-        {/* Action plan window */}
-        <div className="hw-section-card hw-mt8">
-          <div className="hw-section-card-title">
-            <span className="hw-section-icon">🗓️</span>Action plan dates
-          </div>
-          <div className="muted">These dates must stay inside the goal window above.</div>
-
-          <div className="hw-task-form-row hw-mt8">
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label htmlFor="hw-task-start-date">Action start date</label>
-              <input
-                id="hw-task-start-date"
-                type="date"
-                className="hw-input"
-                value={taskForm.startDate || goal.startDate || ''}
-                min={goal.startDate || undefined}
-                max={goal.endDate || undefined}
-                onChange={(e) => onTaskFormChange('startDate', e.target.value)}
-              />
-            </div>
-
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <label htmlFor="hw-task-end-date">Action end date</label>
-              <input
-                id="hw-task-end-date"
-                type="date"
-                className="hw-input"
-                value={taskForm.endDate || ''}
-                min={taskForm.startDate || goal.startDate || undefined}
-                max={goal.endDate || undefined}
-                onChange={(e) => onTaskFormChange('endDate', e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
         <div className="hw-mt8">
           <label>Schedule for this action plan</label>
+          <div className="muted hw-mt4">
+            Choose the repeat pattern and dates here.
+          </div>
+
           <Suspense fallback={<div className="muted hw-mt8">Loading schedule options…</div>}>
             <SchedulePicker
               id="hw-task-frequency"
@@ -642,18 +636,100 @@ export function ActionPlansStep({
               onChange={(nextSchedule) => onTaskFormChange('schedule', nextSchedule)}
             />
           </Suspense>
+
           {scheduleSummary && <div className="muted hw-mt8">{scheduleSummary}</div>}
         </div>
 
-        {/* Cue input */}
-        <label htmlFor="hw-task-cue" className="hw-mt8">Cue (optional)</label>
-        <input
-          id="hw-task-cue"
-          className="hw-input"
-          value={taskForm.cue}
-          onChange={(e) => onTaskFormChange('cue', e.target.value)}
-          placeholder="e.g. After dinner"
-        />
+        {/* Cue picker */}
+        <div className="hw-section-card hw-mt8">
+          <div className="hw-section-card-title">
+            <span className="hw-section-icon">⏱️</span>When should this happen?
+          </div>
+
+          <div className="muted">
+            Pick one main cue so the homepage can group this action plan clearly.
+          </div>
+
+          <div className="hw-cue-grid hw-mt8">
+            {CUE_PRESETS.map((preset) => {
+              const isSelected = selectedCuePreset === preset.key;
+
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  className={isSelected ? 'hw-cue-pill selected' : 'hw-cue-pill'}
+                  onClick={() => {
+                    const isChangingPreset = selectedCuePreset !== preset.key;
+                    onTaskFormChange('cuePreset', preset.key);
+                    onTaskFormChange('cueLabel', preset.label);
+                    if (isChangingPreset) {
+                      onTaskFormChange('cueDetail', '');
+                    }
+                    onTaskFormChange('cue', preset.label);
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedCuePreset && (
+            <>
+              <div className="hw-mt12">
+                <div className="hw-examples-section-label">Quick trigger ideas</div>
+                <div className="hw-examples-chips hw-mt6">
+                  {cueDetailOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={cueDetailValue === option ? 'chip selected' : 'chip'}
+                      onClick={() => {
+                        onTaskFormChange('cueDetail', option);
+                        onTaskFormChange('cue', option);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="tiny"
+                    onClick={() => {
+                      onTaskFormChange('cueDetail', '');
+                      onTaskFormChange('cue', selectedCueLabel || '');
+                    }}
+                  >
+                    Clear detail
+                  </button>
+                </div>
+              </div>
+
+              <div className="hw-mt12">
+                <label htmlFor="hw-task-cue-detail">Optional custom trigger detail</label>
+                <input
+                  id="hw-task-cue-detail"
+                  className="hw-input"
+                  value={cueDetailValue}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    onTaskFormChange('cueDetail', nextValue);
+                    onTaskFormChange('cue', nextValue || selectedCueLabel || '');
+                  }}
+                  placeholder={`Optional. Example: ${cueDetailOptions[0] || selectedCueLabel}`}
+                />
+              </div>
+            </>
+          )}
+
+          {!selectedCuePreset && (
+            <div className="hw-cue-help hw-mt8">
+              Choose one of the six cues above to continue shaping this action plan.
+            </div>
+          )}
+        </div>
 
         {/* Save button */}
         <div className="hw-mt12">
@@ -725,6 +801,8 @@ export function ReviewLaunchStep({
   actionsStepIndex = 2,
   onSubmit,
   saving = false,
+  assignees = [],
+  assigneeNames = [],
 }) {
   const dueSummary = nextDueSummary(tasks);
 
@@ -737,6 +815,20 @@ export function ReviewLaunchStep({
         <div className="hw-review-sub">
           Everything looks good? Add a reward, double-check the action plans, and launch it.
         </div>
+        {assignees.length > 0 && (
+          <div className="hw-review-assignees">
+            <span className="hw-review-assignees-label">
+              {assignees.length === 1 ? 'Creating for' : `Creating ${assignees.length} goals for`}
+            </span>
+            <div className="hw-review-assignees-pills">
+              {assigneeNames.map((name, i) => (
+                <span key={assignees[i] ?? i} className="hw-review-assignee-pill">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reward box */}
@@ -905,4 +997,6 @@ ReviewLaunchStep.propTypes = {
   actionsStepIndex: PropTypes.number,
   onSubmit: PropTypes.func.isRequired,
   saving: PropTypes.bool,
+  assignees: PropTypes.arrayOf(PropTypes.string),
+  assigneeNames: PropTypes.arrayOf(PropTypes.string),
 };
