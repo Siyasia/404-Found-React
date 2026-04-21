@@ -1,97 +1,391 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUser } from '../UserContext.jsx'
-import GoalCard from '../components/GoalCard.jsx'
-import HabitPlanList from '../components/HabitPlanList.jsx'
 import Toast from '../components/Toast.jsx'
 import WeekStrip from '../components/WeekStrip.jsx'
+import { DisplayAvatar } from '../components/DisplayAvatar.jsx'
+import { useGameProfile } from '../components/useGameProfile.jsx'
+import { useItems } from '../components/useItems.jsx'
+import { useInventory } from '../components/useInventory.jsx'
+import CuePlanCard from '../components/CuePlanCard.jsx'
+import '../dashboardTheme.css'
+import './Home.css'
 import { goalList } from '../lib/api/goals.js'
 import { actionPlanList } from '../lib/api/actionPlans.js'
 import { getCoins } from '../lib/api/streaks.js'
+import { getActiveReward, redeemActiveReward } from '../lib/api/reward.js'
+import { friendsList } from '../lib/api/friends.js'
+import { logFriendActivity } from '../lib/friendActivity.js'
+import { getFriendIdentifier } from '../lib/friendsIdentity.js'
 import togglePlanCompletion from '../lib/actionPlanCompletion.js'
 import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
-import '../dashboardTheme.css'
+import { getCueLabel } from '../lib/cuePresets.js'
+import {
+  buildActionPlanSpeech,
+  speakText,
+  supportsSpeechSynthesis,
+} from '../lib/speech.js'
+import MissionsBoard from '../components/MissionsBoard.jsx'
+import TaskAssignmentPanel from '../components/TaskAssignmentPanel.jsx'
+import FocusMissionPanel from '../components/FocusMissionPanel.jsx'
+import {
+  taskList,
+  taskStart,
+  taskComplete,
+  taskToggleChecklistItem,
+  taskDelete,
+} from '../lib/api/tasks.js'
 
+/* =========================================================
+   SMALL HELPER FUNCTIONS
+   These keep the main component cleaner and centralize
+   formatting / data extraction logic.
+========================================================= */
+
+/* Formats the small date card at the top */
+function formatShortDate(date = new Date()) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+/* Formats the live time card */
+function formatClock(date = new Date()) {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/* Creates fallback initials when avatar data is missing */
+function getInitials(name) {
+  if (!name) return 'NS'
+
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('')
+}
+
+function getGreetingPrefix() {
+  const hour = new Date().getHours()
+  if (hour < 5) return 'Good night'
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+const DAILY_QUOTES = [
+  'Success is the sum of small efforts repeated day in and day out.',
+  'We are what we repeatedly do. Excellence, then, is not an act, but a habit.',
+  'Motivation gets you going, but habit gets you there.',
+  "You don't rise to the level of your goals, you fall to the level of your systems.",
+  'Small steps every day lead to big results over time.',
+  'The secret of your future is hidden in your daily routine.',
+  'Your habits will determine your future.',
+  'Discipline is choosing between what you want now and what you want most.',
+  'The chains of habit are too weak to be felt until they are too strong to be broken.',
+]
+
+function getDailyQuote() {
+  return DAILY_QUOTES[new Date().getDate() % DAILY_QUOTES.length]
+}
+
+
+/* Returns Monday of the current week */
+function startOfWeekMonday(date = new Date()) {
+  const copy = new Date(date)
+  const day = copy.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  copy.setDate(copy.getDate() + diff)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+/* Adds N days to a Date */
+function addDays(date, amount) {
+  const copy = new Date(date)
+  copy.setDate(copy.getDate() + amount)
+  return copy
+}
+
+/* Makes goal API responses safe even if shape changes slightly */
+function extractGoals(response) {
+  if (Array.isArray(response?.goals)) return response.goals
+  if (Array.isArray(response?.data?.goals)) return response.data.goals
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+/* Makes plan API responses safe even if shape changes slightly */
+function extractPlans(response) {
+  if (Array.isArray(response?.plans)) return response.plans
+  if (Array.isArray(response?.data?.plans)) return response.data.plans
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+/* Pulls the numeric coin total out of the API response */
+function extractCoins(response) {
+  return Number(response?.data?.total ?? response?.total ?? 0) || 0
+}
+
+function getGoalTitle(goal) {
+  return goal?.title || goal?.goal || goal?.name || 'Untitled goal'
+}
+
+function getPlanCueKey(plan) {
+  return plan?.cuePreset || plan?.meta?.cuePreset || ''
+}
+
+function getPlanCueLabel(plan) {
+  const cueKey = getPlanCueKey(plan)
+  return plan?.cueLabel || plan?.meta?.cueLabel || getCueLabel(cueKey) || ''
+}
+
+function getPlanCueDetail(plan) {
+  const cueLabel = getPlanCueLabel(plan)
+  const cueDetail = plan?.cueDetail || plan?.meta?.cueDetail || ''
+  const rawCue = typeof plan?.cue === 'string' ? plan.cue.trim() : ''
+
+  if (cueDetail) return cueDetail
+  if (rawCue && rawCue !== cueLabel) return rawCue
+  return ''
+}
+
+/* =========================================================
+   HOME PAGE
+========================================================= */
 export default function Home() {
   const navigate = useNavigate()
   const { user } = useUser()
+  const currentFriendUsername = useMemo(() => getFriendIdentifier(user), [user])
 
+  /* -------------------------------------------------------
+     AVATAR / PROFILE DATA
+     These hooks let us render the user's real avatar if
+     inventory items exist. If not, we fall back to initials.
+  -------------------------------------------------------- */
+  const { profile, setProfile } = useGameProfile()
+  const { items } = useItems()
+  const inventoryItems = useInventory(profile, items)
+
+  /* -------------------------------------------------------
+     REAL HOMEPAGE DATA
+     These hold the actual goals, plans, coins, and loading
+     state for the page.
+  -------------------------------------------------------- */
   const [goals, setGoals] = useState([])
   const [actionPlans, setActionPlans] = useState([])
   const [coins, setCoins] = useState(0)
+  const [activeReward, setActiveReward] = useState(null)
+  const [friends, setFriends] = useState([])
+  const [friendsLoading, setFriendsLoading] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [tasks, setTasks] = useState([])
+  const [tasksLoading, setTasksLoading] = useState(true)
+  const [taskView, setTaskView] = useState('board')
+  const [focusedTaskId, setFocusedTaskId] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
   const [rewardMessage, setRewardMessage] = useState('')
-  const [weekRefreshKey, setWeekRefreshKey] = useState(0) // refresh the week strip after completion changes
+  const [rewardToastType, setRewardToastType] = useState('success')
+  const [redeemingReward, setRedeemingReward] = useState(false)
 
-  const todayISO = useMemo(() => toLocalISODate(), [])
+  const supportsTTS = supportsSpeechSynthesis()
 
+  /* -------------------------------------------------------
+     LIVE CLOCK
+     Keeps the time card updated.
+  -------------------------------------------------------- */
+  const [clockTime, setClockTime] = useState(formatClock())
+
+  /* -------------------------------------------------------
+     FIXED DATE HELPERS
+     today = current Date object
+     todayISO = local YYYY-MM-DD for schedule calculations
+  -------------------------------------------------------- */
+  const today = useMemo(() => new Date(), [])
+  const todayISO = useMemo(() => toLocalISODate(new Date()), [])
+
+  /* -------------------------------------------------------
+     LIVE CLOCK EFFECT
+     Updates the time once every second.
+  -------------------------------------------------------- */
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setClockTime(formatClock(new Date()))
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  /* -------------------------------------------------------
+     LOAD HOMEPAGE DATA
+     Fetches goals, plans, and coins for the signed-in user.
+  -------------------------------------------------------- */
   useEffect(() => {
     let active = true
 
-    async function loadHabitData() {
+    async function loadHomeData() {
+      if (!user?.id) {
+        setGoals([])
+        setActionPlans([])
+        setCoins(0)
+        setActiveReward(null)
+        setLoading(false)
+        return
+      }
+
       setLoading(true)
+
       try {
-        const [goalResponse, planResponse, coinsResponse] = await Promise.all([
+        const [goalsResponse, plansResponse, coinsResponse] = await Promise.all([
           goalList(),
           actionPlanList(),
-          getCoins(user?.id),
+          getCoins(user.id),
         ])
 
         if (!active) return
 
-        const nextGoals = Array.isArray(goalResponse?.goals) ? goalResponse.goals : []
-        const nextPlans = Array.isArray(planResponse?.plans) ? planResponse.plans : []
-        const totalCoins = Number(coinsResponse?.data?.total || 0)
+        const nextGoals = extractGoals(goalsResponse)
 
         setGoals(nextGoals)
-        setActionPlans(nextPlans)
-        setCoins(totalCoins)
-      } catch (error) {
-        console.error('[PHASE 5] Failed to load goals/action plans for Home:', error)
+        setActionPlans(extractPlans(plansResponse))
+        setCoins(extractCoins(coinsResponse))
+
+        const activeRewardResponse = await getActiveReward({
+          userId: user.id,
+          goals: nextGoals,
+        })
+
         if (!active) return
-        setGoals([])
-        setActionPlans([])
-        setCoins(0)
+        setActiveReward(activeRewardResponse)
+      } catch (error) {
+        console.error('Failed to load homepage data:', error)
+
+        if (active) {
+          setGoals([])
+          setActionPlans([])
+          setCoins(0)
+          setActiveReward(null)
+        }
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 
-    loadHabitData()
+    loadHomeData()
 
     return () => {
       active = false
     }
   }, [user?.id])
 
+  useEffect(() => {
+    let active = true
+
+    async function loadFriends() {
+      if (!user?.id) {
+        setFriends([])
+        setFriendsLoading(false)
+        return
+      }
+
+      setFriendsLoading(true)
+
+      try {
+        const resp = await friendsList()
+
+        if (active && Array.isArray(resp?.data?.friends)) {
+          setFriends(resp.data.friends)
+        } else if (active) {
+          setFriends([])
+        }
+      } catch (err) {
+        console.error('Failed to load friends:', err)
+
+        if (active) {
+          setFriends([])
+        }
+      } finally {
+        if (active) setFriendsLoading(false)
+      }
+    }
+
+    loadFriends()
+
+    return () => {
+      active = false
+    }
+  }, [user?.id])
+
+  /* -------------------------------------------------------
+     FILTER GOALS FOR THIS USER
+     Only keep goals that belong to this user.
+  -------------------------------------------------------- */
   const visibleGoals = useMemo(() => {
-    if (!Array.isArray(goals) || !user?.id) return []
+    if (!user?.id) return []
 
     return goals.filter((goal) => {
-      const isAssignedToUser = String(goal?.assigneeId) === String(user.id)
-      const isCreatedByUser = String(goal?.createdById) === String(user.id)
-      return isAssignedToUser || isCreatedByUser
+      const assignedToUser = String(goal?.assigneeId) === String(user.id)
+      const createdByUser = String(goal?.createdById) === String(user.id)
+      const ownedByUser = String(goal?.userId) === String(user.id)
+      return assignedToUser || createdByUser || ownedByUser
     })
-  }, [goals, user])
+  }, [goals, user?.id])
 
+  /* -------------------------------------------------------
+     GOAL IDS FOR FAST LOOKUPS
+  -------------------------------------------------------- */
+  const visibleGoalIds = useMemo(() => {
+    return new Set(visibleGoals.map((goal) => String(goal.id)))
+  }, [visibleGoals])
+
+  /* -------------------------------------------------------
+     FILTER PLANS FOR VISIBLE GOALS
+  -------------------------------------------------------- */
+  const visiblePlans = useMemo(() => {
+    return actionPlans.filter((plan) =>
+      visibleGoalIds.has(String(plan?.goalId))
+    )
+  }, [actionPlans, visibleGoalIds])
+
+  /* -------------------------------------------------------
+     GOAL LOOKUP MAP
+     Lets us quickly find a plan's parent goal later.
+  -------------------------------------------------------- */
   const goalsById = useMemo(() => {
     const map = {}
+
     visibleGoals.forEach((goal) => {
       map[String(goal.id)] = goal
     })
+
     return map
   }, [visibleGoals])
 
-  const visibleActionPlans = useMemo(() => {
-    const visibleGoalIds = new Set(visibleGoals.map((goal) => String(goal.id)))
-    return (Array.isArray(actionPlans) ? actionPlans : []).filter((plan) =>
-      visibleGoalIds.has(String(plan.goalId))
-    )
-  }, [actionPlans, visibleGoals])
+  const plansById = useMemo(() => {
+    const map = {}
 
+    visiblePlans.forEach((plan) => {
+      map[String(plan.id)] = plan
+    })
+
+    return map
+  }, [visiblePlans])
+
+  /* -------------------------------------------------------
+     TODAY'S DUE ACTION PLANS
+     Only plans due today go in the action plan panel.
+  -------------------------------------------------------- */
   const todaysPlans = useMemo(() => {
-    return visibleActionPlans.filter((plan) => {
+    return visiblePlans.filter((plan) => {
       const schedule =
         plan?.schedule && typeof plan.schedule === 'object'
           ? plan.schedule
@@ -99,237 +393,838 @@ export default function Home() {
             ? plan.frequency
             : null
 
-      if (!schedule) return false
-      return isDueOnDate(schedule, todayISO)
+      return schedule ? isDueOnDate(schedule, todayISO) : false
     })
-  }, [visibleActionPlans, todayISO])
+  }, [visiblePlans, todayISO])
+
+  const taskActionPlanOptions = useMemo(() => {
+    return visiblePlans
+      .filter((plan) => plan?.completedDates?.[todayISO] !== true)
+      .map((plan) => {
+        const goal = goalsById[String(plan.goalId)]
+        const goalLabel = goal ? getGoalTitle(goal) : ''
+        const cueLabel =
+          plan?.cueDetail ||
+          plan?.cueLabel ||
+          plan?.meta?.cueDetail ||
+          plan?.meta?.cueLabel ||
+          plan?.cue ||
+          ''
+        const title = plan.title || 'Untitled plan'
+
+        return {
+          id: String(plan.id),
+          title,
+          cueLabel,
+          label: `${title}${cueLabel ? ` • ${cueLabel}` : ''}${goalLabel ? ` — ${goalLabel}` : ''}`,
+          goalId: plan.goalId ? String(plan.goalId) : null,
+          notes: plan.notes || '',
+        }
+      })
+  }, [visiblePlans, goalsById, todayISO])
 
   const activeStreakCount = useMemo(() => {
-    return visibleActionPlans.filter((plan) => Number(plan?.currentStreak || 0) > 0).length
-  }, [visibleActionPlans])
+    return visiblePlans.filter((plan) => Number(plan?.currentStreak || 0) > 0)
+      .length
+  }, [visiblePlans])
 
-  const assignedToMeCount = useMemo(() => {
-    return visibleGoals.filter((goal) => String(goal?.assigneeId) === String(user?.id)).length
-  }, [visibleGoals, user])
-
-  const managedForOthersCount = useMemo(() => {
-    return visibleGoals.filter(
-      (goal) =>
-        String(goal?.createdById) === String(user?.id) &&
-        String(goal?.assigneeId) !== String(user?.id)
+  /* -------------------------------------------------------
+     HOW MANY OF TODAY'S PLANS ARE COMPLETE
+  -------------------------------------------------------- */
+  const completedTodayCount = useMemo(() => {
+    return todaysPlans.filter(
+      (plan) => plan?.completedDates?.[todayISO] === true
     ).length
-  }, [visibleGoals, user])
+  }, [todaysPlans, todayISO])
 
-  const handleRewardFeedback = useCallback((newBadgeIds = [], coinPayload = null, planTitle = '') => {
-    if (Array.isArray(newBadgeIds) && newBadgeIds.length > 0) {
-      setRewardMessage(`New badge${newBadgeIds.length === 1 ? '' : 's'} earned: ${newBadgeIds.join(', ')}`)
+  /* -------------------------------------------------------
+     DAILY PROGRESS %
+  -------------------------------------------------------- */
+  const dailyProgress = useMemo(() => {
+    if (!todaysPlans.length) return 0
+    return Math.round((completedTodayCount / todaysPlans.length) * 100)
+  }, [completedTodayCount, todaysPlans.length])
+
+  const actionCueSections = useMemo(() => {
+    const sectionMap = new Map()
+
+    todaysPlans.forEach((plan) => {
+      const cueKey = getPlanCueKey(plan) || 'uncategorized'
+      const cueLabel = getPlanCueLabel(plan) || 'No cue'
+      const cueDetail = getPlanCueDetail(plan)
+      const goal = goalsById[String(plan?.goalId)]
+      const isComplete = plan?.completedDates?.[todayISO] === true
+
+      if (!sectionMap.has(cueKey)) {
+        sectionMap.set(cueKey, {
+          key: cueKey,
+          label: cueLabel,
+          items: [],
+        })
+      }
+
+      sectionMap.get(cueKey).items.push({
+        id: plan.id,
+        title: plan?.title || 'Untitled habit',
+        subLabel: getGoalTitle(goal),
+        detail: cueDetail,
+        isComplete,
+        habitType: plan?.taskType || plan?.type || goal?.taskType || goal?.type || goal?.goalType || 'build-habit',
+        raw: plan,
+      })
+    })
+
+    return Array.from(sectionMap.values())
+  }, [todaysPlans, goalsById, todayISO])
+
+  const speakActionPlans = useCallback(() => {
+    if (!supportsTTS) return
+
+    speakText(buildActionPlanSpeech({
+      name: user?.name?.split(' ').filter(Boolean)[0] || 'there',
+      ownerLabel: 'You',
+      sections: actionCueSections,
+    }))
+  }, [actionCueSections, supportsTTS, user?.name])
+
+  /* -------------------------------------------------------
+     REWARD BAR
+     Tracks the one active reward.
+  -------------------------------------------------------- */
+  const rewardProgress = useMemo(() => {
+    if (!activeReward?.costCoins || activeReward.costCoins <= 0) return 0
+    return Math.min(100, Math.round((coins / activeReward.costCoins) * 100))
+  }, [activeReward, coins])
+
+  const recordFriendPlanProgress = useCallback((planTitle) => {
+    if (!currentFriendUsername || !planTitle) return
+
+    logFriendActivity(currentFriendUsername, 'completed_plan', planTitle)
+  }, [currentFriendUsername])
+
+  const handleRedeemReward = useCallback(async () => {
+    if (!activeReward || redeemingReward) return
+
+    try {
+      setRedeemingReward(true)
+
+      const result = await redeemActiveReward({
+        reward: activeReward,
+        userId: user?.id,
+        goals: visibleGoals,
+      })
+
+      setCoins(Number(result?.remainingCoins || 0))
+      setActiveReward(null)
+
+      if (result?.updatedProfile) {
+        setProfile(result.updatedProfile)
+      }
+
+      setRewardToastType('success')
+      if (result?.purchasedItem?.name) {
+        setRewardMessage(`Redeemed reward and bought ${result.purchasedItem.name}!`)
+      } else {
+        setRewardMessage(`Redeemed ${result?.reward?.title || 'your reward'}!`)
+      }
+    } catch (error) {
+      console.error('Failed to redeem reward:', error)
+      setRewardToastType('error')
+      setRewardMessage(error?.message || 'Could not redeem reward.')
+    } finally {
+      setRedeemingReward(false)
     }
+  }, [activeReward, redeemingReward, user?.id, visibleGoals, setProfile])
 
-    const delta = Number(coinPayload?.delta || 0)
-    if (delta > 0) {
-      setSuccessMessage(`Completed ${planTitle || 'habit plan'} • earned ${delta} coins`)
-    } else if (delta === 0) {
-      setSuccessMessage(`Updated ${planTitle || 'habit plan'} for today`)
-    }
-  }, [])
+  /* -------------------------------------------------------
+     LATEST GOALS WITH PROGRESS %
+     Used in the goal list card.
+  -------------------------------------------------------- */
+  const latestGoals = useMemo(() => {
+    return visibleGoals.slice(0, 4).map((goal) => {
+      const plansForGoal = visiblePlans.filter(
+        (plan) => String(plan.goalId) === String(goal.id)
+      )
 
-  const handleToggleActionPlanCompletion = useCallback(
-    async (plan) => {
-      if (!plan) return null
+      const completed = plansForGoal.filter(
+        (plan) => plan?.completedDates?.[todayISO] === true
+      ).length
 
-      const goal = goalsById[String(plan.goalId)]
-      const milestoneRewards = Array.isArray(goal?.milestoneRewards) ? goal.milestoneRewards : []
+      const percent = plansForGoal.length
+        ? Math.round((completed / plansForGoal.length) * 100)
+        : 0
 
-      try {
-        const result = await togglePlanCompletion({
-          plan,
-          todayISO,
-          milestoneRewards,
-          setActionPlans,
-          onBadges: (badgeIds) => handleRewardFeedback(badgeIds, null, plan?.title),
-          onCoins: ({ delta = 0, total = null }) => {
-            const isForCurrentUser = String(plan?.assigneeId) === String(user?.id)
+      return {
+        id: goal.id,
+        title: goal.title || 'Untitled goal',
+        percent,
+      }
+    })
+  }, [visibleGoals, visiblePlans, todayISO])
 
-            if (isForCurrentUser) {
-              if (typeof total === 'number' && !Number.isNaN(total)) {
-                setCoins(total)
-              } else if (typeof delta === 'number' && !Number.isNaN(delta)) {
-                setCoins((prev) => Math.max(0, prev + delta))
-              }
-            }
+  const weekStart = useMemo(() => startOfWeekMonday(new Date()), [])
+  const weekDates = useMemo(() => {
+    return Array.from({ length: 7 }, (_, index) =>
+      toLocalISODate(addDays(weekStart, index))
+    )
+  }, [weekStart])
 
-            handleRewardFeedback([], { delta, total }, plan?.title)
-          },
-          onAfterToggle: () => {
-            setWeekRefreshKey((prev) => prev + 1) //refresh weekly overview after calendar-affecting changes
-          },
+  const weeklyTotals = useMemo(() => {
+    return weekDates.reduce(
+      (acc, iso) => {
+        const duePlans = visiblePlans.filter((plan) => {
+          const schedule =
+            plan?.schedule && typeof plan.schedule === 'object'
+              ? plan.schedule
+              : plan?.frequency && typeof plan.frequency === 'object'
+                ? plan.frequency
+                : null
+
+          return schedule ? isDueOnDate(schedule, iso) : false
         })
 
-        return result
-      } catch (error) {
-        console.error('[PHASE 5] Failed to toggle action plan completion:', error)
-        return null
-      }
-    },
-    [goalsById, handleRewardFeedback, todayISO, user?.id]
-  )
+        const doneCount = duePlans.filter(
+          (plan) => plan?.completedDates?.[iso] === true
+        ).length
 
+        acc.totalDue += duePlans.length
+        acc.totalDone += doneCount
+        return acc
+      },
+      { totalDue: 0, totalDone: 0 }
+    )
+  }, [visiblePlans, weekDates])
+
+  const weeklyBadgeCount = useMemo(() => {
+    const weekEnd = addDays(weekStart, 7)
+    const mergedBadgeDates = new Map()
+
+    const profileMeta =
+      profile?.meta && typeof profile.meta === 'object' ? profile.meta : {}
+
+    const profileBadgeDates =
+      profileMeta.badgeEarnedDates &&
+      typeof profileMeta.badgeEarnedDates === 'object'
+        ? profileMeta.badgeEarnedDates
+        : {}
+
+    Object.entries(profileBadgeDates).forEach(([badgeId, earnedAt]) => {
+      mergedBadgeDates.set(badgeId, earnedAt || null)
+    })
+
+    visiblePlans.forEach((plan) => {
+      const badgeDates =
+        plan?.badgeEarnedDates && typeof plan.badgeEarnedDates === 'object'
+          ? plan.badgeEarnedDates
+          : {}
+
+      Object.entries(badgeDates).forEach(([badgeId, earnedAt]) => {
+        const existing = mergedBadgeDates.get(badgeId)
+        const nextTime = earnedAt ? new Date(earnedAt).getTime() : 0
+        const existingTime = existing ? new Date(existing).getTime() : 0
+
+        if (!existing || nextTime > existingTime) {
+          mergedBadgeDates.set(badgeId, earnedAt || null)
+        }
+      })
+    })
+
+    return Array.from(mergedBadgeDates.values()).filter((earnedAt) => {
+      if (!earnedAt) return false
+      const date = new Date(earnedAt)
+      if (Number.isNaN(date.getTime())) return false
+      return date >= weekStart && date < weekEnd
+    }).length
+  }, [profile, visiblePlans, weekStart])
+
+  const weeklySummary = useMemo(() => {
+    const COINS_PER_COMPLETION = 20
+
+    return [
+      {
+        key: 'badges',
+        icon: '🏅',
+        label: 'Badges',
+        value: weeklyBadgeCount,
+        tone: 'is-blue',
+      },
+      {
+        key: 'due',
+        icon: '🗓',
+        label: 'Due',
+        value: weeklyTotals.totalDue,
+        tone: 'is-gold',
+      },
+      {
+        key: 'done',
+        icon: '✅',
+        label: 'Done',
+        value: weeklyTotals.totalDone,
+        tone: 'is-green',
+      },
+      {
+        key: 'streaks',
+        icon: '🔥',
+        label: 'Streaks',
+        value: activeStreakCount,
+        tone: 'is-orange',
+      },
+      {
+        key: 'coins',
+        icon: '🪙',
+        label: 'Coins',
+        value: weeklyTotals.totalDone * COINS_PER_COMPLETION,
+        tone: 'is-purple',
+      },
+    ]
+  }, [weeklyBadgeCount, weeklyTotals, activeStreakCount])
+
+  const completePlanForToday = useCallback(async (plan) => {
+    if (!plan) return
+
+    const goal = goalsById[String(plan.goalId)]
+    const milestoneRewards = Array.isArray(goal?.milestoneRewards)
+      ? goal.milestoneRewards
+      : []
+
+    try {
+      await togglePlanCompletion({
+        plan,
+        todayISO,
+        milestoneRewards,
+        setActionPlans,
+
+        onBadges: (badgeIds) => {
+          if (badgeIds?.length) {
+            setRewardMessage(
+              `New badge${badgeIds.length === 1 ? '' : 's'} earned: ${badgeIds.join(', ')}`
+            )
+          }
+        },
+
+        onCoins: ({ delta = 0, total = null }) => {
+          if (String(plan?.assigneeId) === String(user?.id)) {
+            if (typeof total === 'number' && !Number.isNaN(total)) {
+              setCoins(total)
+            } else if (typeof delta === 'number' && !Number.isNaN(delta)) {
+              setCoins((prev) => Math.max(0, prev + delta))
+            }
+          }
+
+          if (delta > 0) {
+            recordFriendPlanProgress(plan?.title || 'habit plan')
+            setSuccessMessage(
+              `Completed ${plan?.title || 'habit plan'} • earned ${delta} coins`
+            )
+          } else {
+            setSuccessMessage(`Updated ${plan?.title || 'habit plan'} for today`)
+          }
+        },
+      })
+    } catch (error) {
+      console.error('Failed to toggle plan completion:', error)
+    }
+  }, [goalsById, todayISO, user?.id, recordFriendPlanProgress])
+
+  const syncLinkedPlanFromTask = useCallback(async (task) => {
+    if (!task?.linkedActionPlanId) return
+
+    const linkedPlan = visiblePlans.find(
+      (plan) => String(plan?.id) === String(task.linkedActionPlanId)
+    )
+
+    if (!linkedPlan) return
+    if (linkedPlan?.completedDates?.[todayISO] === true) return
+
+    await completePlanForToday(linkedPlan)
+  }, [visiblePlans, todayISO, completePlanForToday])
+
+  /* -------------------------------------------------------
+     PLAN TOGGLE HANDLER
+     This is the real completion logic for action plans.
+  -------------------------------------------------------- */
+  const handleTogglePlan = useCallback(async (plan) => {
+    await completePlanForToday(plan)
+  }, [completePlanForToday])
+
+  const refreshTasks = useCallback(async () => {
+    if (!user?.id) {
+      setTasks([])
+      setTasksLoading(false)
+      return
+    }
+
+    try {
+      setTasksLoading(true)
+
+      const response = await taskList({
+        assigneeId: String(user.id),
+      })
+
+      if (response?.status_code >= 400) {
+        throw new Error(response?.error || 'Failed to load tasks.')
+      }
+
+      setTasks(response?.data?.tasks || [])
+    } catch (error) {
+      console.error('Failed to load tasks:', error)
+      setTasks([])
+    } finally {
+      setTasksLoading(false)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    refreshTasks()
+  }, [refreshTasks])
+
+  const activeTasks = useMemo(() => {
+    return tasks.filter((task) => String(task?.status || '').toLowerCase() === 'active')
+  }, [tasks])
+
+  const pendingTasks = useMemo(() => {
+    return tasks.filter((task) => String(task?.status || '').toLowerCase() === 'pending')
+  }, [tasks])
+
+  const completedTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const status = String(task?.status || '').toLowerCase()
+      return status === 'completed' || status === 'done'
+    })
+  }, [tasks])
+
+  const focusedTask = useMemo(() => {
+    return tasks.find((task) => String(task.id) === String(focusedTaskId)) || null
+  }, [tasks, focusedTaskId])
+
+  const openTaskBuilder = useCallback(() => {
+    setFocusedTaskId(null)
+    setTaskView('builder')
+  }, [])
+
+  const openTaskFocus = useCallback((taskId) => {
+    setFocusedTaskId(taskId)
+    setTaskView('focus')
+  }, [])
+
+  const goBackToTaskBoard = useCallback(() => {
+    setFocusedTaskId(null)
+    setTaskView('board')
+  }, [])
+
+  const handleTaskCreated = useCallback(async () => {
+    await refreshTasks()
+  }, [refreshTasks])
+
+  const handleStartTask = useCallback(async (taskId) => {
+    try {
+      const response = await taskStart(taskId)
+
+      if (response?.status_code >= 400) {
+        throw new Error(response?.error || 'Could not start task.')
+      }
+
+      setSuccessMessage('Timed task started.')
+      await refreshTasks()
+    } catch (error) {
+      console.error('Failed to start task:', error)
+    }
+  }, [refreshTasks, setSuccessMessage])
+
+  const handleCompleteTask = useCallback(async (taskId, title = 'task', source = 'manual') => {
+    try {
+      const currentTask =
+        tasks.find((task) => String(task.id) === String(taskId)) || null
+
+      const response = await taskComplete(taskId, source)
+
+      if (response?.status_code >= 400) {
+        throw new Error(response?.error || 'Could not complete task.')
+      }
+
+      const updatedTask = response?.data?.task || currentTask
+      await syncLinkedPlanFromTask(updatedTask)
+
+      setSuccessMessage(
+        source === 'timer'
+          ? `${title} finished automatically.`
+          : `Completed ${title}`
+      )
+      await refreshTasks()
+    } catch (error) {
+      console.error('Failed to complete task:', error)
+    }
+    }, [tasks, syncLinkedPlanFromTask, refreshTasks, setSuccessMessage])
+
+  const handleToggleTaskChecklistItem = useCallback(async (taskId, itemId) => {
+    try {
+      const previousTask =
+        tasks.find((task) => String(task.id) === String(taskId)) || null
+
+      const response = await taskToggleChecklistItem(taskId, itemId)
+
+      if (response?.status_code >= 400) {
+        throw new Error(response?.error || 'Could not update checklist.')
+      }
+
+      const updatedTask = response?.data?.task || null
+
+      if (
+        updatedTask?.status === 'completed' &&
+        previousTask?.status !== 'completed'
+      ) {
+        await syncLinkedPlanFromTask(updatedTask)
+      }
+
+      await refreshTasks()
+    } catch (error) {
+      console.error('Failed to toggle checklist item:', error)
+    }
+  }, [tasks, syncLinkedPlanFromTask, refreshTasks])
+
+  const handleDeleteTask = useCallback(async (taskId) => {
+    try {
+      const response = await taskDelete(taskId)
+
+      if (response?.status_code >= 400) {
+        throw new Error(response?.error || 'Could not delete task.')
+      }
+
+      setSuccessMessage('Task deleted.')
+      await refreshTasks()
+    } catch (error) {
+      console.error('Failed to delete task:', error)
+    }
+  }, [refreshTasks, setSuccessMessage])
+
+  /* -------------------------------------------------------
+     SIMPLE LOGIN GUARD
+  -------------------------------------------------------- */
   if (!user) {
     return (
-      <section className="container" style={{ padding: '1.5rem 1rem' }}>
+      <section className="home-empty">
         <h1>Home</h1>
-        <p className="sub hero">You need to log in first.</p>
+        <p>You need to log in first.</p>
       </section>
     )
   }
 
+  /* =======================================================
+     RENDER
+  ======================================================== */
   return (
     <div className="dashboard-shell">
-      <Toast message={successMessage} type="success" onClose={() => setSuccessMessage('')} />
-      <Toast message={rewardMessage} type="success" onClose={() => setRewardMessage('')} />
+      <section className="home-page">
+        {/* Toasts for success and reward messages */}
+        <Toast
+          message={successMessage}
+          type="success"
+          onClose={() => setSuccessMessage('')}
+        />
+        <Toast
+          message={rewardMessage}
+          type={rewardToastType}
+          onClose={() => setRewardMessage('')}
+        />
 
-      <div className="homeDashboard">
-        <header className="homeHeader">
-          <div className="homeHeaderTop">
-            <div>
-              <h1 className="homeTitle">Good day, {user?.name || 'there'}</h1>
-              <p className="homeSub">
-                Your new habit system is now interactive here.
-              </p>
+        {/* Fixed 1920px canvas that matches your desktop wireframe */}
+        <div className="home-canvas">
+          {/* ---------------- TOP BAR ---------------- */}
+          <div className="home-topbar-grid">
+            {/* Greeting + quote */}
+            <div className="home-panel home-panel--greeting">
+              <div className="home-panel__title app-page-title">
+                {getGreetingPrefix()}, <span className="home-greeting__name">{user?.name?.split(' ')[0] || 'there'}</span>!
+              </div>
+              <p className="home-quote app-helper-text">{getDailyQuote()}</p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  padding: '.5rem .8rem',
-                  borderRadius: '999px',
-                  border: '1px solid var(--hw-border)',
-                  background: 'linear-gradient(135deg, #fffaf0, #fef3c7)',
-                  fontWeight: 800,
-                  color: '#8a5a00',
-                }}
-              >
-                🪙 {coins}
-              </div>
+            {/* Time + date */}
+            <div className="home-panel home-panel--datetime">
+              <div className="home-mini-line app-micro-text">🗓 {formatShortDate(today)}</div>
+              <div className="home-mini-line app-micro-text">🕒 {clockTime}</div>
+            </div>
 
-              <button type="button" className="btn" onClick={() => navigate('/habit-wizard')}>
+            {/* Reward bar */}
+            <div className="home-panel home-panel--reward">
+              <div className="home-reward-header">
+                <div className="home-reward-header__title app-card-title">
+                  {activeReward?.title || 'No reward set'}
+                </div>
+                <div className={`home-reward-status app-micro-text ${activeReward && coins >= activeReward.costCoins ? 'home-reward-status--ready' : ''}`}>
+                  {activeReward
+                    ? coins < activeReward.costCoins
+                      ? <><span className="home-reward-status__coins">{coins.toLocaleString()}</span><span className="home-reward-status__sep">/</span><span>{activeReward.costCoins.toLocaleString()}</span></>
+                      : <span className="home-reward-status--ready-label">✨ Ready to redeem!</span>
+                    : <span>Pick a reward to start saving</span>}
+                </div>
+              </div>
+              <div className="home-reward-row">
+                <div className="home-reward-track-wrap">
+                  <div className="home-progress-track">
+                    <div className="home-progress-fill" style={{ width: `${rewardProgress}%` }} />
+                  </div>
+                  <div className="home-reward-pct">{rewardProgress}%</div>
+                </div>
+                <button
+                  type="button"
+                  className={`home-redeem-btn btn-success ${activeReward && coins >= activeReward.costCoins ? 'home-redeem-btn--unlocked' : ''}`}
+                  onClick={handleRedeemReward}
+                  disabled={!activeReward || redeemingReward || coins < activeReward.costCoins}
+                  aria-label="Redeem reward"
+                  title="Redeem reward"
+                >
+                  <span aria-hidden="true">{redeemingReward ? '⏳' : '✓'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Coin display */}
+            <div className="home-panel home-panel--coins">
+              <span className="home-coin-icon">🪙</span>
+              <span className="home-coin-number app-card-title">{coins.toLocaleString()}</span>
+            </div>
+
+            {/* Create habit button */}
+            <div className="home-panel home-panel--cta">
+              <button
+                type="button"
+                className="home-primary-btn app-button-label"
+                onClick={() => navigate('/habit-wizard')}
+              >
                 Create habit
               </button>
             </div>
           </div>
-        </header>
 
-        <div className="homeGrid">
-          <main className="homeMain">
-            <section className="dashboard-card">
-              <h2 className="sectionTitle">Today&apos;s plans</h2>
-
-              <div style={{ marginTop: 12 }}>
-                {loading ? (
-                  <p className="dashboard-emptyText">Loading your action plans…</p>
-                ) : (
-                  <HabitPlanList
-                    plans={todaysPlans}
-                    todayISO={todayISO}
-                    onToggleCompletion={handleToggleActionPlanCompletion}
-                    emptyTitle="Nothing due today"
-                    emptyDescription="Once your schedules line up with today, they will show here."
-                    limit={8}
-                    showAssignee
-                    showType
-                    showTrigger
-                    showStreak
-                  />
+          {/* ---------------- MAIN GRID ---------------- */}
+          <div className="home-main-grid">
+            {/* Action plan panel: reusable cue-grouped card */}
+            <div className="home-panel--action">
+              <CuePlanCard
+                title="Action plan"
+                headerAction={(
+                  <button
+                    type="button"
+                    className="cueCard__readButton app-button-label"
+                    onClick={speakActionPlans}
+                    disabled={!supportsTTS}
+                    aria-label="Read action plans aloud"
+                    title={supportsTTS ? 'Read action plans aloud' : 'Text-to-speech not supported'}
+                  >
+                    <span aria-hidden="true">🔊</span>
+                    <span>Read</span>
+                  </button>
                 )}
-              </div>
+                progressLabel="Daily progress"
+                progressValue={dailyProgress}
+                progressValueText={`${dailyProgress}%`}
+                sections={actionCueSections}
+                loading={loading}
+                loadingText="Loading today's plans…"
+                emptyTitle="Nothing due today"
+                emptyDescription="Your action plans due today will show here."
+                onItemClick={handleTogglePlan}
+              />
+            </div>
+
+            <section className="home-panel home-panel--workspace">
+              {taskView === 'board' ? (
+                <MissionsBoard
+                  title="Your missions"
+                  primaryActionLabel="Create task"
+                  onPrimaryAction={openTaskBuilder}
+                  activeTasks={activeTasks}
+                  pendingTasks={pendingTasks}
+                  completedTasks={completedTasks.slice(0, 4)}
+                  onOpenTask={openTaskFocus}
+                  onStartTask={async (taskId) => {
+                    await handleStartTask(taskId)
+                    openTaskFocus(taskId)
+                  }}
+                  onCompleteTask={handleCompleteTask}
+                  onDeleteTask={handleDeleteTask}
+                  emptyReadyText={tasksLoading ? 'Loading tasks…' : 'You are all caught up right now.'}
+                  emptyFinishedText={tasksLoading ? 'Loading tasks…' : 'Finish a mission to see it here.'}
+                />
+              ) : null}
+
+              {taskView === 'builder' ? (
+                <TaskAssignmentPanel
+                  mode="self"
+                  currentUser={user}
+                  actionPlanOptions={taskActionPlanOptions}
+                  onCreated={async () => {
+                    await handleTaskCreated()
+                    goBackToTaskBoard()
+                  }}
+                  onCancel={goBackToTaskBoard}
+                />
+              ) : null}
+
+              {taskView === 'focus' ? (
+                <FocusMissionPanel
+                  task={focusedTask}
+                  plansById={plansById}
+                  goalsById={goalsById}
+                  onBack={goBackToTaskBoard}
+                  onStartTask={handleStartTask}
+                  onCompleteTask={handleCompleteTask}
+                  onToggleChecklistItem={handleToggleTaskChecklistItem}
+                  onDeleteTask={async (taskId) => {
+                    await handleDeleteTask(taskId)
+                    goBackToTaskBoard()
+                  }}
+                />
+              ) : null}
             </section>
 
-            <section className="dashboard-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <h2 className="sectionTitle">Saved goals</h2>
-                <span className="dashboardInlineChip">Interactive view</span>
+            {/* Goal list card */}
+            <section className="home-panel home-panel--goals">
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                }}
+              >
+                <div className="home-panel__title app-panel-title">Goal list</div>
+                <button
+                  type="button"
+                  className="home-secondary-btn app-button-label"
+                  onClick={() => navigate('/goals')}
+                >
+                  View all goals
+                </button>
               </div>
 
               {loading ? (
-                <p className="dashboard-emptyText" style={{ marginTop: 12 }}>Loading your goals…</p>
-              ) : visibleGoals.length > 0 ? (
-                <ul className="goalCardsList">
-                  {visibleGoals.map((goal) => (
-                    <li key={goal.id}>
-                      <GoalCard
-                        goal={goal}
-                        actionPlans={visibleActionPlans.filter(
-                          (plan) => String(plan.goalId) === String(goal.id)
-                        )}
-                        todayISO={todayISO}
-                        onToggleActionPlanCompletion={handleToggleActionPlanCompletion}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                <p className="home-muted app-helper-text">Loading goals…</p>
+              ) : latestGoals.length === 0 ? (
+                <p className="home-muted app-helper-text">No goals yet.</p>
               ) : (
-                <p className="dashboard-emptyText" style={{ marginTop: 12 }}>
-                  No goals are visible yet. Create one in the Habit Wizard or from the parent dashboard.
-                </p>
+                <div className="home-goal-list">
+                  {latestGoals.map((goal, index) => (
+                    <div className="home-goal-item" key={goal.id}>
+                      <div className="home-goal-item__row">
+                        <span className="home-goal-item__title app-card-title">{goal.title}</span>
+                        <span className="home-goal-item__value app-micro-text">{goal.percent}%</span>
+                      </div>
+
+                      <div className="home-progress-track">
+                        <div
+                          className={`home-progress-fill color-${index % 4}`}
+                          style={{ width: `${goal.percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
-          </main>
 
-          <aside className="homeSide">
-            <section className="dashboard-card">
-              {/* weekly habit overview strip linking into the calendar page */}
-              <WeekStrip assigneeId={user?.id} refreshKey={weekRefreshKey} onExpandClick={() => navigate('/calendar')} />
-            </section>
-
-            <section className="dashboard-card">
-              <h2 className="sectionTitle">Overview</h2>
-              <div className="statsGrid" style={{ marginTop: 12 }}>
-                <div className="statCard">
-                  <div className="statLabel">Visible goals</div>
-                  <div className="statValue">{visibleGoals.length}</div>
-                  <div className="statSub">Goals you own or created</div>
+            {/* Weekly calendar card spanning the lower middle width */}
+            <section className="home-panel home-panel--calendar">
+              <div className="home-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div className="home-panel__title app-panel-title">Weekly calendar</div>
                 </div>
 
-                <div className="statCard">
-                  <div className="statLabel">Plans due today</div>
-                  <div className="statValue">{todaysPlans.length}</div>
-                  <div className="statSub">Scheduled for {todayISO}</div>
-                </div>
+                <button
+                  type="button"
+                  className="home-secondary-btn home-calendar-open-btn app-button-label"
+                  onClick={() => navigate('/calendar')}
+                >
+                  Open calendar
+                </button>
+              </div>
 
-                <div className="statCard">
-                  <div className="statLabel">Active streaks</div>
-                  <div className="statValue">{activeStreakCount}</div>
-                  <div className="statSub">Plans with a current streak above zero</div>
-                </div>
+              <WeekStrip
+                assigneeId={user?.id}
+                hideDefaultHeader
+                variant="home"
+                showDetails={false}
+                weekStartsOn="monday"
+                refreshKey={`${todayISO}-${completedTodayCount}-${coins}`}
+              />
 
-                <div className="statCard">
-                  <div className="statLabel">Coins</div>
-                  <div className="statValue">{coins}</div>
-                  <div className="statSub">New habit-system balance</div>
-                </div>
+              <div className="home-week-summary">
+                {weeklySummary.map((stat) => (
+                  <article
+                    key={stat.key}
+                    className={`home-week-summary__card ${stat.tone}`}
+                  >
+                    <div className="home-week-summary__icon" aria-hidden="true">
+                      {stat.icon}
+                    </div>
+                    <div className="home-week-summary__value app-card-title">
+                      {Number(stat.value || 0).toLocaleString()}
+                    </div>
+                    <div className="home-week-summary__label app-meta-label">
+                      {stat.label}
+                    </div>
+                  </article>
+                ))}
               </div>
             </section>
 
-            <section className="dashboard-card">
-              <h2 className="sectionTitle">Breakdown</h2>
-              <div className="infoList">
-                <div className="infoRow">
-                  <span className="infoLabel">Assigned to you</span>
-                  <span className="infoValue">{assignedToMeCount}</span>
-                </div>
-                <div className="infoRow">
-                  <span className="infoLabel">Created for others</span>
-                  <span className="infoValue">{managedForOthersCount}</span>
-                </div>
-                <div className="infoRow">
-                  <span className="infoLabel">Visible action plans</span>
-                  <span className="infoValue">{visibleActionPlans.length}</span>
-                </div>
+            {/* Friends list card */}
+            <section className="home-panel home-panel--badges">
+              <div className="home-badges-header">
+                <div className="home-panel__title app-panel-title">Friends</div>
+                {!!friends.length && (
+                  <div className="home-badges-count app-micro-text">{friends.length} online</div>
+                )}
               </div>
+
+              {friendsLoading ? (
+                <p className="home-muted app-helper-text">Loading friends…</p>
+              ) : friends.length === 0 ? (
+                <div className="home-badges-empty app-helper-text">
+                  Add friends to see them here.
+                </div>
+              ) : (
+                <div className="home-badges-list">
+                  {friends.map((friend) => (
+                    <div key={friend.id} className="home-friend-row">
+                      <div className="home-friend-avatar">
+                        {friend.name?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div className="home-friend-info">
+                        <div className="home-friend-name app-card-title">{friend.name}</div>
+                        {friend.streak > 0 && (
+                          <div className="home-friend-meta app-micro-text">
+                            🔥 {friend.streak} day streak
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
-          </aside>
+
+            {/* Avatar card in the lower-right */}
+            <section className="home-panel home-panel--avatar">
+              <div className="home-panel__title app-panel-title">Avatar display</div>
+
+              <div className="home-avatar-shell">
+                {inventoryItems?.length ? (
+                  <DisplayAvatar invItems={inventoryItems} />
+                ) : (
+                  <div className="home-avatar-fallback">
+                    {getInitials(user?.name)}
+                  </div>
+                )}
+              </div>
+
+              <div className="home-avatar-name app-card-title">{user?.name || 'John Doe'}</div>
+              <div className="home-avatar-rank app-helper-text">Habit Tracker Pro</div>
+            </section>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   )
 }

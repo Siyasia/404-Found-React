@@ -1,213 +1,944 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
+import { useAppTheme } from '../styles/AppThemeContext.jsx';
 import { ROLE } from '../Roles/roles.js';
-import React, { useState, useEffect } from 'react';
-import {friendsList, friendsAdd, friendsRemove, friendsProfileGet} from '../lib/api/friends.js';
-import { useGameProfile } from '../components/useGameProfile';
+import {
+  friendsList,
+  friendsAdd,
+  friendsRemove,
+  friendsProfileGet,
+  friendsAccept,
+  friendsDecline,
+} from '../lib/api/friends.js';
+import { useGameProfile } from '../components/useGameProfile.jsx';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
 import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
-import { GameProfile } from "../models";
+import { GameProfile } from '../models';
 import { userUpdate } from '../lib/api/user.js';
+import {
+  emitFriendRequestsRefresh,
+  useFriendRequests,
+} from '../lib/hooks/useFriendRequests.js';
+import { getFriendDisplayName } from '../lib/friendsIdentity.js';
+import { BADGE_DEFINITIONS, evaluateBadgeIds } from '../lib/api/badges.js';
+import { goalList } from '../lib/api/goals.js';
+import { actionPlanList } from '../lib/api/actionPlans.js';
+import { taskList } from '../lib/api/tasks.js';
+import './Profile.css';
+
+function roleLabel(role) {
+  if (role === ROLE.PARENT) return 'Parent';
+  if (role === ROLE.PROVIDER) return 'Provider';
+  if (role === ROLE.CHILD) return 'Child';
+  return 'User';
+}
+
+function getFriendRowKey(friendObj) {
+  if (!friendObj) return '';
+  return String(
+    friendObj.id ||
+      (friendObj.code
+        ? `${friendObj.username}#${friendObj.code}`
+        : friendObj.username || friendObj.name || '')
+  ).trim();
+}
+
+function getFriendLookupKey(friendObj) {
+  if (!friendObj) return '';
+  const username = String(friendObj.username || friendObj.name || '').trim();
+  const code = String(friendObj.code || '').trim();
+
+  if (!username) return '';
+  return code ? `${username}#${code}` : username;
+}
+
+function extractGoals(response) {
+  if (Array.isArray(response?.goals)) return response.goals;
+  if (Array.isArray(response?.data?.goals)) return response.data.goals;
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
+}
+
+function extractPlans(response) {
+  if (Array.isArray(response?.plans)) return response.plans;
+  if (Array.isArray(response?.data?.plans)) return response.data.plans;
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
+}
+
+function extractTasks(response) {
+  if (Array.isArray(response?.tasks)) return response.tasks;
+  if (Array.isArray(response?.data?.tasks)) return response.data.tasks;
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
+}
+
+function toId(value) {
+  if (value == null) return '';
+  return String(value);
+}
+
+function planBestStreak(plan) {
+  const best = Number(plan?.bestStreak ?? plan?.meta?.bestStreak);
+  if (Number.isFinite(best) && best >= 0) return best;
+
+  const current = Number(plan?.currentStreak ?? plan?.streak ?? plan?.meta?.currentStreak);
+  if (Number.isFinite(current) && current >= 0) return current;
+
+  return 0;
+}
+
+function planCurrentStreak(plan) {
+  const current = Number(plan?.currentStreak ?? plan?.streak ?? plan?.meta?.currentStreak);
+  return Number.isFinite(current) && current >= 0 ? current : 0;
+}
+
+function planTotalCompletions(plan) {
+  const directTotal = Number(plan?.totalCompletions ?? plan?.meta?.totalCompletions);
+  if (Number.isFinite(directTotal) && directTotal >= 0) return directTotal;
+
+  const completedDates = plan?.completedDates;
+  if (completedDates && typeof completedDates === 'object' && !Array.isArray(completedDates)) {
+    return Object.values(completedDates).filter(Boolean).length;
+  }
+
+  const completionLog = plan?.completionLog ?? plan?.meta?.completionLog;
+  if (completionLog && typeof completionLog === 'object' && !Array.isArray(completionLog)) {
+    return Object.values(completionLog).filter(Boolean).length;
+  }
+
+  return 0;
+}
 
 export default function Profile() {
-  
+  const navigate = useNavigate();
   const { user, setUser } = useUser();
-  const { profile, saveProfile, loading, error } = useGameProfile();
-  const { items, loading: itemLoading, error: itemError } = useItems();
+  const { themeId, setThemeId, allowedThemes, allThemes } = useAppTheme();
+  console.log('themeId from provider:', themeId, 'allowedThemes:', allowedThemes);
+  const { profile, loading } = useGameProfile();
+  const { items, loading: itemLoading } = useItems();
+
   const invItems = useInventory(profile, items);
 
   const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
   const [friendInput, setFriendInput] = useState('');
   const [friendError, setFriendError] = useState('');
+  const [friendNotice, setFriendNotice] = useState('');
   const [friendProfile, setFriendProfile] = useState(null);
   const [loadingFriend, setLoadingFriend] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [savingAppTheme, setSavingAppTheme] = useState(false);
+  const [friendActionBusy, setFriendActionBusy] = useState('');
+  const [realStats, setRealStats] = useState({
+    tasksCompleted: 0,
+    habitsBuilt: 0,
+    habitsBroken: 0,
+    longestStreak: 0,
+  });
+  const [badgeProgressStats, setBadgeProgressStats] = useState({
+    current: 0,
+    longest: 0,
+    totalCompletions: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const themeMode = user?.themeMode || (user?.theme === 'dark' ? 'dark' : 'light');
-  const friendInvItems = useInventory(
-    friendProfile?.game_profile,
-    items
+  const friendInvItems = useInventory(friendProfile?.game_profile, items);
+
+  const usesUsernameIdentity = user?.role === ROLE.CHILD || user?.role === ROLE.USER;
+  const showFriends = user?.role !== ROLE.PROVIDER;
+
+  const { pendingCount, requests, refetch } = useFriendRequests(
+    30000,
+    showFriends && Boolean(user)
   );
 
-  //Sprint 5: Comparing parent / provider for friends
+  const refreshFriends = useCallback(async () => {
+    try {
+      const res = await friendsList();
+
+      if (res.status === 200) {
+        setFriends(Array.isArray(res.data?.friends) ? res.data.friends : []);
+        setFriendRequests(Array.isArray(res.data?.requests) ? res.data.requests : []);
+      } else {
+        setFriendError(res.data?.error || 'Failed to load friends');
+      }
+
+      return res;
+    } catch (error) {
+      console.error(error);
+      setFriendError('Failed to load friends');
+      return { status: 500, data: { error: 'Failed to load friends' } };
+    }
+  }, []);
+
   useEffect(() => {
     async function load() {
-      if (user?.role === ROLE.PARENT || user?.role === ROLE.PROVIDER) return;
-      const res = await friendsList();
-      if (res.status === 200 && res.data?.friends) setFriends(res.data.friends);
+      if (user?.role === ROLE.PROVIDER) return;
+      await refreshFriends();
     }
     load();
-  }, [user]);
+  }, [user?.role, refreshFriends]);
 
+  useEffect(() => {
+    setFriendRequests(Array.isArray(requests) ? requests : []);
+  }, [requests]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadStats() {
+      if (!user?.id) {
+        if (active) {
+          setRealStats({
+            tasksCompleted: 0,
+            habitsBuilt: 0,
+            habitsBroken: 0,
+            longestStreak: 0,
+          });
+          setBadgeProgressStats({
+            current: 0,
+            longest: 0,
+            totalCompletions: 0,
+          });
+          setStatsLoading(false);
+        }
+        return;
+      }
+
+      setStatsLoading(true);
+
+      try {
+        const [goalsResp, plansResp, tasksResp] = await Promise.all([
+          goalList(),
+          actionPlanList(),
+          taskList({ assigneeId: user.id }),
+        ]);
+
+        if (!active) return;
+
+        const goals = extractGoals(goalsResp);
+        const plans = extractPlans(plansResp);
+        const tasks = extractTasks(tasksResp);
+
+        const visibleGoals = goals.filter((goal) => {
+          const assignedToUser = toId(goal?.assigneeId) === toId(user.id);
+          const createdByUser = toId(goal?.createdById) === toId(user.id);
+          const ownedByUser = toId(goal?.userId) === toId(user.id);
+          return assignedToUser || createdByUser || ownedByUser;
+        });
+
+        const visiblePlans = plans.filter((plan) => {
+          const assignedToUser = toId(plan?.assigneeId) === toId(user.id);
+          const createdByUser = toId(plan?.createdById) === toId(user.id);
+          const ownedByUser = toId(plan?.userId) === toId(user.id);
+          return assignedToUser || createdByUser || ownedByUser;
+        });
+
+        const tasksCompleted = tasks.filter((task) => {
+          const status = String(task?.status || '').toLowerCase();
+          return status === 'completed' || status === 'done';
+        }).length;
+
+        const habitsBuilt = visibleGoals.filter((goal) => {
+          const type = String(goal?.goalType || goal?.type || goal?.taskType || '').toLowerCase();
+          return type === 'build';
+        }).length;
+
+        const habitsBroken = visibleGoals.filter((goal) => {
+          const type = String(goal?.goalType || goal?.type || goal?.taskType || '').toLowerCase();
+          return type === 'break';
+        }).length;
+
+        const longestStreak = visiblePlans.reduce((max, plan) => {
+          return Math.max(max, planBestStreak(plan));
+        }, 0);
+        const currentStreak = visiblePlans.reduce((max, plan) => {
+          return Math.max(max, planCurrentStreak(plan));
+        }, 0);
+        const totalCompletions = visiblePlans.reduce((sum, plan) => {
+          return sum + planTotalCompletions(plan);
+        }, 0);
+        const inferredCurrentStreak = Math.max(currentStreak, longestStreak);
+        const inferredTotalCompletions = Math.max(totalCompletions, longestStreak);
+
+        setRealStats({
+          tasksCompleted,
+          habitsBuilt,
+          habitsBroken,
+          longestStreak,
+        });
+        setBadgeProgressStats({
+          current: inferredCurrentStreak,
+          longest: longestStreak,
+          totalCompletions: inferredTotalCompletions,
+        });
+      } catch (error) {
+        console.error('Failed to load profile stats:', error);
+        if (active) {
+          setRealStats({
+            tasksCompleted: 0,
+            habitsBuilt: 0,
+            habitsBroken: 0,
+            longestStreak: 0,
+          });
+          setBadgeProgressStats({
+            current: 0,
+            longest: 0,
+            totalCompletions: 0,
+          });
+        }
+      } finally {
+        if (active) setStatsLoading(false);
+      }
+    }
+
+    loadStats();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
+
+  const badgeMeta =
+    profile?.meta && typeof profile.meta === 'object' && !Array.isArray(profile.meta)
+      ? profile.meta
+      : {};
+
+  const earnedBadgeIds = useMemo(() => {
+    const storedIds = Array.isArray(badgeMeta.earnedBadges)
+      ? badgeMeta.earnedBadges
+      : Array.isArray(profile?.earnedBadges)
+        ? profile.earnedBadges
+        : [];
+    const progressIds = evaluateBadgeIds(badgeProgressStats);
+
+    return Array.from(new Set([...storedIds, ...progressIds]));
+  }, [badgeMeta, profile, badgeProgressStats]);
+
+  const badgeEarnedDates = useMemo(() => {
+    if (
+      badgeMeta.badgeEarnedDates &&
+      typeof badgeMeta.badgeEarnedDates === 'object' &&
+      !Array.isArray(badgeMeta.badgeEarnedDates)
+    ) {
+      return badgeMeta.badgeEarnedDates;
+    }
+
+    if (
+      profile?.badgeEarnedDates &&
+      typeof profile.badgeEarnedDates === 'object' &&
+      !Array.isArray(profile.badgeEarnedDates)
+    ) {
+      return profile.badgeEarnedDates;
+    }
+
+    return {};
+  }, [badgeMeta, profile]);
+
+  const badgeShelf = useMemo(() => {
+    return BADGE_DEFINITIONS.map((badge) => {
+      const earned = earnedBadgeIds.includes(badge.id);
+      return {
+        ...badge,
+        earned,
+        earnedAt: badgeEarnedDates[badge.id] || null,
+      };
+    });
+  }, [earnedBadgeIds, badgeEarnedDates]);
+
+  const earnedBadgeCount = badgeShelf.filter((badge) => badge.earned).length;
 
   if (loading || itemLoading) return <p>Loading...</p>;
 
-  //If  user is not logged in, prompt to log in
   if (!user) {
-    return (
-      <section className="container">
-        <h1>Profile</h1>
-        <p><a href="/login">You need to log in first</a></p>
-      </section>
-    );
+    return ( 
+      <section className="container"> 
+        <h1 className="app-page-title">Profile</h1> 
+        <p className="app-helper-text"><a href="/login">You need to log in first</a></p> 
+      </section> 
+    ); 
   }
 
-
-
   const handleModeChange = async (event) => {
-    const themeMode = event.target.value;
-    const nextUser = { ...user, themeMode, theme: themeMode };
+    const newMode = event.target.value;
+    const previousUser = user;
+    const nextUser = { ...user, themeMode: newMode, theme: newMode };
+
+    setFriendError('');
+    setFriendNotice('');
+    setSavingTheme(true);
     setUser(nextUser);
 
     try {
-      await userUpdate({ id: user.id, theme: themeMode });
+      const response = await userUpdate({
+        id: user.id,
+        theme: newMode,
+        themeMode: newMode,
+      });
+
+      const ok =
+        response &&
+        (response.status_code === 200 ||
+          response.status === 200 ||
+          response.status_code === '200' ||
+          response.status === '200');
+
+      if (!ok) {
+        throw new Error(response?.error || 'Failed to save appearance mode');
+      }
+
+      setFriendNotice(`Appearance updated to ${newMode} mode.`);
     } catch (err) {
       console.error('Failed to save appearance mode', err);
+      setUser(previousUser);
+      setFriendError('Could not save appearance mode. Your previous setting was restored.');
+    } finally {
+      setSavingTheme(false);
     }
   };
 
+  const handleAppThemeChange = async (nextThemeId) => {
+    if (!nextThemeId || nextThemeId === themeId) return;
+
+    const previousUser = user;
+    const previousThemeId = themeId;
+    const nextUser = { ...user, appTheme: nextThemeId };
+
+    setFriendError('');
+    setFriendNotice('');
+    setSavingAppTheme(true);
+
+    setThemeId(nextThemeId);
+    setUser(nextUser);
+
+    try {
+      const response = await userUpdate({
+        id: user.id,
+        theme: themeMode,
+        themeMode,
+        appTheme: nextThemeId,
+      });
+
+      const ok =
+        response &&
+        (response.status_code === 200 ||
+          response.status === 200 ||
+          response.status_code === '200' ||
+          response.status === '200');
+
+      if (!ok) {
+        throw new Error(response?.error || 'Failed to save app theme');
+      }
+
+      setFriendNotice(`Theme updated to ${allThemes[nextThemeId]?.label || nextThemeId}.`);
+    } catch (err) {
+      console.error('Failed to save app theme', err);
+      setThemeId(previousThemeId);
+      setUser(previousUser);
+      setFriendError('Could not save theme. Your previous theme was restored.');
+    } finally {
+      setSavingAppTheme(false);
+    }
+  };
+
+  const handleAddFriend = async () => {
+    setFriendError('');
+    setFriendNotice('');
+
+    const value = friendInput.trim();
+    if (!value) return;
+
+    if (value === user.username || value === `${user.username}#${user.code || ''}`) {
+      setFriendError('You cannot add yourself.');
+      return;
+    }
+
+    const alreadyAdded = friends.some((friend) => {
+      const id = getFriendLookupKey(friend);
+      return id.toLowerCase() === value.toLowerCase();
+    });
+
+    if (alreadyAdded) {
+      setFriendError('That friend is already in your list.');
+      return;
+    }
+
+    const res = await friendsAdd(value);
+
+    if (res.status !== 200) {
+      setFriendError(res.data?.error || 'Failed to add friend');
+      return;
+    }
+
+    await refreshFriends();
+    await refetch();
+    emitFriendRequestsRefresh();
+    setFriendNotice(`Sent a friend request to ${getFriendDisplayName(value)}.`);
+    setFriendInput('');
+  };
+
+  const handleViewFriend = async (friendObj) => {
+    const friendLookup = getFriendLookupKey(friendObj);
+
+    if (!friendLookup) {
+      setFriendError('Could not identify that friend.');
+      return;
+    }
+
+    setFriendError('');
+    setFriendNotice('');
+    setLoadingFriend(true);
+
+    try {
+      const response = await friendsProfileGet(friendLookup);
+
+      if (response.status !== 200) {
+        setFriendError(response.data?.error || 'Could not load friend profile');
+        return;
+      }
+
+      const u = response.data?.user;
+      if (!u) {
+        setFriendError('Friend profile data was missing.');
+        return;
+      }
+
+      setFriendProfile({
+        ...u,
+        game_profile: GameProfile.from(u.game_profile),
+      });
+    } catch (error) {
+      console.error(error);
+      setFriendError('Could not load friend profile');
+    } finally {
+      setLoadingFriend(false);
+    }
+  };
+
+  const handleRemoveFriend = async (friendObj) => {
+    const friendId = getFriendLookupKey(friendObj);
+
+    if (!friendId) {
+      setFriendError('Could not identify that friend.');
+      return;
+    }
+
+    setFriendActionBusy(friendId);
+    setFriendError('');
+    setFriendNotice('');
+
+    try {
+      const res = await friendsRemove(friendId);
+
+      if (res.status !== 200) {
+        setFriendError(res.data?.error || 'Failed to remove friend');
+        return;
+      }
+
+      await refreshFriends();
+      await refetch();
+      emitFriendRequestsRefresh();
+      setFriendNotice(
+        `Removed ${friendObj.name || friendObj.username || 'friend'} from your friends list.`
+      );
+    } finally {
+      setFriendActionBusy('');
+    }
+  };
+
+  const handleAcceptRequest = async (requester) => {
+    setFriendError('');
+    setFriendNotice('');
+    setFriendActionBusy(requester);
+
+    try {
+      const res = await friendsAccept(requester);
+
+      if (res.status !== 200) {
+        setFriendError(res.data?.error || 'Failed to accept friend request');
+        return;
+      }
+
+      await refreshFriends();
+      await refetch();
+      emitFriendRequestsRefresh();
+      setFriendNotice(`Accepted ${getFriendDisplayName(requester)}'s friend request.`);
+    } finally {
+      setFriendActionBusy('');
+    }
+  };
+
+  const handleDeclineRequest = async (requester) => {
+    setFriendError('');
+    setFriendNotice('');
+    setFriendActionBusy(requester);
+
+    try {
+      const res = await friendsDecline(requester);
+
+      if (res.status !== 200) {
+        setFriendError(res.data?.error || 'Failed to decline friend request');
+        return;
+      }
+
+      await refreshFriends();
+      await refetch();
+      emitFriendRequestsRefresh();
+      setFriendNotice(`Declined ${getFriendDisplayName(requester)}'s friend request.`);
+    } finally {
+      setFriendActionBusy('');
+    }
+  };
 
   return (
-    <section className="container" >
-      <h1>Profile</h1>
-      <p className="sub hero">Your account information</p>
-
-      <div style={{ maxWidth: '100%', padding: '1.5rem', position: 'relative' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
-          <div>
-            <p><strong>Name:</strong> {user.name}</p>
-            {user.role === ROLE.CHILD || user.role === ROLE.USER ? (
-              <p><strong>Username:</strong> {user.username}{user.code ? `#${user.code}` : ''}</p>
-            ) : (
-              <p><strong>Email:</strong> {user.email}</p>
-            )}
-            <p><strong>Role:</strong> {user.role === ROLE.PARENT ? 'Parent' : user.role === ROLE.PROVIDER ? 'Provider' : user.role === ROLE.CHILD ? 'Child' : 'User'}</p>
-          </div>
-
-          <div>
-            <p><strong>Total Tasks Completed:</strong> {user.stats?.tasksCompleted || 0}</p>
-            <p><strong>Total Habits Built:</strong> {user.stats?.habitsBuilt || 0}</p>
-            <p><strong>Total Habits Broken:</strong> {user.stats?.habitsBroken || 0}</p>
-            <p><strong>Longest Streak:</strong> {user.stats?.longestStreak || "0 days"}</p>
-          </div>
-
-          <DisplayAvatar invItems={invItems} />
-
+    <div className="profile-page">
+      <div className="profile-canvas">
+        <div className="profile-header">
+          <h1 className="app-page-title">Profile</h1>
+          <p className="app-helper-text">Your account information</p>
         </div>
 
+        <div className="profile-top-grid">
+          <div className="profile-panel profile-info-card">
+            <div className="profile-panel__title app-panel-title">Account</div>
 
+            <div className="profile-info-row">
+              <span className="profile-info-row__label app-field-label">Name</span>
+              <span className="profile-info-row__value app-body-text">{user.name}</span>
+            </div>
 
-      </div>
+            <div className="profile-info-row">
+              <span className="profile-info-row__label app-field-label">
+                {usesUsernameIdentity ? 'Username' : 'Email'}
+              </span>
+              <span className="profile-info-row__value app-body-text">
+                {usesUsernameIdentity
+                  ? `${user.username}${user.code ? `#${user.code}` : ''}`
+                  : user.email}
+              </span>
+            </div>
 
-      {user.role !== ROLE.PARENT && user.role !== ROLE.PROVIDER && (
-        <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '820px', marginTop: '1rem' }}>
-          <h3 style={{ marginTop: 0 }}>Friends</h3>
-
-          {friendError && <p style={{ color: 'crimson' }}>{friendError}</p>}
-
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <input
-              value={friendInput}
-              onChange={(e) => setFriendInput(e.target.value)}
-              placeholder="Add a friend (username or child username#code)"
-            />
-            <button
-              className="btn"
-              onClick={async () => {
-                setFriendError('');
-                const value = friendInput.trim();
-                if (!value) return;
-                const res = await friendsAdd(value);
-                if (res.status !== 200) { setFriendError(res.data?.error || 'Failed to add friend'); return; }
-                setFriends(res.data.friends || []);
-                setFriendInput('');
-              }}
-            >
-              Add
-            </button>
+            <div className="profile-info-row">
+              <span className="profile-info-row__label app-field-label">Role</span>
+              <span className="profile-role-pill app-micro-text">{roleLabel(user.role)}</span>
+            </div>
           </div>
-          
-          <div className="friendsBox">
+
+          <div className="profile-panel">
+            <div className="profile-panel__title app-panel-title">Stats</div>
+            <div className="profile-stats-grid">
+              <div className="profile-stat-tile">
+                <div className="profile-stat-tile__label app-card-title">Tasks done</div>
+                <div className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.tasksCompleted}
+                </div>
+              </div>
+              <div className="profile-stat-tile">
+                <div className="profile-stat-tile__label app-card-title">Habits built</div>
+                <div className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.habitsBuilt}
+                </div>
+              </div>
+              <div className="profile-stat-tile">
+                <div className="profile-stat-tile__label app-card-title">Habits broken</div>
+                <div className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.habitsBroken}
+                </div>
+              </div>
+              <div className="profile-stat-tile">
+                <div className="profile-stat-tile__label app-card-title">Best streak</div>
+                <div className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.longestStreak}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="profile-panel profile-avatar-card">
+            <div
+              className="profile-avatar-card__inner"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/avatar')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') navigate('/avatar');
+              }}
+              aria-label="Open avatar editor"
+            >
+              <DisplayAvatar invItems={invItems} />
+            </div>
+            <div className="profile-avatar-card__name app-card-title">{user.name}</div>
+            <div className="profile-avatar-card__sub app-helper-text">{roleLabel(user.role)}</div>
+          </div>
+        </div>
+
+        <div className="profile-panel profile-badge-panel">
+          <div className="profile-badge-header">
+            <div>
+              <div className="profile-panel__title app-panel-title">Badge Shelf</div>
+              <p className="profile-badge-subtitle app-helper-text">Your habit and streak achievements live here.</p>
+            </div>
+
+            <div className="profile-badge-summary">
+              <span className="profile-badge-summary__count app-card-title">
+                {earnedBadgeCount}/{badgeShelf.length}
+              </span>
+              <span className="profile-badge-summary__label app-meta-label">earned</span>
+            </div>
+          </div>
+
+          {badgeShelf.length === 0 ? (
+            <div className="profile-badges-empty">No badges available yet.</div>
+          ) : (
+            <div className="profile-badge-grid">
+              {badgeShelf.map((badge) => (
+                <div
+                  key={badge.id}
+                  className={`profile-badge-card ${
+                    badge.earned ? 'is-earned' : 'is-locked'
+                  }`}
+                  title={badge.description}
+                >
+                  <div className="profile-badge-card__icon">{badge.icon}</div>
+
+                  <div className="profile-badge-card__content">
+                    <div className="profile-badge-card__top">
+                              <h3 className="profile-badge-card__label app-card-title">{badge.label}</h3>
+                                <span
+                                  className={`profile-badge-card__status ${
+                                    badge.earned ? 'is-earned' : 'is-locked'
+                                  } app-meta-label`}
+                                >
+                                  {badge.earned ? 'Earned' : 'Locked'}
+                                </span>
+                    </div>
+
+                    <p className="profile-badge-card__description app-body-text">
+                      {badge.description}
+                    </p>
+
+                    <div className="profile-badge-card__meta">
+                      {badge.coins > 0 ? (
+                        <span className="profile-badge-card__coins app-micro-text">
+                          🪙 {badge.coins} coins
+                        </span>
+                      ) : (
+                        <span className="profile-badge-card__coins is-empty app-micro-text">
+                          No coin bonus
+                        </span>
+                      )}
+
+                      <span className="profile-badge-card__date app-micro-text">
+                        {badge.earned && badge.earnedAt
+                          ? `Earned ${new Date(badge.earnedAt).toLocaleDateString()}`
+                          : badge.earned
+                            ? 'Earned from progress'
+                            : 'Not earned yet'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {showFriends && (
+          <div className="profile-panel">
+            <div className="profile-panel__title app-panel-title">Friends</div>
+
+            {friendError && <p className="profile-friends-error app-helper-text">{friendError}</p>}
+            {friendNotice && <p className="profile-friends-note app-helper-text">{friendNotice}</p>}
+
+            <div className="profile-friends-add">
+              <input
+                className="app-body-text"
+                value={friendInput}
+                onChange={(event) => setFriendInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleAddFriend();
+                }}
+                placeholder="Add a friend — username or username#code"
+              />
+              <button
+                type="button"
+                className="profile-friends-add-btn app-button-label"
+                onClick={handleAddFriend}
+                disabled={!friendInput.trim()}
+              >
+                Add
+              </button>
+            </div>
+
             {friends.length === 0 ? (
-              <p style={{ margin: 0 }}>No friends yet.</p>
+              <p className="profile-friends-empty app-helper-text">No friends yet.</p>
             ) : (
-              <ul className="friendsList">
-                {friends.map((f) => (
-                  <li key={f} className="friendsListRow">
-                    <span
-                      style={{
-                        textDecoration: 'underline',
-                        cursor: loadingFriend ? 'wait' : 'pointer',
-                        opacity: loadingFriend ? 0.5 : 1
-                      }}
-                      onClick={async () => {
-                        setLoadingFriend(true);
-                        try {
-                          const response = await friendsProfileGet(f);
+              <ul className="profile-friends-list">
+                {friends.map((friend) => {
+                  const friendId = getFriendRowKey(friend);
+                  const friendLookup = getFriendLookupKey(friend);
+                  const busy = Boolean(friendLookup) && friendActionBusy === friendLookup;
+                  const displayName = friend.name || friend.username || friend.id || 'Friend';
 
-                          if (response.status !== 200) {
-                            setFriendError("");
-                            return;
-                          }
+                  return (
+                    <li key={friendId || displayName} className="profile-friend-row">
+                      <button
+                        type="button"
+                        className="profile-friend-name app-card-title"
+                        style={{
+                          cursor: loadingFriend ? 'wait' : 'pointer',
+                          opacity: loadingFriend ? 0.5 : 1,
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          textAlign: 'left',
+                        }}
+                        onClick={() => handleViewFriend(friend)}
+                        disabled={loadingFriend || !friendLookup}
+                      >
+                        {displayName}
+                      </button>
 
-                          const user = response.data.user;
-                          const normalized = {
-                            ...user,
-                            game_profile: GameProfile.from(user.game_profile)
-                          };
-                          setFriendProfile(normalized);
-                        } finally {
-                          setLoadingFriend(false);
-                        }
-                      }}>
-                        {f}
-                    </span>
-                    <button
-                      className="btn"
-                      onClick={async () => {
-                        const res = await friendsRemove(f);
-                        if (res.status !== 200) { setFriendError(res.data?.error || 'Failed to remove'); return; }
-                        setFriends(res.data.friends || []);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
+                      <button
+                        type="button"
+                        className="profile-friend-remove-btn app-button-label"
+                        onClick={() => handleRemoveFriend(friend)}
+                        disabled={busy || !friendLookup}
+                      >
+                        {busy ? 'Removing…' : 'Remove'}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="card" style={{ padding: '1.8rem 1.5rem', maxWidth: '820px', marginTop: '1rem' }}>
-        <h3 style={{ marginTop: 0 }}>Theme</h3>
-        <p className="sub" style={{ marginBottom: '1rem' }}>Choose your appearance mode.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem', alignItems: 'start' }}>
-          <div>
-            <p style={{ fontWeight: 600, marginBottom: '0.6rem' }}>Mode</p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <label className="auth-label" style={{ width: 'fit-content', margin: 0, padding: '0.35rem 0.5rem' }}>
-                <span style={{ fontWeight: 600 }}>Light</span>
-                <input
-                  type="radio"
-                  name="themeMode"
-                  value="light"
-                  checked={themeMode !== 'dark'}
-                  onChange={handleModeChange}
-                  style={{ width: 'auto' }}
-                />
-              </label>
-              <label className="auth-label" style={{ width: 'fit-content', margin: 0, padding: '0.35rem 0.5rem' }}>
-                <span style={{ fontWeight: 600 }}>Dark</span>
-                <input
-                  type="radio"
-                  name="themeMode"
-                  value="dark"
-                  checked={themeMode === 'dark'}
-                  onChange={handleModeChange}
-                  style={{ width: 'auto' }}
-                />
-              </label>
+        {showFriends && (
+          <div className="profile-panel">
+            <div className="profile-panel__title app-panel-title">
+              Friend Requests
+              {pendingCount > 0 && (
+                <span className="profile-count-badge app-micro-text">{pendingCount}</span>
+              )}
+            </div>
+
+            {friendRequests.length === 0 ? (
+              <p className="profile-friends-empty">No pending requests right now.</p>
+            ) : (
+              <div className="profile-request-list">
+                {friendRequests.map((requester) => {
+                  const busy = friendActionBusy === requester;
+
+                  return (
+                    <div key={requester} className="profile-request-row">
+                      <div className="profile-request-copy app-body-text">
+                        <strong className="app-card-title">{getFriendDisplayName(requester)}</strong> wants to connect.
+                      </div>
+                      <div className="profile-request-actions">
+                        <button
+                          type="button"
+                          className="profile-request-accept-btn app-button-label"
+                          onClick={() => handleAcceptRequest(requester)}
+                          disabled={busy}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          className="profile-request-decline-btn app-button-label"
+                          onClick={() => handleDeclineRequest(requester)}
+                          disabled={busy}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="profile-panel profile-appearance-panel">
+          <div className="profile-panel__title app-panel-title">Appearance</div>
+          <p className="profile-appearance-copy app-helper-text">
+            Choose your app theme and viewing mode.
+          </p>
+
+          <div className="profile-appearance-grid">
+            <div className="profile-appearance-column">
+              <div className="profile-appearance-subtitle app-field-label">Theme</div>
+
+              <div className="profile-theme-card-grid">
+                {allowedThemes.map((id) => {
+                  const option = allThemes[id];
+                  const active = themeId === id;
+
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`profile-theme-card ${active ? 'is-active' : ''}`}
+                      onClick={() => handleAppThemeChange(id)}
+                      disabled={savingAppTheme || savingTheme}
+                    >
+                      <span
+                        className="profile-theme-card__preview"
+                        style={{ background: option.preview }}
+                      />
+                      <span className="profile-theme-card__copy">
+                        <span>{option.label}</span>
+                        <small>{option.description}</small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="profile-appearance-column">
+              <div className="profile-appearance-subtitle app-field-label">Mode</div>
+
+              <div className="profile-theme-options">
+                <label className="profile-theme-option app-body-text">
+                  <span className="profile-theme-icon">☀️</span>
+                  <span className="profile-theme-copy">
+                    <span>Light</span>
+                    <small>Brighter surfaces and softer contrast</small>
+                  </span>
+                  <input
+                    type="radio"
+                    name="themeMode"
+                    value="light"
+                    checked={themeMode !== 'dark'}
+                    onChange={handleModeChange}
+                    disabled={savingTheme || savingAppTheme}
+                  />
+                </label>
+
+                <label className="profile-theme-option app-body-text">
+                  <span className="profile-theme-icon">🌙</span>
+                  <span className="profile-theme-copy">
+                    <span>Dark</span>
+                    <small>Deeper contrast for low-light viewing</small>
+                  </span>
+                  <input
+                    type="radio"
+                    name="themeMode"
+                    value="dark"
+                    checked={themeMode === 'dark'}
+                    onChange={handleModeChange}
+                    disabled={savingTheme || savingAppTheme}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -215,63 +946,53 @@ export default function Profile() {
 
       {friendProfile && items && (
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000
-          }}
-          onClick={() => {
-            setFriendProfile(null);
-          }}
+          className="profile-modal-overlay"
+          onClick={() => setFriendProfile(null)}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'var(--card-bg)',
-              color: 'var(--text-dark)',
-              border: '1px solid var(--card-border)',
-              boxShadow: 'var(--card-shadow)',
-              padding: '2rem',
-              borderRadius: '12px',
-              width: '350px',
-              textAlign: 'center'
-            }}
+            className="profile-modal"
+            onClick={(event) => event.stopPropagation()}
           >
-            <h2>
+            <h2 className="profile-modal__username app-card-title">
               {friendProfile.username}
               {friendProfile.code ? `#${friendProfile.code}` : ''}
             </h2>
 
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div className="profile-modal__avatar">
               <DisplayAvatar invItems={friendInvItems} />
             </div>
 
-            <div style={{ marginTop: '1rem', textAlign: 'left' }}>
-              <p><strong>Tasks:</strong> {friendProfile.stats?.tasksCompleted || 0}</p>
-              <p><strong>Habits:</strong> {friendProfile.stats?.habitsBuilt || 0}</p>
-              <p><strong>Streak:</strong> {friendProfile.stats?.longestStreak || 0}</p>
+            <div className="profile-modal__stats">
+              <div className="profile-modal__stat">
+                <div className="profile-modal__stat-label app-meta-label">Tasks</div>
+                <div className="profile-modal__stat-value app-micro-text">
+                  {friendProfile.stats?.tasksCompleted || 0}
+                </div>
+              </div>
+              <div className="profile-modal__stat">
+                <div className="profile-modal__stat-label app-meta-label">Habits</div>
+                <div className="profile-modal__stat-value app-micro-text">
+                  {friendProfile.stats?.habitsBuilt || 0}
+                </div>
+              </div>
+              <div className="profile-modal__stat">
+                <div className="profile-modal__stat-label app-meta-label">Streak</div>
+                <div className="profile-modal__stat-value app-micro-text">
+                  {friendProfile.stats?.longestStreak || 0}
+                </div>
+              </div>
             </div>
 
             <button
-              className="btn"
-              style={{ marginTop: '1rem' }}
-              onClick={() => {
-                setFriendProfile(null);
-              }}
+              type="button"
+              className="profile-modal__close app-button-label"
+              onClick={() => setFriendProfile(null)}
             >
               Close
             </button>
           </div>
         </div>
       )}
-
-    </section>
+    </div>
   );
 }

@@ -6,29 +6,32 @@ import { useUser } from '../UserContext.jsx'
 import { ROLE } from '../Roles/roles.js'
 import { goalList } from '../lib/api/goals.js'
 import { childList } from '../lib/api/children.js'
+import './CalendarPage.css'
 
+/* ── Chip — pill selector for child filtering ── */
 function Chip({ label, active, onClick }) {
+  const isAll = label === 'All'
+  const initials = !isAll
+    ? label.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    : null
+
   return (
     <button
       type="button"
       onClick={onClick}
-      style={{
-        borderRadius: '999px',
-        padding: '6px 12px',
-        border: active ? '2px solid rgba(79,70,229,.65)' : '1px solid rgba(148,163,184,.8)',
-        background: active ? 'rgba(79,70,229,.08)' : 'rgba(255,255,255,.85)',
-        color: '#0f172a',
-        fontWeight: 700,
-        fontSize: '0.9rem',
-        cursor: 'pointer',
-        transition: 'all 120ms ease',
-      }}
+      className={`calendar-page__chip${active ? ' calendar-page__chip--active' : ''}`}
     >
+      {!isAll && (
+        <span className="calendar-page__chip-avatar" aria-hidden="true">
+          {initials}
+        </span>
+      )}
       {label}
     </button>
   )
 }
 
+/* ── Page ── */
 export default function CalendarPage() {
   const { user } = useUser()
   const navigate = useNavigate()
@@ -49,18 +52,20 @@ export default function CalendarPage() {
       try {
         const [goalResp, childResp] = await Promise.all([
           goalList(),
-          user?.role === ROLE.PARENT ? childList() : Promise.resolve({ status_code: 200, children: [] }),
+          user?.role === ROLE.PARENT
+            ? childList()
+            : Promise.resolve({ status_code: 200, children: [] }),
         ])
 
         if (!cancelled) {
           if (goalResp?.status_code === 200) {
             setGoals(Array.isArray(goalResp.goals) ? goalResp.goals : [])
           } else {
-          setGoals([])
-          setError('Could not load goals for the calendar.')
-        }
+            setGoals([])
+            setError('Could not load goals for the calendar.')
+          }
           if (childResp?.status_code === 200 && Array.isArray(childResp.children)) {
-          setChildren(childResp.children)
+            setChildren(childResp.children)
           }
         }
       } catch (err) {
@@ -74,9 +79,7 @@ export default function CalendarPage() {
     }
 
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [user])
 
   const viewerChildId = useMemo(() => {
@@ -96,23 +99,38 @@ export default function CalendarPage() {
   const emptyLink = user?.role === ROLE.PARENT ? '/parent/dashboard?tab=assign' : '/habit-wizard'
 
   return (
-    <section className="container" style={{ padding: '1.5rem 1rem', maxWidth: '1100px' }}>
+    <section className="calendar-page">
       <Toast message={rewardMessage} type="success" onClose={() => setRewardMessage('')} />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Calendar</h1>
-          <p className="sub" style={{ margin: '4px 0 0' }}>
-            View and update your new habit plans across the month.
+      {/* ── Header ── */}
+      <div className="calendar-page__header">
+        <div className="calendar-page__title-block">
+          <span className="calendar-page__eyebrow">
+            <span className="calendar-page__eyebrow-dot" aria-hidden="true" />
+            Habit Tracker
+          </span>
+          <h1 className="calendar-page__title">Calendar</h1>
+          <p className="calendar-page__subtitle">
+            View and update your habit plans across the month.
           </p>
         </div>
-        <button type="button" className="btn" onClick={() => navigate(-1)} style={{ padding: '8px 12px' }}>
-          ← Back
+
+        <button
+          type="button"
+          className="calendar-page__back-btn"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+        >
+          <span className="calendar-page__back-arrow">←</span>
+          Back
         </button>
       </div>
 
+      <div className="calendar-page__divider" />
+
+      {/* ── Child selector ── */}
       {showChildSelector && (
-        <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="calendar-page__child-selector" role="group" aria-label="Filter by child">
           <Chip label="All" active={!viewerChildId} onClick={() => setSelectedChildId(null)} />
           {children.map((child) => (
             <Chip
@@ -125,19 +143,31 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <div style={{ marginTop: '16px' }}>
+      {/* ── Calendar body ── */}
+      <div className="calendar-page__body">
         {loading ? (
-          <div className="card" style={{ padding: '18px' }}>Loading calendar…</div>
+          <div className="calendar-page__state-card calendar-page__state-card--loading">
+            <span className="calendar-page__spinner" aria-hidden="true" />
+            Loading calendar…
+          </div>
         ) : error ? (
-          <div className="card" style={{ padding: '18px', color: '#991b1b' }}>{error}</div>
+          <div
+            className="calendar-page__state-card calendar-page__state-card--error"
+            role="alert"
+          >
+            <span className="calendar-page__error-icon">⚠️</span>
+            {error}
+          </div>
         ) : (
-          <HabitCalendar
-            assigneeId={viewerChildId}
-            getMilestoneRewards={getMilestoneRewards}
-            onRewardMessage={setRewardMessage}
-            emptyStateLinkTo={emptyLink}
-            emptyStateLabel={user?.role === ROLE.PARENT ? 'Assign a goal' : 'Create a goal'}
-          />
+          <div className="calendar-page__calendar-wrapper">
+            <HabitCalendar
+              assigneeId={viewerChildId}
+              getMilestoneRewards={getMilestoneRewards}
+              onRewardMessage={setRewardMessage}
+              emptyStateLinkTo={emptyLink}
+              emptyStateLabel={user?.role === ROLE.PARENT ? 'Assign a goal' : 'Create a goal'}
+            />
+          </div>
         )}
       </div>
     </section>

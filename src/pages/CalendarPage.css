@@ -1,0 +1,423 @@
+/* =========================================================
+   CALENDAR PAGE
+   Matches the Auth.css / NextSteps design system:
+   – Playfair Display for display headings
+   – DM Sans for body / UI text
+   – AppThemeProvider-driven tokens
+   – Soft themed cards, ambient radial backgrounds
+   ========================================================= */
+/* ── Variables (mirrors Auth.css conventions) ── */
+:root {
+  --cal-font-display: var(--app-font-display);
+  --cal-font-body:    var(--app-font-body);
+
+  --cal-brand:        var(--app-primary);
+  --cal-brand-dim:    color-mix(in srgb, var(--app-primary) 12%, transparent);
+  --cal-brand-ring:   color-mix(in srgb, var(--app-primary) 22%, transparent);
+
+  --cal-card-bg:      linear-gradient(180deg, color-mix(in srgb, var(--app-card) 94%, transparent), color-mix(in srgb, var(--app-card-soft) 88%, transparent));
+  --cal-card-border:  var(--app-border);
+  --cal-hero-bg:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-card) 82%, transparent), color-mix(in srgb, var(--app-card-soft) 70%, transparent)),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-primary) 8%, transparent), color-mix(in srgb, var(--app-success) 6%, transparent));
+
+  --cal-text-dark:    var(--app-text);
+  --cal-text-muted:   var(--app-text-muted);
+  --cal-text-error:   var(--app-danger-text);
+
+  --cal-shadow-sm:    var(--app-shadow-soft);
+  --cal-shadow-md:    var(--app-shadow);
+
+  --cal-radius-card:  28px;
+  --cal-radius-pill:  999px;
+
+  --cal-transition:   all 0.18s ease;
+}
+
+/* Shared action button family for calendar page CTAs */
+.calendar-page__btn {
+  border-radius: 999px;
+  padding: 0.8rem 1.1rem;
+  font-family: var(--cal-font-body);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--cal-transition);
+}
+
+.calendar-page__btn--primary {
+  background: var(--cal-brand);
+  color: var(--app-primary-text);
+  border: 1px solid transparent;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+
+.calendar-page__btn--primary:hover {
+  filter: brightness(0.97);
+  transform: translateY(-1px);
+}
+
+.calendar-page__btn--ghost {
+  background: var(--app-secondary-bg);
+  color: var(--cal-text-dark);
+  border: 1px solid var(--app-secondary-border);
+}
+
+.calendar-page__btn--ghost:hover {
+  background: var(--app-secondary-hover);
+}
+
+/* =========================================================
+   PAGE SECTION
+   Same ambient radial background as .ns-auth-page
+   ========================================================= */
+
+.calendar-page {
+  font-family: var(--cal-font-body);
+  min-height: 100vh;
+  padding: 2.5rem 1.5rem 4rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  color: var(--cal-text-dark);
+  background:
+    radial-gradient(circle at 10% 15%, color-mix(in srgb, var(--app-primary) 10%, transparent), transparent 18%),
+    radial-gradient(circle at 88% 20%, color-mix(in srgb, var(--app-success) 8%, transparent), transparent 18%),
+    radial-gradient(circle at 78% 82%, color-mix(in srgb, var(--app-primary) 7%, transparent), transparent 18%),
+    var(--body-bg);
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.calendar-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-page__title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Badge above title — mirrors .ns-auth-badge */
+.calendar-page__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: var(--cal-radius-pill);
+  background: color-mix(in srgb, var(--app-card) 78%, transparent);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--cal-shadow-sm);
+  color: var(--cal-text-muted);
+  font-family: var(--cal-font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  width: fit-content;
+  margin-bottom: 6px;
+}
+
+.calendar-page__eyebrow-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--cal-radius-pill);
+  background: var(--cal-brand);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--app-primary) 18%, transparent);
+  flex-shrink: 0;
+}
+
+/* Big italic Playfair — mirrors .ns-auth-brand h1 */
+.calendar-page__title {
+  margin: 0;
+  font-family: var(--cal-font-display);
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--cal-text-dark);
+}
+
+.calendar-page__subtitle {
+  margin: 5px 0 0;
+  font-family: var(--cal-font-body);
+  font-size: 0.96rem;
+  font-weight: 400;
+  color: var(--cal-text-muted);
+  line-height: 1.65;
+  max-width: 480px;
+}
+
+/* =========================================================
+   BACK BUTTON
+   Ghost pill — same feel as .ns-auth-show-btn
+   ========================================================= */
+
+.calendar-page__back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.75rem 1.2rem;
+  font-family: var(--cal-font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--cal-text-muted);
+  background: var(--app-secondary-bg);
+  border: 1px solid var(--app-secondary-border);
+  border-radius: var(--cal-radius-pill);
+  cursor: pointer;
+  box-shadow: var(--cal-shadow-sm);
+  transition: var(--cal-transition);
+  white-space: nowrap;
+}
+
+.calendar-page__back-btn:hover {
+  color: var(--cal-text-dark);
+  background: var(--app-secondary-hover);
+  box-shadow: var(--cal-shadow-md);
+  transform: translateY(-1px);
+}
+
+.calendar-page__back-btn:active {
+  transform: translateY(0);
+}
+
+.calendar-page__back-arrow {
+  line-height: 1;
+  transition: transform 0.16s ease;
+}
+
+.calendar-page__back-btn:hover .calendar-page__back-arrow {
+  transform: translateX(-3px);
+}
+
+/* =========================================================
+   DIVIDER
+   ========================================================= */
+
+.calendar-page__divider {
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--app-primary) 20%, transparent) 0%, transparent 100%);
+  margin-bottom: 1.25rem;
+}
+
+/* =========================================================
+   CHILD SELECTOR CHIPS
+   Pill chips — mirrors .ns-auth-tabs pill style
+   ========================================================= */
+
+.calendar-page__child-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-page__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0.6rem 1rem;
+  border-radius: var(--cal-radius-pill);
+  font-family: var(--cal-font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--cal-transition);
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-card) 72%, transparent);
+  color: var(--cal-text-muted);
+  box-shadow: var(--cal-shadow-sm);
+}
+
+.calendar-page__chip:hover {
+  color: var(--cal-text-dark);
+  background: var(--app-card);
+  box-shadow: var(--cal-shadow-md);
+  transform: translateY(-1px);
+}
+
+.calendar-page__chip--active {
+  background: color-mix(in srgb, var(--app-card) 92%, transparent);
+  border-color: var(--cal-brand);
+  color: var(--cal-text-dark);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 18%, transparent), var(--cal-shadow-sm);
+}
+
+.calendar-page__chip--active:hover {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-primary) 24%, transparent), var(--cal-shadow-md);
+}
+
+/* Initials avatar inside child chips */
+.calendar-page__chip-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cal-brand), var(--app-primary-hover));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--app-primary-text);
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   CALENDAR BODY
+   ========================================================= */
+
+.calendar-page__body {
+  animation: calFadeIn 280ms ease both;
+}
+
+@keyframes calFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================
+   STATE CARDS — loading & error
+   Mirror the .ns-auth-highlight card style
+   ========================================================= */
+
+.calendar-page__state-card {
+  border-radius: var(--cal-radius-card);
+  border: 1px solid var(--cal-card-border);
+  background: var(--cal-card-bg);
+  box-shadow: var(--cal-shadow-md);
+  padding: 2.5rem 2rem;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: var(--cal-font-body);
+}
+
+.calendar-page__state-card--loading {
+  color: var(--cal-text-muted);
+  font-size: 0.96rem;
+  font-weight: 500;
+}
+
+/* Brand-gold spinner */
+.calendar-page__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid color-mix(in srgb, var(--app-primary) 22%, transparent);
+  border-top-color: var(--cal-brand);
+  border-radius: 50%;
+  animation: calSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes calSpin {
+  to { transform: rotate(360deg); }
+}
+
+.calendar-page__state-card--error {
+  flex-direction: column;
+  text-align: center;
+  border-color: var(--app-danger-border);
+  background: linear-gradient(180deg, var(--app-card) 0%, var(--app-danger-bg) 100%);
+  color: var(--cal-text-error);
+  gap: 8px;
+}
+
+.calendar-page__error-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+/* =========================================================
+   CALENDAR CARD WRAPPER
+   Outer shell around <HabitCalendar> — mirrors .ns-auth-card
+   ========================================================= */
+
+.calendar-page__calendar-wrapper {
+  border-radius: var(--cal-radius-card);
+  border: 1px solid var(--cal-card-border);
+  background: var(--cal-card-bg);
+  box-shadow: var(--cal-shadow-md);
+  overflow: hidden;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 980px) {
+  .calendar-page {
+    padding: 2rem 1.25rem 3.5rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .calendar-page {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  .calendar-page__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .calendar-page__title {
+    font-size: clamp(1.8rem, 8vw, 2.4rem);
+  }
+
+  .calendar-page__back-btn {
+    align-self: flex-start;
+  }
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.calendar-page__eyebrow,
+.calendar-page__back-btn,
+.calendar-page__chip,
+.calendar-page__state-card,
+.calendar-page__calendar-wrapper {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.calendar-page__eyebrow,
+.calendar-page__chip {
+  background: var(--app-chip-soft-bg);
+  border-color: var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+}
+
+.calendar-page__chip:hover,
+.calendar-page__back-btn:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+}
+
+.calendar-page__chip--active {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-link);
+}
+
+.calendar-page__calendar-wrapper,
+.calendar-page__state-card {
+  background:
+    linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border-strong);
+}
