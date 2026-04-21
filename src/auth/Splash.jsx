@@ -10,11 +10,6 @@ export default function Splash() {
         <div className="ns-splash-glow ns-splash-glow--two" />
         <div className="ns-splash-glow ns-splash-glow--three" />
 
-        <div className="ns-splash-badge">
-          <span className="ns-splash-badge-dot" />
-          A gentle place to begin
-        </div>
-
         <div className="ns-splash-logo-wrap" aria-hidden="true">
           <div className="ns-splash-logo-ring" />
           <img
@@ -28,9 +23,27 @@ export default function Splash() {
           <h1>NextSteps</h1>
           <p className="ns-splash-tagline">Small steps. Big progress.</p>
           <p className="ns-splash-subtext">
-            Build routines, track progress, and celebrate everyday wins with a calm,
-            supportive system.
+            Build routines, track progress, celebrate wins, and create a space that
+            grows with you. Calm when you need calm, playful when you need energy,
+            and supportive all the way through.
           </p>
+        </div>
+
+        <div className="ns-auth-highlight-grid" style={{ maxWidth: '920px', width: '100%', zIndex: 2 }}>
+          <div className="ns-auth-highlight">
+            <strong>For users</strong>
+            <span>Stay on top of daily tasks, habits, goals, and personal progress.</span>
+          </div>
+
+          <div className="ns-auth-highlight">
+            <strong>For parents</strong>
+            <span>Guide routines, assign support, and keep family progress organized.</span>
+          </div>
+
+          <div className="ns-auth-highlight">
+            <strong>For kids</strong>
+            <span>Make growth feel playful with bright spaces, wins, streaks, and rewards.</span>
+          </div>
         </div>
 
         <div className="ns-splash-path" aria-hidden="true">
@@ -82,6 +95,12 @@ export default function Splash() {
             <span className="ns-splash-action-icon">★</span>
             Sign Up
           </Link>
+        </div>
+
+        <div className="ns-auth-switch" style={{ marginTop: '0.35rem', zIndex: 2 }}>
+          Already exploring routines, streaks, rewards, or family tools?
+          {' '}
+          <Link to="/login">Pick up where you left off</Link>.
         </div>
       </div>
     </section>
