@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { useAppTheme } from '../styles/AppThemeContext.jsx';
 import { ROLE } from '../Roles/roles.js';
+import React, { useState, useEffect } from 'react';
 import {
   friendsList,
   friendsAdd,
   friendsRemove,
-  friendsProfileGet,
   friendsAccept,
   friendsDecline,
+  friendsProfileGet
 } from '../lib/api/friends.js';
-import { useGameProfile } from '../components/useGameProfile.jsx';
+import { useGameProfile } from '../components/useGameProfile';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
 import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
@@ -156,29 +157,16 @@ export default function Profile() {
     showFriends && Boolean(user)
   );
 
-  const refreshFriends = useCallback(async () => {
-    try {
-      const res = await friendsList();
-
-      if (res.status === 200) {
-        setFriends(Array.isArray(res.data?.friends) ? res.data.friends : []);
-        setFriendRequests(Array.isArray(res.data?.requests) ? res.data.requests : []);
-      } else {
-        setFriendError(res.data?.error || 'Failed to load friends');
-      }
-
-      return res;
-    } catch (error) {
-      console.error(error);
-      setFriendError('Failed to load friends');
-      return { status: 500, data: { error: 'Failed to load friends' } };
-    }
-  }, []);
-
-  useEffect(() => {
+  //Sprint 5: Comparing parent / provider for friends
+  //Updated in Sprint 7:
+    useEffect(() => {
     async function load() {
-      if (user?.role === ROLE.PROVIDER) return;
-      await refreshFriends();
+      if (user?.role === ROLE.PARENT || user?.role === ROLE.PROVIDER) return;
+      const res = await friendsList();
+      if (res.status === 200) {
+        setFriends(res.data?.friends || []);
+        setFriendRequests(res.data?.requests || []);
+      }
     }
     load();
   }, [user?.role, refreshFriends]);
@@ -628,44 +616,31 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="profile-panel">
-            <div className="profile-panel__title app-panel-title">Stats</div>
-            <div className="profile-stats-grid">
-              <div className="profile-stat-tile">
-                <div className="profile-stat-tile__label app-card-title">Tasks done</div>
-                <div className="profile-stat-tile__value">
-                  {statsLoading ? '…' : realStats.tasksCompleted}
-                </div>
-              </div>
-              <div className="profile-stat-tile">
-                <div className="profile-stat-tile__label app-card-title">Habits built</div>
-                <div className="profile-stat-tile__value">
-                  {statsLoading ? '…' : realStats.habitsBuilt}
-                </div>
-              </div>
-              <div className="profile-stat-tile">
-                <div className="profile-stat-tile__label app-card-title">Habits broken</div>
-                <div className="profile-stat-tile__value">
-                  {statsLoading ? '…' : realStats.habitsBroken}
-                </div>
-              </div>
-              <div className="profile-stat-tile">
-                <div className="profile-stat-tile__label app-card-title">Best streak</div>
-                <div className="profile-stat-tile__value">
-                  {statsLoading ? '…' : realStats.longestStreak}
-                </div>
-              </div>
-            </div>
-          </div>
+          {friendError && <p style={{ color: 'crimson' }}>{friendError}</p>}
+          {friendNotice && <p style={{ color: 'var(--text-muted, #666)' }}>{friendNotice}</p>}
 
-          <div className="profile-panel profile-avatar-card">
-            <div
-              className="profile-avatar-card__inner"
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate('/avatar')}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') navigate('/avatar');
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            <input
+              value={friendInput}
+              onChange={(e) => setFriendInput(e.target.value)}
+              placeholder="Add a friend (username or child username#code)"
+            />
+            <button
+              className="btn"
+              onClick={async () => {
+                setFriendError('');
+                setFriendNotice('');
+                const value = friendInput.trim();
+                if (!value) return;
+                const res = await friendsAdd(value);
+                if (res.status !== 200) {
+                  setFriendError(res.data?.error || 'Failed to send friend request');
+                  return;
+                }
+                setFriends(res.data.friends || []);
+                setFriendRequests(res.data.requests || []);
+                setFriendNotice(res.data?.message || 'Friend request sent.');
+                setFriendInput('');
               }}
               aria-label="Open avatar editor"
             >
@@ -691,129 +666,113 @@ export default function Profile() {
             </div>
           </div>
 
-          {badgeShelf.length === 0 ? (
-            <div className="profile-badges-empty">No badges available yet.</div>
-          ) : (
-            <div className="profile-badge-grid">
-              {badgeShelf.map((badge) => (
-                <div
-                  key={badge.id}
-                  className={`profile-badge-card ${
-                    badge.earned ? 'is-earned' : 'is-locked'
-                  }`}
-                  title={badge.description}
-                >
-                  <div className="profile-badge-card__icon">{badge.icon}</div>
-
-                  <div className="profile-badge-card__content">
-                    <div className="profile-badge-card__top">
-                              <h3 className="profile-badge-card__label app-card-title">{badge.label}</h3>
-                                <span
-                                  className={`profile-badge-card__status ${
-                                    badge.earned ? 'is-earned' : 'is-locked'
-                                  } app-meta-label`}
-                                >
-                                  {badge.earned ? 'Earned' : 'Locked'}
-                                </span>
+          <div className="friendsBox" style={{ marginBottom: '1rem' }}>
+            <h4 style={{ marginTop: 0 }}>Pending Friend Requests</h4>
+            {friendRequests.length === 0 ? (
+              <p style={{ margin: 0 }}>No pending requests.</p>
+            ) : (
+              <ul className="friendsList">
+                {friendRequests.map((requester) => (
+                  <li key={requester} className="friendsListRow">
+                    <span>{requester}</span>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        className="btn"
+                        onClick={async () => {
+                          setFriendError('');
+                          setFriendNotice('');
+                          const res = await friendsAccept(requester);
+                          if (res.status !== 200) {
+                            setFriendError(res.data?.error || 'Failed to accept friend request');
+                            return;
+                          }
+                          setFriends(res.data.friends || []);
+                          setFriendRequests(res.data.requests || []);
+                          setFriendNotice(res.data?.message || 'Friend request accepted.');
+                        }}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={async () => {
+                          setFriendError('');
+                          setFriendNotice('');
+                          const res = await friendsDecline(requester);
+                          if (res.status !== 200) {
+                            setFriendError(res.data?.error || 'Failed to decline friend request');
+                            return;
+                          }
+                          setFriends(res.data.friends || []);
+                          setFriendRequests(res.data.requests || []);
+                          setFriendNotice(res.data?.message || 'Friend request declined.');
+                        }}
+                      >
+                        Decline
+                      </button>
                     </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-                    <p className="profile-badge-card__description app-body-text">
-                      {badge.description}
-                    </p>
-
-                    <div className="profile-badge-card__meta">
-                      {badge.coins > 0 ? (
-                        <span className="profile-badge-card__coins app-micro-text">
-                          🪙 {badge.coins} coins
-                        </span>
-                      ) : (
-                        <span className="profile-badge-card__coins is-empty app-micro-text">
-                          No coin bonus
-                        </span>
-                      )}
-
-                      <span className="profile-badge-card__date app-micro-text">
-                        {badge.earned && badge.earnedAt
-                          ? `Earned ${new Date(badge.earnedAt).toLocaleDateString()}`
-                          : badge.earned
-                            ? 'Earned from progress'
-                            : 'Not earned yet'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {showFriends && (
-          <div className="profile-panel">
-            <div className="profile-panel__title app-panel-title">Friends</div>
-
-            {friendError && <p className="profile-friends-error app-helper-text">{friendError}</p>}
-            {friendNotice && <p className="profile-friends-note app-helper-text">{friendNotice}</p>}
-
-            <div className="profile-friends-add">
-              <input
-                className="app-body-text"
-                value={friendInput}
-                onChange={(event) => setFriendInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleAddFriend();
-                }}
-                placeholder="Add a friend — username or username#code"
-              />
-              <button
-                type="button"
-                className="profile-friends-add-btn app-button-label"
-                onClick={handleAddFriend}
-                disabled={!friendInput.trim()}
-              >
-                Add
-              </button>
-            </div>
-
+          <div className="friendsBox">
+            <h4 style={{ marginTop: 0 }}>Friend List</h4>
             {friends.length === 0 ? (
               <p className="profile-friends-empty app-helper-text">No friends yet.</p>
             ) : (
-              <ul className="profile-friends-list">
-                {friends.map((friend) => {
-                  const friendId = getFriendRowKey(friend);
-                  const friendLookup = getFriendLookupKey(friend);
-                  const busy = Boolean(friendLookup) && friendActionBusy === friendLookup;
-                  const displayName = friend.name || friend.username || friend.id || 'Friend';
+              <ul className="friendsList">
+                {friends.map((f) => (
+                  <li key={f} className="friendsListRow">
+                    <span
+                      style={{
+                        textDecoration: 'underline',
+                        cursor: loadingFriend ? 'wait' : 'pointer',
+                        opacity: loadingFriend ? 0.5 : 1
+                      }}
+                      onClick={async () => {
+                        setFriendError('');
+                        setFriendNotice('');
+                        setLoadingFriend(true);
+                        try {
+                          const response = await friendsProfileGet(f);
+                          if (response.status !== 200) {
+                            setFriendError(response.data?.error || 'Failed to load friend profile');
+                            return;
+                          }
 
-                  return (
-                    <li key={friendId || displayName} className="profile-friend-row">
-                      <button
-                        type="button"
-                        className="profile-friend-name app-card-title"
-                        style={{
-                          cursor: loadingFriend ? 'wait' : 'pointer',
-                          opacity: loadingFriend ? 0.5 : 1,
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          textAlign: 'left',
-                        }}
-                        onClick={() => handleViewFriend(friend)}
-                        disabled={loadingFriend || !friendLookup}
-                      >
-                        {displayName}
-                      </button>
-
-                      <button
-                        type="button"
-                        className="profile-friend-remove-btn app-button-label"
-                        onClick={() => handleRemoveFriend(friend)}
-                        disabled={busy || !friendLookup}
-                      >
-                        {busy ? 'Removing…' : 'Remove'}
-                      </button>
-                    </li>
-                  );
-                })}
+                          const friendUser = response.data.user;
+                          const normalized = {
+                            ...friendUser,
+                            game_profile: GameProfile.from(friendUser.game_profile)
+                          };
+                          setFriendProfile(normalized);
+                        } finally {
+                          setLoadingFriend(false);
+                        }
+                      }}>
+                      {f}
+                    </span>
+                    <button
+                      className="btn"
+                      onClick={async () => {
+                        setFriendError('');
+                        setFriendNotice('');
+                        const res = await friendsRemove(f);
+                        if (res.status !== 200) {
+                          setFriendError(res.data?.error || 'Failed to remove');
+                          return;
+                        }
+                        setFriends(res.data.friends || []);
+                        setFriendRequests(res.data.requests || []);
+                        setFriendNotice('Friend removed.');
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
           </div>
