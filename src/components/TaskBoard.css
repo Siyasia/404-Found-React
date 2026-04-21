@@ -1,0 +1,137 @@
+.task-board {
+  display: grid;
+  gap: 0.85rem;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-board__overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.task-board__overview-pill {
+  padding: 0.72rem 0.9rem;
+  border-radius: 14px;
+}
+
+.task-board__overview-pill strong {
+  font-size: 1.1rem;
+}
+
+.task-board__sections {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 0;
+}
+
+.task-board__section {
+  padding: 0.9rem;
+  border-radius: 18px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-board__section-header {
+  margin-bottom: 0.7rem;
+}
+
+.task-board__list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.task-board__card {
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border-radius: 16px;
+}
+
+.task-board__title {
+  font-size: 0.96rem;
+}
+
+.task-board__note {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.task-board__meta-list {
+  gap: 0.42rem;
+}
+
+.task-board__badge,
+.task-board__chip {
+  padding: 0.3rem 0.58rem;
+  font-size: 0.72rem;
+}
+
+.task-board__meta-text,
+.task-board__footer-copy {
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.task-board__timer-shell,
+.task-board__checklist-shell {
+  padding: 0.8rem;
+  border-radius: 14px;
+}
+
+.task-board__timer-value {
+  margin-top: 0.22rem;
+  font-size: 1.7rem;
+}
+
+.task-board__progress-track {
+  height: 8px;
+  margin-top: 0.65rem;
+}
+
+.task-board__progress-track--soft {
+  height: 7px;
+}
+
+.task-board__timer-meta,
+.task-board__footer,
+.task-board__actions,
+.task-board__meta-item {
+  gap: 0.55rem;
+}
+
+.task-board__actions .task-board__btn--primary {
+  flex: 1 1 150px;
+}
+
+.task-board__btn {
+  padding: 8px 12px;
+  min-height: 40px;
+}
+
+
+.task-board__section--completed,
+.task-board__card--completed {
+  background: linear-gradient(180deg, var(--app-card) 0%, var(--app-build-bg) 100%);
+  border-color: var(--app-build-border);
+}
+
+.task-board__badge,
+.task-board__chip,
+.task-board__section-count {
+  border: 1px solid var(--app-chip-soft-border);
+}
+
+.task-board__progress-track {
+  border: 1px solid color-mix(in srgb, var(--app-border-strong) 58%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+
+.task-board__empty {
+  border: 1px dashed var(--app-border-strong);
+  border-radius: 14px;
+  background: var(--app-highlight-soft);
+  padding: 1rem;
+}

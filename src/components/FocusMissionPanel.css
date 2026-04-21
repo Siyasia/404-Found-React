@@ -1,0 +1,311 @@
+.focus-mission {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.focus-mission--empty {
+  align-content: start;
+}
+
+.focus-mission__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.focus-mission__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--app-heading);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-mission__back {
+  border: 1px solid var(--app-secondary-border);
+  border-radius: 999px;
+  background: var(--app-secondary-bg);
+  color: var(--app-secondary-text);
+  padding: 9px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.focus-mission__back:hover:not(:disabled) {
+  background: var(--app-secondary-hover);
+  transform: translateY(-1px);
+}
+
+.focus-mission__body {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.88fr) minmax(0, 1.12fr);
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.focus-mission__left {
+  display: grid;
+  grid-template-rows: minmax(180px, auto) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.focus-mission__timer-card,
+.focus-mission__summary-card,
+.focus-mission__checklist-card {
+  border: 1px solid var(--app-border);
+  background: var(--app-card);
+  border-radius: 20px;
+  padding: 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.focus-mission__card-label {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--app-text-muted);
+  margin-bottom: 10px;
+}
+
+.focus-mission__timer-value {
+  font-size: clamp(2rem, 3.8vw, 2.7rem);
+  line-height: 1;
+  font-weight: 900;
+  color: var(--app-heading);
+}
+
+.focus-mission__progress-track {
+  margin-top: 12px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--app-progress-track);
+  overflow: hidden;
+}
+
+.focus-mission__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--app-progress-fill), var(--app-primary-hover));
+  border-radius: inherit;
+}
+
+.focus-mission__timer-meta,
+.focus-mission__checklist-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--app-text-muted);
+  font-size: 0.88rem;
+}
+
+.focus-mission__timer-empty,
+.focus-mission__instructions,
+.focus-mission__empty-copy {
+  color: var(--app-text-muted);
+  font-size: 0.93rem;
+  line-height: 1.45;
+}
+
+.focus-mission__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.focus-mission__btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.focus-mission__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.focus-mission__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.focus-mission__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.focus-mission__btn--primary {
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+
+.focus-mission__btn--primary:hover:not(:disabled) {
+  background: var(--app-primary-hover);
+}
+
+.focus-mission__btn--ghost {
+  background: var(--app-secondary-bg);
+  border-color: var(--app-secondary-border);
+  color: var(--app-secondary-text);
+}
+
+.focus-mission__btn--ghost:hover:not(:disabled) {
+  background: var(--app-secondary-hover);
+}
+
+.focus-mission__btn--success {
+  background: var(--app-success);
+  color: var(--app-success-text);
+}
+
+.focus-mission__btn--success:hover:not(:disabled) {
+  background: var(--app-success-hover);
+}
+
+.focus-mission__btn--danger {
+  background: var(--app-danger-bg);
+  border-color: var(--app-danger-border);
+  color: var(--app-danger-text);
+}
+
+.focus-mission__btn--danger:hover:not(:disabled) {
+  background: var(--app-danger-hover);
+}
+
+.focus-mission__summary-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.focus-mission__summary-list {
+  display: grid;
+  gap: 8px;
+  color: var(--app-text-muted);
+  font-size: 0.93rem;
+  line-height: 1.4;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.focus-mission__checklist-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.focus-mission__checklist-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.focus-mission__checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--app-text);
+  line-height: 1.4;
+}
+
+.focus-mission__checklist-item input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .focus-mission__body {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-mission__left {
+    grid-template-rows: auto auto;
+  }
+
+  .focus-mission__title {
+    white-space: normal;
+  }
+}
+
+.focus-mission__timer-card,
+.focus-mission__summary-card,
+.focus-mission__checklist-card,
+.focus-mission__checklist-item {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.focus-mission__timer-card,
+.focus-mission__summary-card,
+.focus-mission__checklist-card {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.focus-mission__progress-track {
+  border: 1px solid color-mix(in srgb, var(--app-border-strong) 58%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+
+.focus-mission__timer-meta,
+.focus-mission__checklist-meta,
+.focus-mission__summary-list li {
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.focus-mission__checklist-item:hover {
+  background: var(--app-highlight-soft);
+  border-radius: 12px;
+  padding-inline: 6px;
+}
+
+.focus-mission__checklist-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+  font-weight: 700;
+}
+

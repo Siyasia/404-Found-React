@@ -1,0 +1,349 @@
+.ns-task-composer {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  background: var(--app-card-soft);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--app-panel) 65%, transparent);
+  min-height: 0;
+}
+
+.ns-task-composer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ns-task-composer__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--app-heading);
+}
+
+.ns-task-composer__subtitle {
+  margin: 4px 0 0;
+  color: var(--app-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.ns-task-composer__form {
+  display: grid;
+  gap: 10px;
+}
+
+.ns-task-composer__grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ns-task-composer__field {
+  display: grid;
+  gap: 6px;
+}
+
+.ns-task-composer__field--full {
+  grid-column: 1 / -1;
+}
+
+.ns-task-composer__label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.ns-task-composer input,
+.ns-task-composer select,
+.ns-task-composer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-card);
+  color: var(--app-text);
+  padding: 10px 12px;
+  font: inherit;
+  box-shadow: none;
+}
+
+.ns-task-composer textarea {
+  resize: vertical;
+  min-height: 72px;
+  max-height: 220px;
+}
+
+.ns-task-composer__multi {
+  min-height: 96px;
+}
+
+.ns-task-composer__hint {
+  font-size: 0.78rem;
+  color: var(--app-text-muted);
+}
+
+.ns-task-composer__inline-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+  padding-top: 2px;
+}
+
+.ns-task-composer__inline-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ns-task-composer__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--app-text);
+  font-weight: 700;
+}
+
+.ns-task-composer__checkbox input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--app-primary);
+}
+
+.ns-task-composer__mini-select {
+  width: auto;
+  min-width: 100px;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+}
+
+.ns-task-composer__checklist-box {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--app-card) 72%, transparent);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.ns-task-composer__checklist-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ns-task-composer__checklist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ns-task-composer__btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.ns-task-composer__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ns-task-composer__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.ns-task-composer__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ns-task-composer__btn--primary {
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--app-primary) 20%, transparent);
+}
+
+.ns-task-composer__btn--primary:hover:not(:disabled) {
+  background: var(--app-primary-hover);
+}
+
+.ns-task-composer__btn--secondary {
+  background: var(--app-secondary-bg);
+  border-color: var(--app-secondary-border);
+  color: var(--app-secondary-text);
+}
+
+.ns-task-composer__btn--secondary:hover:not(:disabled) {
+  background: var(--app-secondary-hover);
+}
+
+.ns-task-composer__btn--danger {
+  background: var(--app-danger-bg);
+  border-color: var(--app-danger-border);
+  color: var(--app-danger-text);
+}
+
+.ns-task-composer__btn--danger:hover:not(:disabled) {
+  background: var(--app-danger-hover);
+}
+
+/* Map existing composer button classes to the new family */
+.ns-task-composer__submit {
+  /* primary */
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--app-primary) 20%, transparent);
+}
+
+.ns-task-composer__checklist-row .ns-task-composer__icon-btn {
+  /* danger for remove */
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: var(--app-danger-bg);
+  border: 1px solid var(--app-danger-border);
+  color: var(--app-danger-text);
+  font-weight: 700;
+}
+
+.ns-task-composer__text-btn {
+  /* secondary */
+  justify-self: start;
+  padding: 0;
+  background: transparent;
+  color: var(--app-secondary-text);
+  font-weight: 700;
+}
+
+.ns-task-composer__message {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.ns-task-composer__message--error {
+  background: var(--app-danger-bg);
+  color: var(--app-danger-text);
+}
+
+.ns-task-composer__message--success {
+  background: var(--app-build-bg);
+  color: var(--app-build-text);
+}
+
+.ns-task-composer__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ns-task-composer__submit {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  font-weight: 800;
+}
+
+.ns-task-composer__submit:disabled,
+.ns-task-composer__icon-btn:disabled,
+.ns-task-composer__text-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+@media (max-width: 900px) {
+  .ns-task-composer {
+    padding: 14px;
+  }
+
+  .ns-task-composer__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ns-task-composer__checklist-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ns-task-composer__actions {
+    justify-content: stretch;
+  }
+
+  .ns-task-composer__submit {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.ns-task-composer,
+.ns-task-composer__checklist-box,
+.ns-task-composer input,
+.ns-task-composer select,
+.ns-task-composer textarea {
+  transition:
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.ns-task-composer {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.ns-task-composer__checklist-box {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+}
+
+.ns-task-composer input:focus,
+.ns-task-composer select:focus,
+.ns-task-composer textarea:focus {
+  outline: none;
+  border-color: var(--app-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 14%, transparent);
+}
+
+.ns-task-composer__hint {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+  font-weight: 700;
+}
+
+.ns-task-composer__message--success {
+  border: 1px solid var(--app-build-border);
+}
+
+.ns-task-composer__message--error {
+  border: 1px solid var(--app-danger-border);
+}
