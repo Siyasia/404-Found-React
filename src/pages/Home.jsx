@@ -15,8 +15,6 @@ import { actionPlanList } from '../lib/api/actionPlans.js'
 import { getCoins } from '../lib/api/streaks.js'
 import { getActiveReward, redeemActiveReward } from '../lib/api/reward.js'
 import { friendsList } from '../lib/api/friends.js'
-import { logFriendActivity } from '../lib/friendActivity.js'
-import { getFriendIdentifier } from '../lib/friendsIdentity.js'
 import togglePlanCompletion from '../lib/actionPlanCompletion.js'
 import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
 import { getCueLabel } from '../lib/cuePresets.js'
@@ -163,8 +161,6 @@ function getPlanCueDetail(plan) {
 export default function Home() {
   const navigate = useNavigate()
   const { user } = useUser()
-  const currentFriendUsername = useMemo(() => getFriendIdentifier(user), [user])
-
   /* -------------------------------------------------------
      AVATAR / PROFILE DATA
      These hooks let us render the user's real avatar if
@@ -496,12 +492,6 @@ export default function Home() {
     return Math.min(100, Math.round((coins / activeReward.costCoins) * 100))
   }, [activeReward, coins])
 
-  const recordFriendPlanProgress = useCallback((planTitle) => {
-    if (!currentFriendUsername || !planTitle) return
-
-    logFriendActivity(currentFriendUsername, 'completed_plan', planTitle)
-  }, [currentFriendUsername])
-
   const handleRedeemReward = useCallback(async () => {
     if (!activeReward || redeemingReward) return
 
@@ -712,7 +702,6 @@ export default function Home() {
           }
 
           if (delta > 0) {
-            recordFriendPlanProgress(plan?.title || 'habit plan')
             setSuccessMessage(
               `Completed ${plan?.title || 'habit plan'} • earned ${delta} coins`
             )
@@ -724,7 +713,7 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to toggle plan completion:', error)
     }
-  }, [goalsById, todayISO, user?.id, recordFriendPlanProgress])
+  }, [goalsById, todayISO, user?.id])
 
   const syncLinkedPlanFromTask = useCallback(async (task) => {
     if (!task?.linkedActionPlanId) return

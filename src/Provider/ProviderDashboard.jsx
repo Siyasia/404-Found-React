@@ -300,9 +300,9 @@ export default function ProviderDashboard() {
           </p>
         ) : (
           <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.75rem' }}>
-            {providerTasks.slice(0, 10).map((task) => (
+            {providerTasks.slice(0, 10).map((task, index) => (
               <div
-                key={task.id}
+                key={task.id || task.tempId || `provider-task-${index}`}
                 style={{
                   border: '1px solid #eef2f7',
                   borderRadius: '14px',

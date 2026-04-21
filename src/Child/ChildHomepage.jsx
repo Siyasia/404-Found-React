@@ -16,6 +16,7 @@ import { actionPlanList } from '../lib/api/actionPlans.js'
 import { getCoins } from '../lib/api/streaks.js'
 import { getActiveReward, redeemActiveReward } from '../lib/api/reward.js'
 import { friendsList } from '../lib/api/friends.js'
+import { getFriendDisplayName, getFriendIdentifier } from '../lib/friendsIdentity.js'
 import togglePlanCompletion from '../lib/actionPlanCompletion.js'
 import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
 import { getCueLabel } from '../lib/cuePresets.js'
@@ -356,7 +357,7 @@ export default function ChildHomepage() {
   const actionCueSections = useMemo(() => {
     const sectionMap = new Map()
 
-    todaysPlans.forEach((plan) => {
+    todaysPlans.forEach((plan, index) => {
       const cueKey = getPlanCueKey(plan) || 'uncategorized'
       const cueLabel = getPlanCueLabel(plan) || 'No cue'
       const cueDetail = getPlanCueDetail(plan)
@@ -372,7 +373,7 @@ export default function ChildHomepage() {
       }
 
       sectionMap.get(cueKey).items.push({
-        id: plan.id,
+        id: plan.id || plan.tempId || `${cueKey}-${index}`,
         title: plan?.title || 'Untitled habit',
         subLabel: getGoalTitle(goal),
         detail: cueDetail,
@@ -613,15 +614,17 @@ export default function ChildHomepage() {
     try {
       setTasksLoading(true)
 
-      const response = await taskList({
-        assigneeId: String(user.id),
-      })
+      const response = await taskList()
 
       if (response?.status_code >= 400) {
         throw new Error(response?.error || 'Failed to load tasks.')
       }
 
-      setTasks(response?.data?.tasks || [])
+      const nextTasks = Array.isArray(response?.data?.tasks)
+        ? response.data.tasks
+        : []
+
+      setTasks(nextTasks)
     } catch (error) {
       console.error('Failed to load tasks:', error)
       setTasks([])
@@ -909,7 +912,7 @@ export default function ChildHomepage() {
               ) : (
                 <div className="home-goal-list">
                   {latestGoals.map((goal, index) => (
-                    <div className="home-goal-item" key={goal.id}>
+                    <div className="home-goal-item" key={goal.id || goal.tempId || `goal-${index}`}>
                       <div className="home-goal-item__row">
                         <span className="home-goal-item__title app-card-title">{goal.title}</span>
                         <span className="home-goal-item__value app-micro-text">{goal.percent}%</span>
@@ -990,24 +993,30 @@ export default function ChildHomepage() {
                 </div>
               ) : (
                 <div className="home-badges-list">
-                  {friends.map((friend) => (
-                    <div key={friend.id} className="home-friend-row">
-                      <div className="home-friend-avatar">
-                        {friend.name?.[0]?.toUpperCase() ?? '?'}
-                      </div>
+                  {friends.map((friend, index) => {
+                    const friendIdentifier = getFriendIdentifier(friend)
+                    const friendName = getFriendDisplayName(friend) || 'Friend'
+                    const friendStreak = typeof friend === 'object' ? Number(friend?.streak || 0) : 0
 
-                      <div className="home-friend-info">
-                        <div className="home-friend-name app-card-title">{friend.name}</div>
-                        {friend.streak > 0 ? (
-                          <div className="home-friend-meta app-micro-text">
-                            🔥 {friend.streak} day streak
-                          </div>
-                        ) : (
-                          <div className="home-friend-meta app-helper-text">Working on their goals</div>
-                        )}
+                    return (
+                      <div key={friendIdentifier || `friend-${index}`} className="home-friend-row">
+                        <div className="home-friend-avatar">
+                          {friendName[0]?.toUpperCase() ?? '?'}
+                        </div>
+
+                        <div className="home-friend-info">
+                          <div className="home-friend-name app-card-title">{friendName}</div>
+                          {friendStreak > 0 ? (
+                            <div className="home-friend-meta app-micro-text">
+                              🔥 {friendStreak} day streak
+                            </div>
+                          ) : (
+                            <div className="home-friend-meta app-helper-text">Working on their goals</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </section>

@@ -1243,8 +1243,8 @@ export default function ParentHomepage() {
                 </div>
               ) : (
                 <div className="home-badges-list">
-                  {providerPendingApprovals.slice(0, 6).map((task) => (
-                    <div key={task.id} className="home-friend-row">
+                  {providerPendingApprovals.slice(0, 6).map((task, index) => (
+                    <div key={task.id || task.tempId || `provider-approval-${index}`} className="home-friend-row">
                       <div className="home-friend-avatar">
                         {(task.assigneeName || 'P')?.[0]?.toUpperCase() ?? 'P'}
                       </div>
