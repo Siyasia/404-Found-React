@@ -419,9 +419,9 @@ export default function TaskBoard({
               <p className="task-board__empty">{section.emptyText}</p>
             ) : (
               <div className="task-board__list">
-                {section.tasks.map((task) => (
+                {section.tasks.map((task, index) => (
                   <TaskCard
-                    key={task.id}
+                    key={task.id || task.tempId || `${section.key}-task-${index}`}
                     task={task}
                     variant={section.variant}
                     nowMs={nowMs}
