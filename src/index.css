@@ -1,92 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
+
 /* ===========================
    Next Steps – Global Styles (Light Theme)
    =========================== */
 :root {
-  /* Default palette: Gold Dust  */
-  --brand: #C9A24A;
-  --brand-hover: #B08D3F;
-  --brand-700: #9C7A32;
-  --accent: #2E7D6B;
+  --app-bg: #f6efe4;
+  --app-bg-elevated: #fbf7f0;
+  --app-panel: #ffffff;
+  --app-card: #ffffff;
+  --app-card-soft: #faf6ef;
+  --app-border: #e8ddd0;
+  --app-border-strong: #d8c7b4;
+  --app-shadow: 0 16px 36px rgba(93, 69, 36, 0.10);
+  --app-shadow-soft: 0 8px 18px rgba(93, 69, 36, 0.06);
 
-  /* Base neutrals */
-  --bg-base: #F6F1E7;
-  --bg-tint: #F1EADC;
-  --surface-base: #FFFFFF;
-  --text-base: #1F1F1F;
-  --text-muted-base: #5B5B5B;
-  --text-light: #9ca3af;
-  --border-base: #E6DDCF;
+  --app-text: #2b2a28;
+  --app-text-muted: #6f665e;
+  --app-text-soft: #8e857c;
+  --app-heading: #241d17;
+  --app-link: #8a5f2e;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.1);
+  --app-primary: #c9a24a;
+  --app-primary-hover: #b08d3f;
+  --app-primary-text: #23180c;
 
-  /* Derived tokens */
-  --body-bg: linear-gradient(180deg, var(--bg-base) 0%, var(--bg-tint, var(--bg-base)) 100%);
+  --app-success: #6f8b5d;
+  --app-success-hover: #5e774e;
+  --app-success-text: #ffffff;
+
+  --app-secondary-bg: #f7efe0;
+  --app-secondary-hover: #efe2cb;
+  --app-secondary-border: #e3d2ba;
+  --app-secondary-text: #5d4c35;
+
+  --app-danger-bg: #fff1ef;
+  --app-danger-hover: #fde4df;
+  --app-danger-border: #f4c6bf;
+  --app-danger-text: #9a3c31;
+
+  --app-progress-track: #efe4d2;
+  --app-progress-fill: #c9a24a;
+  --app-highlight: #efe3f7;
+  --app-highlight-soft: #f7f2fb;
+
+  --app-chip-soft-bg: #f8f1e6;
+  --app-chip-soft-border: #e6d7c1;
+  --app-chip-soft-text: #6f5731;
+
+  --app-build-bg: #edf6ea;
+  --app-build-border: #bfd6b5;
+  --app-build-text: #31512d;
+  --app-break-bg: #fff2e8;
+  --app-break-border: #efc9aa;
+  --app-break-text: #8b4a20;
+
+  --brand: var(--app-primary);
+  --brand-hover: var(--app-primary-hover);
+  --surface-base: var(--app-panel);
   --card-bg: var(--surface-base);
-  --card-border: var(--border-base);
-  --card-shadow: var(--shadow-sm);
+  --card-border: var(--app-border);
+  --card-shadow: var(--app-shadow-soft);
+  --text-base: var(--app-text);
+  --text-muted-base: var(--app-text-muted);
+  --border-base: var(--app-border);
+  --bg-base: var(--app-bg);
+  --bg-tint: var(--app-bg-elevated);
+  --body-bg: linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-elevated) 100%);
+
+  --brand-700: var(--app-primary-hover);
+  --accent: var(--app-success);
+  --text-light: var(--app-text-soft);
+  --shadow-sm: var(--app-shadow-soft);
+  --shadow-md: var(--app-shadow-soft);
+  --shadow-lg: var(--app-shadow);
   --text-dark: var(--text-base);
   --text-muted: var(--text-muted-base);
-  --white: #ffffff;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
+  --white: var(--app-card);
+  --gray-50: var(--app-card-soft);
+  --gray-100: var(--app-secondary-bg);
+  --gray-200: var(--app-secondary-hover);
+  --gray-300: var(--app-border-strong);
   --border: var(--card-border);
-  --border-light: #f3f4f6;
+  --border-light: var(--app-border);
 
   /* Legacy brand tokens mapped to current palette */
-  --blue-50: #f3f1ea;
-  --blue-100: #ece4d6;
-  --blue-200: #e2d4ba;
+  --blue-50: color-mix(in srgb, var(--brand) 8%, var(--app-card));
+  --blue-100: color-mix(in srgb, var(--brand) 14%, var(--app-card));
+  --blue-200: color-mix(in srgb, var(--brand) 24%, var(--app-card));
   --blue-500: var(--brand);
   --blue-600: var(--brand-hover);
   --blue-700: var(--brand-700);
-}
 
-/* Modes: single light and dark mode definitions */
-body.mode-light {
-  --bg-base: #F6F1E7;
-  --bg-tint: #F1EADC;
-  --surface-base: #FFFFFF;
-  --text-base: #1F1F1F;
-  --text-muted-base: #5B5B5B;
-  --border-base: #E6DDCF;
-  --body-bg: linear-gradient(180deg, var(--bg-base) 0%, var(--bg-tint) 100%);
-  --card-bg: var(--surface-base);
-  --card-border: var(--border-base);
-  --card-shadow: var(--shadow-sm);
-}
-
-/* Dark mode palette and overrides */
-body.mode-dark {
-  --bg-base: #0f172a;
-  --bg-tint: #0b1220;
-  --surface-base: #111827;
-  --text-base: #e5e7eb;
-  --text-muted-base: #9ca3af;
-  --text-light: #cbd5e1;
-  --border-base: #1f2937;
-
-  --body-bg: radial-gradient(circle at 20% 20%, #0f172a 0%, #0b1220 35%, #0b1220 100%);
-  --card-bg: #111827;
-  --card-border: rgba(148, 163, 184, 0.35);
-  --card-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-
-  /* dark replacements for legacy utility tokens */
-  --white: #111827;
-  --gray-50: #0b1220;
-  --gray-100: #172033;
-  --gray-200: #243047;
-  --gray-300: #334155;
-  --border-light: #243047;
-
-  /* keep subtle hover/focus tints usable in dark mode */
-  --blue-50: rgba(201, 162, 74, 0.08);
-  --blue-100: rgba(201, 162, 74, 0.12);
-  --blue-200: rgba(201, 162, 74, 0.22);
+  /* Habit Wizard-aligned typography */
+  --app-font-display: 'Playfair Display', Georgia, serif;
+  --app-font-body: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --hw-font-display: var(--app-font-display);
+  --hw-font-body: var(--app-font-body);
+  --ns-font-display: var(--app-font-display);
+  --ns-font-body: var(--app-font-body);
+  --cal-font-display: var(--app-font-display);
+  --cal-font-body: var(--app-font-body);
 }
 
 /* ===========================
@@ -103,67 +116,337 @@ body {
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--app-font-body);
   background: var(--body-bg);
-  color: var(--text-dark);
+  color: var(--text-base);
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* ===========================
+   App Typography Roles
+   Source: Habit Wizard Playfair/DM Sans scale.
+   =========================== */
+.app-display-title.app-display-title,
+.app-page-title.app-page-title,
+.app-question-title.app-question-title {
+  font-family: var(--app-font-display) !important;
+  font-weight: 700 !important;
+  font-style: italic !important;
+  letter-spacing: -0.02em !important;
+}
+
+.app-display-title.app-display-title {
+  font-size: 32px !important;
+  line-height: 1.1 !important;
+}
+
+.app-page-title.app-page-title {
+  font-size: 30px !important;
+  line-height: 1.1 !important;
+}
+
+.app-question-title.app-question-title {
+  font-size: 23px !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.app-section-title.app-section-title,
+.app-panel-title.app-panel-title,
+.app-card-title.app-card-title,
+.app-body-text.app-body-text,
+.app-helper-text.app-helper-text,
+.app-meta-label.app-meta-label,
+.app-field-label.app-field-label,
+.app-button-label.app-button-label,
+.app-micro-text.app-micro-text {
+  font-family: var(--app-font-body) !important;
+}
+
+.app-section-title.app-section-title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-panel-title.app-panel-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-card-title.app-card-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-body-text.app-body-text {
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-helper-text.app-helper-text {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-meta-label.app-meta-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+}
+
+.app-field-label.app-field-label {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+.app-button-label.app-button-label {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+}
+
+.app-micro-text.app-micro-text {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  letter-spacing: 0 !important;
+}
+
+/* System-wide typography mapping for existing components. */
+.profile-header h1,
+.shop-topbar__left h1,
+.avatar-page h1,
+.calendar-page__title,
+.goals-header h1,
+.provider-dashboard__title,
+.auth-card h1,
+.container > h1 {
+  font-family: var(--app-font-display) !important;
+  font-size: 30px !important;
+  font-weight: 700 !important;
+  font-style: italic !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.hw-header h3,
+.hw-review-title,
+.hw-reward-coins-row {
+  font-family: var(--app-font-display);
+}
+
+.missions-board__title,
+.parent-tab-title,
+.approvals-hero__title,
+.parent-ui-stat__number,
+.children-mini-card__value,
+.home-coin-number,
+.home-week-summary__value {
+  font-family: var(--app-font-body) !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0 !important;
+}
+
+.home-panel__title,
+.profile-panel__title,
+.shop-panel__title,
+.avatar-panel__title,
+.task-assignment-panel__title,
+.ns-task-composer__title,
+.sectionTitle,
+.dashboardTitle,
+.dashboardSectionTitle,
+.shop-preview-modal__title,
+.focus-mission__title,
+.parent-ui-action-card__title,
+.parent-ui-approval-card__title,
+.approvals-info-card__title {
+  font-family: var(--app-font-body) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0 !important;
+}
+
+.goalCardTitle,
+.goals-list-item__title,
+.home-goal-item__title,
+.home-friend-name,
+.home-avatar-name,
+.profile-badge-card__label,
+.profile-avatar-card__name,
+.shop-item-card__name,
+.shop-reward-card__name,
+.shop-preview-modal__name,
+.missions-board__task-title,
+.task-board__task-title,
+.parent-compact-row__name,
+.parent-empty-state__title,
+.children-avatar-name,
+.children-empty-state__title,
+.children-summary-hero__name {
+  font-family: var(--app-font-body) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0 !important;
+}
+
+.home-quote,
+.home-muted,
+.profile-badge-subtitle,
+.profile-friends-empty,
+.profile-appearance-copy,
+.shop-topbar__left p,
+.shop-inv-empty,
+.goals-header__subtitle,
+.goals-subtitle,
+.goals-helper,
+.goals-empty,
+.parent-calendar-subtitle,
+.parent-action-shell__subtitle,
+.parent-empty-state__description,
+.parent-ui-stat__detail,
+.parent-ui-action-card__description,
+.parent-ui-approval-card__description,
+.children-empty-state__text,
+.children-avatar-role,
+.children-summary-hero__meta,
+.children-muted-note,
+.children-status-message,
+.approvals-hero__text,
+.approvals-banner,
+.approvals-info-card__text,
+.missions-board__task-note,
+.missions-board__empty,
+.dashboard-emptyText,
+.goalCardMutedText,
+.task-assignment-composer__subtitle,
+.task-assignment-panel__hint,
+.ns-task-composer__subtitle {
+  font-family: var(--app-font-body) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0 !important;
+}
+
+.profile-info-row,
+.profile-badge-card__description,
+.profile-request-copy,
+.shop-modal__message,
+.goalCardBodyText,
+.hw-step-hint,
+.muted {
+  font-family: var(--app-font-body) !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+
+.dashboard-section-label,
+.statLabel,
+.profile-info-row__label,
+.profile-stat-tile__label,
+.profile-badge-summary__label,
+.profile-badge-card__status,
+.goals-stat-tile__label,
+.goals-toolbar__label,
+.goals-inline-detail__label,
+.home-week-summary__label,
+.parent-section-label,
+.parent-snapshot-lead__kicker,
+.parent-ui-stat__label,
+.parent-tab-count,
+.parent-tab-pill,
+.children-mini-card__label,
+.children-section-label,
+.children-label,
+.task-board__section-kicker,
+.task-board__stat-label,
+.task-assignment-composer__label,
+.task-assignment-panel__label,
+.ns-task-composer__label,
+.shop-item-card__badge,
+.hw-section-card-title,
+.hw-task-form-title,
+.hw-review-card-label,
+.hw-review-timeline-label {
+  font-family: var(--app-font-body) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+}
+
+button,
+.btn,
+.home-primary-btn,
+.home-secondary-btn,
+.missions-board__btn,
+.missions-board__header-btn,
+.shop-btn,
+.goals-btn,
+.goals-action-btn,
+.profile-friends-add-btn,
+.profile-friend-remove-btn,
+.profile-request-accept-btn,
+.profile-request-decline-btn,
+.profile-modal__close,
+.avatar-btn,
+.avatar-tab,
+.avatar-surprise-btn,
+.task-assignment-composer__actions button,
+.task-assignment-panel button,
+.ns-task-composer button,
+.parent-filter-chip,
+.parent-dashboard-cta,
+.parent-ui-btn,
+.children-action-btn,
+.approvals-action-btn,
+.parent-tab-close,
+.cueCard__readButton {
+  font-family: var(--app-font-body) !important;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
 main {
   background: var(--body-bg);
-  min-height: calc(100vh - 70px);
-}
-
-body.mode-dark a {
-  color: #a5b4fc;
-}
-
-body.mode-dark .site-header {
-  background: var(--card-bg);
-  border-bottom-color: var(--card-border);
-  box-shadow: var(--card-shadow);
-}
-
-body.mode-dark .nav-link {
-  color: var(--text-muted);
-}
-
-body.mode-dark .nav-link:hover,
-body.mode-dark .nav-link:focus-visible {
-  background: var(--gray-100);
-  color: var(--text-light);
-}
-
-/* Optional dark-specific overrides to improve readability */
-body.mode-dark .btn-ghost {
-  background: var(--gray-100);
-  color: var(--text-dark);
-  border-color: var(--card-border);
-}
-
-body.mode-dark .btn-ghost:hover:not(:disabled) {
-  background: var(--gray-200);
-  border-color: var(--gray-300);
-}
-
-body.mode-dark .feature:hover {
-  border-color: var(--blue-200);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-body.mode-dark .auth-modal {
-  background: rgba(0, 0, 0, 0.45);
-}
-
-body.mode-dark .footer-link,
-body.mode-dark .sub,
-body.mode-dark .nav-link {
-  color: var(--text-muted);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* ===========================
@@ -238,9 +521,9 @@ input:focus-visible {
    =========================== */
 
 .site-header {
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--card-border);
-  box-shadow: var(--card-shadow);
+  background: color-mix(in srgb, var(--app-panel) 94%, transparent);
+  border-bottom: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-soft);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -287,7 +570,7 @@ input:focus-visible {
   justify-content: center;
   border-radius: 10px;
   background: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-600) 100%);
-  color: white;
+  color: var(--app-primary-text);
   font-weight: 800;
   font-size: 1.25rem;
 }
@@ -319,19 +602,40 @@ input:focus-visible {
 
 .nav-link:hover {
   color: var(--text-dark);
-  background: var(--gray-100);
+  background: var(--app-secondary-bg);
 }
 
 .nav-link:focus-visible {
   outline: none;
-  background: var(--gray-100);
+  background: var(--app-secondary-bg);
 }
 
 .nav-link-active {
-  color: white;
-  background: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-600) 100%);
+  color: var(--app-primary-text);
+  background: linear-gradient(135deg, var(--app-primary) 0%, var(--app-primary-hover) 100%);
   border: 1px solid transparent;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--app-primary) 30%, transparent);
+}
+
+.layout-profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.layout-request-badge {
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--app-danger-text);
+  color: var(--app-danger-bg);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 /* Main */
@@ -402,9 +706,9 @@ input:focus-visible {
 
 .feature:hover {
   border: 1px solid var(--blue-200);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--app-card-soft);
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.06);
+  box-shadow: var(--app-shadow-soft);
 }
 
 /* ===========================
@@ -434,13 +738,13 @@ input:focus-visible {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--blue-500) 0%, var(--blue-600) 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  color: var(--app-primary-text);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--app-primary) 30%, transparent);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-700) 100%);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--app-primary) 38%, transparent);
   transform: translateY(-2px);
 }
 
@@ -478,7 +782,7 @@ input:focus-visible {
 }
 
 .required-asterisk {
-  color: #b91c1c; /* red-700 */
+  color: var(--app-danger-text);
   margin-left: 0.25rem;
 }
 
@@ -509,7 +813,7 @@ input:focus-visible {
   outline: none;
   border: 1px solid var(--blue-500);
   background: var(--blue-50);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 14%, transparent);
 }
 
 .auth-label option {
@@ -520,6 +824,11 @@ input:focus-visible {
 /* ===========================
    Toast
    =========================== */
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .toast-container {
   position: fixed;
@@ -535,6 +844,7 @@ input:focus-visible {
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
   font-weight: 600;
+  animation: toast-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ===========================
@@ -613,7 +923,7 @@ li {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.15);
+  background: color-mix(in srgb, var(--app-text) 15%, transparent);
   backdrop-filter: blur(4px);
   z-index: 9999;
 }
@@ -855,168 +1165,72 @@ li {
   }
 }
 
-/* =========================================
-   Dark mode stabilization overrides
-   ========================================= */
-
-body.mode-dark {
-  --bg-base: #0f172a;
-  --bg-tint: #0b1220;
-  --surface-base: #111827;
-  --text-base: #e5e7eb;
-  --text-muted-base: #94a3b8;
-  --text-light: #cbd5e1;
-  --border-base: #334155;
-
-  --body-bg: linear-gradient(180deg, #081120 0%, #0b1220 100%);
-  --card-bg: #0f172a;
-  --card-border: #334155;
-  --card-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
-
-  --white: #111827;
-  --gray-50: #0b1220;
-  --gray-100: #162033;
-  --gray-200: #243041;
-  --gray-300: #334155;
-  --border-light: #243041;
-
-  --text-dark: #e5e7eb;
-  --text-muted: #94a3b8;
-  --border: #334155;
+/* ===========================
+   Theme Personality Polish
+   =========================== */
+.site-header,
+.site-footer,
+.card,
+.feature,
+.toast,
+.auth-dialog {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border);
 }
 
-/* force readable text in dark mode */
-body.mode-dark,
-body.mode-dark p,
-body.mode-dark li,
-body.mode-dark span,
-body.mode-dark label,
-body.mode-dark small,
-body.mode-dark .whoami {
-  color: #cbd5e1;
+.card,
+.feature,
+.toast {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
 }
 
-body.mode-dark h1,
-body.mode-dark h2,
-body.mode-dark h3,
-body.mode-dark h4,
-body.mode-dark h5,
-body.mode-dark h6,
-body.mode-dark strong,
-body.mode-dark .brand,
-body.mode-dark .brand-text {
-  color: #f8fafc !important;
+.card:hover,
+.feature:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
 }
 
-body.mode-dark .sub,
-body.mode-dark .hero .sub,
-body.mode-dark .footer-link,
-body.mode-dark .nav-link {
-  color: #94a3b8 !important;
+.nav-link,
+.layout-request-badge,
+.parent-tab-pill,
+.children-mini-card__label,
+.shop-item-card__badge {
+  background: var(--app-chip-soft-bg);
+  border-color: var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
 }
 
-/* major surfaces */
-body.mode-dark,
-body.mode-dark main,
-body.mode-dark .site-main {
-  background: var(--body-bg);
+.nav-link:hover,
+.nav-link:focus-visible,
+.nav-link-active {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-link);
 }
 
-body.mode-dark .site-header,
-body.mode-dark .site-footer {
-  background: #0f172a !important;
-  border-color: var(--card-border) !important;
-  box-shadow: var(--card-shadow);
+.btn-ghost,
+.btn-secondary {
+  background: var(--app-secondary-bg);
+  border-color: var(--app-secondary-border);
+  color: var(--app-secondary-text);
 }
 
-body.mode-dark .card,
-body.mode-dark .feature,
-body.mode-dark .auth-dialog {
-  background: var(--card-bg) !important;
-  border: 1px solid var(--card-border) !important;
-  box-shadow: var(--card-shadow);
-  color: #e5e7eb;
+.btn-ghost:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
+  background: var(--app-secondary-hover);
+  border-color: var(--app-border-strong);
 }
 
-/* links + nav */
-body.mode-dark a {
-  color: #c4b5fd;
+.progress-bar,
+.progress {
+  background: var(--app-progress-track);
+  border: 1px solid color-mix(in srgb, var(--app-border-strong) 58%, transparent);
 }
 
-body.mode-dark a:hover {
-  color: #ddd6fe;
-}
-
-body.mode-dark .nav-link:hover,
-body.mode-dark .nav-link:focus-visible {
-  background: rgba(148, 163, 184, 0.12) !important;
-  color: #f8fafc !important;
-}
-
-body.mode-dark .nav-link-active {
-  color: #ffffff !important;
-}
-
-/* buttons */
-body.mode-dark .btn {
-  color: #f8fafc;
-}
-
-body.mode-dark .btn-ghost {
-  background: #162033 !important;
-  color: #e5e7eb !important;
-  border-color: #334155 !important;
-}
-
-body.mode-dark .btn-ghost:hover:not(:disabled) {
-  background: #243041 !important;
-  border-color: #475569 !important;
-}
-
-/* forms */
-body.mode-dark input,
-body.mode-dark select,
-body.mode-dark textarea {
-  background: #111827 !important;
-  color: #f8fafc !important;
-  border: 1px solid #334155 !important;
-}
-
-body.mode-dark input::placeholder,
-body.mode-dark textarea::placeholder {
-  color: #94a3b8 !important;
-}
-
-body.mode-dark .auth-label {
-  color: #e5e7eb !important;
-}
-
-body.mode-dark .auth-label input:focus,
-body.mode-dark .auth-label select:focus,
-body.mode-dark .auth-label textarea:focus {
-  background: #162033 !important;
-  border-color: #64748b !important;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15) !important;
-}
-
-/* lists / friends area / generic bordered boxes */
-body.mode-dark .friendsBox,
-body.mode-dark .friendsListRow,
-body.mode-dark .progress-bar,
-body.mode-dark .toast,
-body.mode-dark [style*="border"],
-body.mode-dark [style*="border-radius"] {
-  border-color: var(--card-border);
-}
-
-/* modal backdrop */
-body.mode-dark .auth-modal {
-  background: rgba(0, 0, 0, 0.45);
-}
-
-/* avatar / popup text safety */
-body.mode-dark section,
-body.mode-dark div,
-body.mode-dark article {
-  border-color: inherit;
+.progress-bar-fill {
+  background: linear-gradient(90deg, var(--app-progress-fill), var(--app-primary-hover));
 }

@@ -6,12 +6,14 @@ export * from './actionPlans.js'
 export * from './habits.js'
 export * from './streaks.js'
 export * from './calendar.js'
+export * from './tasks.js'
 
 import * as goals from './goals.js'
 import * as actionPlans from './actionPlans.js'
 import * as habits from './habits.js'
 import * as streaks from './streaks.js'
 import * as calendar from './calendar.js'
+import * as tasks from './tasks.js'
 
 export default {
   ...goals,
@@ -19,4 +21,5 @@ export default {
   ...habits,
   ...streaks,
   ...calendar,
+  ...tasks,
 }

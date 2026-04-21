@@ -4,7 +4,7 @@
 // const data = await getJSON('/api/items')
 // const created = await postJSON('/api/items', { name: 'new' })
 
-import {nullifyLogin} from "../../UserContext.jsx";
+import { nullifyLogin } from "../../UserContext.jsx";
 
 const DEFAULT_TIMEOUT = 10000 // ms
 const BASE_URL = "http://localhost:8080"
@@ -168,4 +168,3 @@ export default {
 	postJSON,
 	patchJSON
 }
-

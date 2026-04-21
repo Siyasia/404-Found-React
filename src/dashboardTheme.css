@@ -1,36 +1,34 @@
 /* PHASE 4: New shared dashboard styles for read-only goal + action-plan display. */
 :root {
-  --hw-bg: #f8f4ea;
-  --hw-surface: #ffffff;
-  --hw-surface-soft: #fcfaf4;
-  --hw-border: #e8ddc8;
-  --hw-text: #2f2418;
-  --hw-muted: #7b6b56;
-  --hw-gold: #bf8b30;
-  --hw-gold-dark: #8e6823;
-  --hw-gold-soft: #f4ead0;
-  --hw-shadow-soft: 0 10px 24px rgba(64, 44, 12, 0.08);
-  --hw-font-display: 'Playfair Display', Georgia, serif;
-  --hw-font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --hw-radius-xl: 1rem;
-  --hw-radius-lg: 0.85rem;
-  --hw-radius-md: 0.65rem;
-  --hw-radius-sm: 0.4rem;
+  --hw-bg: var(--bg-base);
+  --hw-bg-elevated: var(--bg-tint);
+  --hw-surface: var(--surface-base);
+  --hw-surface-soft: var(--card-bg);
+  --hw-border: var(--border-base);
+  --hw-border-strong: var(--app-border-strong, var(--border-base));
+  --hw-text: var(--text-base);
+  --hw-text-muted: var(--text-muted-base);
+  --hw-heading: var(--app-heading, var(--text-base));
+  --hw-accent: var(--brand);
+  --hw-accent-hover: var(--brand-hover);
+  --hw-success: var(--app-success);
+  --hw-danger: var(--app-danger-text);
+  --hw-card-shadow: var(--card-shadow);
+  --hw-card-radius: 22px;
+  --hw-pill-radius: 999px;
 }
 
 .dashboard-shell {
-  min-height: 100vh;
   background: var(--hw-bg);
   color: var(--hw-text);
-  font-family: var(--hw-font-body);
-  padding: 24px;
+  font-family: var(--app-font-body);
 }
 
 .dashboard-card {
   background: var(--hw-surface);
   border: 1px solid var(--hw-border);
-  border-radius: var(--hw-radius-lg);
-  box-shadow: var(--hw-shadow-soft);
+  border-radius: var(--hw-card-radius);
+  box-shadow: var(--hw-card-shadow);
   padding: 16px;
 }
 
@@ -39,12 +37,12 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   margin-bottom: 6px;
 }
 
 .dashboardInlineChip {
-  border-radius: 999px;
+  border-radius: var(--hw-pill-radius);
   padding: 5px 10px;
   border: 1px solid var(--hw-border);
   background: var(--hw-surface-soft);
@@ -54,55 +52,22 @@
   line-height: 1rem;
 }
 
+/* Build / Break chip colors (use page-level variables when available) */
+.dashboardInlineChip[data-type="Build"] {
+  background: var(--app-build-bg);
+  color: var(--app-build-text);
+  border-color: var(--app-build-border);
+}
+.dashboardInlineChip[data-type="Break"] {
+  background: var(--app-break-bg);
+  color: var(--app-break-text);
+  border-color: var(--app-break-border);
+}
+
 .dashboard-emptyText {
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   font-size: 0.92rem;
   padding: 8px 0;
-}
-
-.homeDashboard {
-  max-width: 1240px;
-  margin: 0 auto;
-}
-
-.homeHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.homeHeaderTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.homeTitle {
-  margin: 0;
-  font-family: var(--hw-font-display);
-  letter-spacing: -0.01em;
-  font-size: clamp(1.8rem, 2vw + 1rem, 2.4rem);
-}
-
-.homeSub {
-  margin: 0;
-  color: var(--hw-muted);
-}
-
-.homeGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.homeMain,
-.homeSide {
-  display: grid;
-  gap: 18px;
 }
 
 .sectionTitle {
@@ -121,15 +86,15 @@
 .statCard {
   background: var(--hw-surface-soft);
   border: 1px solid var(--hw-border);
-  border-radius: var(--hw-radius-md);
-  box-shadow: var(--hw-shadow-soft);
+  border-radius: var(--hw-card-radius);
+  box-shadow: var(--hw-card-shadow);
   padding: 14px;
 }
 
 .statLabel {
   font-size: 0.76rem;
   letter-spacing: 0.05em;
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -143,7 +108,7 @@
 
 .statSub {
   font-size: 0.9rem;
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   margin-top: 4px;
 }
 
@@ -182,7 +147,7 @@
 
 .goalCardMeta {
   font-size: 0.86rem;
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   margin-top: 8px;
   display: flex;
   gap: 12px;
@@ -201,7 +166,7 @@
 .goalCardSection {
   border: 1px solid var(--hw-border);
   background: var(--hw-surface-soft);
-  border-radius: 14px;
+  border-radius: var(--hw-card-radius);
   padding: 12px;
 }
 
@@ -211,7 +176,7 @@
 }
 
 .goalCardMutedText {
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   font-size: 0.9rem;
   margin-top: 6px;
 }
@@ -263,7 +228,7 @@
 
 .habitPlanMeta {
   font-size: 0.86rem;
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
@@ -296,7 +261,7 @@
 }
 
 .infoLabel {
-  color: var(--hw-muted);
+  color: var(--hw-text-muted);
   font-size: 0.88rem;
 }
 
@@ -318,4 +283,46 @@
   .habitPlanSide {
     justify-content: flex-start;
   }
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.dashboard-card,
+.statCard,
+.goalCardSection,
+.dashboardInlineChip {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.dashboard-card,
+.statCard,
+.goalCardSection {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border);
+}
+
+.dashboard-card:hover,
+.statCard:hover,
+.goalCardSection:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+  transform: translateY(-2px);
+}
+
+.dashboardInlineChip {
+  background: var(--app-chip-soft-bg);
+  border-color: var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+}
+
+.dashboard-emptyText {
+  border: 1px dashed var(--app-border-strong);
+  border-radius: 14px;
+  background: var(--app-highlight-soft);
+  padding: 14px;
 }
