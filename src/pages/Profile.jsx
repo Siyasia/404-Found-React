@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { useAppTheme } from '../styles/AppThemeContext.jsx';
 import { ROLE } from '../Roles/roles.js';
-import React, { useState, useEffect } from 'react';
 import {
   friendsList,
   friendsAdd,
   friendsRemove,
   friendsAccept,
   friendsDecline,
-  friendsProfileGet
+  friendsProfileGet,
 } from '../lib/api/friends.js';
 import { useGameProfile } from '../components/useGameProfile';
 import { useItems } from '../components/useItems.jsx';
@@ -36,23 +35,35 @@ function roleLabel(role) {
   return 'User';
 }
 
-function getFriendRowKey(friendObj) {
-  if (!friendObj) return '';
-  return String(
-    friendObj.id ||
-      (friendObj.code
-        ? `${friendObj.username}#${friendObj.code}`
-        : friendObj.username || friendObj.name || '')
-  ).trim();
+function getFriendRowKey(friend) {
+  return String(friend || '').trim();
 }
 
-function getFriendLookupKey(friendObj) {
-  if (!friendObj) return '';
-  const username = String(friendObj.username || friendObj.name || '').trim();
-  const code = String(friendObj.code || '').trim();
+function getFriendLookupKey(friend) {
+  return String(friend || '').trim();
+}
 
-  if (!username) return '';
-  return code ? `${username}#${code}` : username;
+function getFriendModalStats(friendProfile) {
+  const stats = friendProfile?.stats || {};
+  const meta = friendProfile?.game_profile?.meta || {};
+
+  const tasks =
+    Number(stats.tasksCompleted) ||
+    Number(meta.tasksCompleted) ||
+    0;
+
+  const habits =
+    Number(stats.habitsBuilt) ||
+    Number(meta.habitsBuilt) ||
+    0;
+
+  const streak =
+    Number(stats.longestStreak) ||
+    Number(meta.longestStreak) ||
+    Number(meta.bestStreak) ||
+    0;
+
+  return { tasks, habits, streak };
 }
 
 function extractGoals(response) {
@@ -117,10 +128,9 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, setUser } = useUser();
   const { themeId, setThemeId, allowedThemes, allThemes } = useAppTheme();
-  console.log('themeId from provider:', themeId, 'allowedThemes:', allowedThemes);
+
   const { profile, loading } = useGameProfile();
   const { items, loading: itemLoading } = useItems();
-
   const invItems = useInventory(profile, items);
 
   const [friends, setFriends] = useState([]);
@@ -129,7 +139,7 @@ export default function Profile() {
   const [friendError, setFriendError] = useState('');
   const [friendNotice, setFriendNotice] = useState('');
   const [friendProfile, setFriendProfile] = useState(null);
-  const [loadingFriend, setLoadingFriend] = useState(false);
+  const [, setLoadingFriend] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [savingAppTheme, setSavingAppTheme] = useState(false);
   const [friendActionBusy, setFriendActionBusy] = useState('');
@@ -152,24 +162,36 @@ export default function Profile() {
   const usesUsernameIdentity = user?.role === ROLE.CHILD || user?.role === ROLE.USER;
   const showFriends = user?.role !== ROLE.PROVIDER;
 
-  const { pendingCount, requests, refetch } = useFriendRequests(
+  const { requests, refetch } = useFriendRequests(
     30000,
     showFriends && Boolean(user)
   );
 
-  //Sprint 5: Comparing parent / provider for friends
-  //Updated in Sprint 7:
-    useEffect(() => {
-    async function load() {
-      if (user?.role === ROLE.PARENT || user?.role === ROLE.PROVIDER) return;
-      const res = await friendsList();
-      if (res.status === 200) {
-        setFriends(res.data?.friends || []);
-        setFriendRequests(res.data?.requests || []);
-      }
+  const refreshFriends = useCallback(async () => {
+    if (!showFriends || !user || user.role === ROLE.PARENT || user.role === ROLE.PROVIDER) {
+      setFriends([]);
+      setFriendRequests([]);
+      return;
     }
-    load();
-  }, [user?.role, refreshFriends]);
+
+    try {
+      const res = await friendsList();
+
+      if (res.status === 200) {
+        setFriends(Array.isArray(res.data?.friends) ? res.data.friends : []);
+        setFriendRequests(Array.isArray(res.data?.requests) ? res.data.requests : []);
+      } else {
+        setFriendError(res.data?.error || 'Failed to load friends');
+      }
+    } catch (error) {
+      console.error('Failed to refresh friends', error);
+      setFriendError('Failed to load friends');
+    }
+  }, [showFriends, user]);
+
+  useEffect(() => {
+    refreshFriends();
+  }, [refreshFriends]);
 
   useEffect(() => {
     setFriendRequests(Array.isArray(requests) ? requests : []);
@@ -244,12 +266,15 @@ export default function Profile() {
         const longestStreak = visiblePlans.reduce((max, plan) => {
           return Math.max(max, planBestStreak(plan));
         }, 0);
+
         const currentStreak = visiblePlans.reduce((max, plan) => {
           return Math.max(max, planCurrentStreak(plan));
         }, 0);
+
         const totalCompletions = visiblePlans.reduce((sum, plan) => {
           return sum + planTotalCompletions(plan);
         }, 0);
+
         const inferredCurrentStreak = Math.max(currentStreak, longestStreak);
         const inferredTotalCompletions = Math.max(totalCompletions, longestStreak);
 
@@ -259,6 +284,7 @@ export default function Profile() {
           habitsBroken,
           longestStreak,
         });
+
         setBadgeProgressStats({
           current: inferredCurrentStreak,
           longest: longestStreak,
@@ -339,16 +365,17 @@ export default function Profile() {
   }, [earnedBadgeIds, badgeEarnedDates]);
 
   const earnedBadgeCount = badgeShelf.filter((badge) => badge.earned).length;
+  const friendModalStats = getFriendModalStats(friendProfile);
 
   if (loading || itemLoading) return <p>Loading...</p>;
 
   if (!user) {
-    return ( 
-      <section className="container"> 
-        <h1 className="app-page-title">Profile</h1> 
-        <p className="app-helper-text"><a href="/login">You need to log in first</a></p> 
-      </section> 
-    ); 
+    return (
+      <section className="container">
+        <h1 className="app-page-title">Profile</h1>
+        <p className="app-helper-text"><a href="/login">You need to log in first</a></p>
+      </section>
+    );
   }
 
   const handleModeChange = async (event) => {
@@ -446,8 +473,7 @@ export default function Profile() {
     }
 
     const alreadyAdded = friends.some((friend) => {
-      const id = getFriendLookupKey(friend);
-      return id.toLowerCase() === value.toLowerCase();
+      return String(friend).toLowerCase() === value.toLowerCase();
     });
 
     if (alreadyAdded) {
@@ -469,58 +495,57 @@ export default function Profile() {
     setFriendInput('');
   };
 
-  const handleViewFriend = async (friendObj) => {
-    const friendLookup = getFriendLookupKey(friendObj);
+ const handleViewFriend = async (friend) => {
+  const friendLookup = getFriendLookupKey(friend);
 
-    if (!friendLookup) {
+  if (!friendLookup) {
+    setFriendError('Could not identify that friend.');
+    return;
+  }
+
+  setFriendError('');
+  setFriendNotice('');
+  setLoadingFriend(true);
+
+  try {
+    const response = await friendsProfileGet(friendLookup);
+
+    if (response.status !== 200) {
+      setFriendError(response.data?.error || 'Could not load friend profile');
+      return;
+    }
+
+    const u = response.data?.user;
+    if (!u) {
+      setFriendError('Friend profile data was missing.');
+      return;
+    }
+
+    setFriendProfile({
+      ...u,
+      game_profile: GameProfile.from(u.game_profile),
+    });
+  } catch (error) {
+    console.error(error);
+    setFriendError('Could not load friend profile');
+  } finally {
+    setLoadingFriend(false);
+  }
+};
+  const handleRemoveFriend = async (friend) => {
+    const lookup = getFriendLookupKey(friend);
+
+    if (!lookup) {
       setFriendError('Could not identify that friend.');
       return;
     }
 
-    setFriendError('');
-    setFriendNotice('');
-    setLoadingFriend(true);
-
-    try {
-      const response = await friendsProfileGet(friendLookup);
-
-      if (response.status !== 200) {
-        setFriendError(response.data?.error || 'Could not load friend profile');
-        return;
-      }
-
-      const u = response.data?.user;
-      if (!u) {
-        setFriendError('Friend profile data was missing.');
-        return;
-      }
-
-      setFriendProfile({
-        ...u,
-        game_profile: GameProfile.from(u.game_profile),
-      });
-    } catch (error) {
-      console.error(error);
-      setFriendError('Could not load friend profile');
-    } finally {
-      setLoadingFriend(false);
-    }
-  };
-
-  const handleRemoveFriend = async (friendObj) => {
-    const friendId = getFriendLookupKey(friendObj);
-
-    if (!friendId) {
-      setFriendError('Could not identify that friend.');
-      return;
-    }
-
-    setFriendActionBusy(friendId);
+    setFriendActionBusy(lookup);
     setFriendError('');
     setFriendNotice('');
 
     try {
-      const res = await friendsRemove(friendId);
+      const res = await friendsRemove(lookup);
 
       if (res.status !== 200) {
         setFriendError(res.data?.error || 'Failed to remove friend');
@@ -530,18 +555,16 @@ export default function Profile() {
       await refreshFriends();
       await refetch();
       emitFriendRequestsRefresh();
-      setFriendNotice(
-        `Removed ${friendObj.name || friendObj.username || 'friend'} from your friends list.`
-      );
+      setFriendNotice(`Removed ${getFriendDisplayName(lookup)} from your friends list.`);
     } finally {
       setFriendActionBusy('');
     }
   };
 
   const handleAcceptRequest = async (requester) => {
+    setFriendActionBusy(requester);
     setFriendError('');
     setFriendNotice('');
-    setFriendActionBusy(requester);
 
     try {
       const res = await friendsAccept(requester);
@@ -554,16 +577,16 @@ export default function Profile() {
       await refreshFriends();
       await refetch();
       emitFriendRequestsRefresh();
-      setFriendNotice(`Accepted ${getFriendDisplayName(requester)}'s friend request.`);
+      setFriendNotice(res.data?.message || 'Friend request accepted.');
     } finally {
       setFriendActionBusy('');
     }
   };
 
   const handleDeclineRequest = async (requester) => {
+    setFriendActionBusy(requester);
     setFriendError('');
     setFriendNotice('');
-    setFriendActionBusy(requester);
 
     try {
       const res = await friendsDecline(requester);
@@ -576,382 +599,390 @@ export default function Profile() {
       await refreshFriends();
       await refetch();
       emitFriendRequestsRefresh();
-      setFriendNotice(`Declined ${getFriendDisplayName(requester)}'s friend request.`);
+      setFriendNotice(res.data?.message || 'Friend request declined.');
     } finally {
       setFriendActionBusy('');
     }
   };
 
   return (
-    <div className="profile-page">
+    <section className="profile-page">
       <div className="profile-canvas">
-        <div className="profile-header">
-          <h1 className="app-page-title">Profile</h1>
-          <p className="app-helper-text">Your account information</p>
-        </div>
+        <header className="profile-header profile-panel">
+          <div className="profile-hero">
+            <div>
+              <div className="profile-kicker">Next Steps account</div>
+              <h1>Profile</h1>
+              <p>
+                View your identity, progress, earned badges, friends, and appearance settings in one place.
+              </p>
+            </div>
+
+            <button
+              className="profile-hero__avatarButton"
+              type="button"
+              onClick={() => navigate('/shop')}
+            >
+              Customize avatar
+            </button>
+          </div>
+        </header>
 
         <div className="profile-top-grid">
           <div className="profile-panel profile-info-card">
-            <div className="profile-panel__title app-panel-title">Account</div>
+            <h2 className="profile-panel__title">Account</h2>
 
             <div className="profile-info-row">
-              <span className="profile-info-row__label app-field-label">Name</span>
-              <span className="profile-info-row__value app-body-text">{user.name}</span>
+              <span className="profile-info-row__label">Name</span>
+              <span className="profile-info-row__value">{user.name || '—'}</span>
             </div>
 
             <div className="profile-info-row">
-              <span className="profile-info-row__label app-field-label">
+              <span className="profile-info-row__label">
                 {usesUsernameIdentity ? 'Username' : 'Email'}
               </span>
-              <span className="profile-info-row__value app-body-text">
+              <span className="profile-info-row__value">
                 {usesUsernameIdentity
-                  ? `${user.username}${user.code ? `#${user.code}` : ''}`
-                  : user.email}
+                  ? `${user.username || ''}${user.code ? `#${user.code}` : ''}`
+                  : user.email || '—'}
               </span>
             </div>
 
             <div className="profile-info-row">
-              <span className="profile-info-row__label app-field-label">Role</span>
-              <span className="profile-role-pill app-micro-text">{roleLabel(user.role)}</span>
+              <span className="profile-info-row__label">Role</span>
+              <span className="profile-role-pill">{roleLabel(user.role)}</span>
             </div>
           </div>
 
-          {friendError && <p style={{ color: 'crimson' }}>{friendError}</p>}
-          {friendNotice && <p style={{ color: 'var(--text-muted, #666)' }}>{friendNotice}</p>}
+          <div className="profile-panel">
+            <h2 className="profile-panel__title">Progress snapshot</h2>
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <input
-              value={friendInput}
-              onChange={(e) => setFriendInput(e.target.value)}
-              placeholder="Add a friend (username or child username#code)"
-            />
-            <button
-              className="btn"
-              onClick={async () => {
-                setFriendError('');
-                setFriendNotice('');
-                const value = friendInput.trim();
-                if (!value) return;
-                const res = await friendsAdd(value);
-                if (res.status !== 200) {
-                  setFriendError(res.data?.error || 'Failed to send friend request');
-                  return;
-                }
-                setFriends(res.data.friends || []);
-                setFriendRequests(res.data.requests || []);
-                setFriendNotice(res.data?.message || 'Friend request sent.');
-                setFriendInput('');
+            <div className="profile-stats-grid">
+              <div className="profile-stat-tile">
+                <span className="profile-stat-tile__label">Tasks completed</span>
+                <span className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.tasksCompleted}
+                </span>
+              </div>
+
+              <div className="profile-stat-tile">
+                <span className="profile-stat-tile__label">Build habits</span>
+                <span className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.habitsBuilt}
+                </span>
+              </div>
+
+              <div className="profile-stat-tile">
+                <span className="profile-stat-tile__label">Break habits</span>
+                <span className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.habitsBroken}
+                </span>
+              </div>
+
+              <div className="profile-stat-tile">
+                <span className="profile-stat-tile__label">Longest streak</span>
+                <span className="profile-stat-tile__value">
+                  {statsLoading ? '…' : realStats.longestStreak}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="profile-panel profile-avatar-card">
+            <div
+              className="profile-avatar-card__inner"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/shop')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') navigate('/shop');
               }}
-              aria-label="Open avatar editor"
             >
               <DisplayAvatar invItems={invItems} />
             </div>
-            <div className="profile-avatar-card__name app-card-title">{user.name}</div>
-            <div className="profile-avatar-card__sub app-helper-text">{roleLabel(user.role)}</div>
+
+            <div className="profile-avatar-card__name">{user.name || 'Your avatar'}</div>
+            <div className="profile-avatar-card__sub">Tap to customize</div>
           </div>
         </div>
 
-        <div className="profile-panel profile-badge-panel">
-          <div className="profile-badge-header">
-            <div>
-              <div className="profile-panel__title app-panel-title">Badge Shelf</div>
-              <p className="profile-badge-subtitle app-helper-text">Your habit and streak achievements live here.</p>
-            </div>
+        <div className="profile-lower-grid">
+          <div className="profile-lower-main">
+            <div className="profile-panel profile-badge-panel">
+              <div className="profile-badge-header">
+                <div>
+                  <h2 className="profile-panel__title">Badge shelf</h2>
+                  <p className="profile-badge-subtitle">
+                    Progress badges earned across habits, streaks, and consistency.
+                  </p>
+                </div>
 
-            <div className="profile-badge-summary">
-              <span className="profile-badge-summary__count app-card-title">
-                {earnedBadgeCount}/{badgeShelf.length}
-              </span>
-              <span className="profile-badge-summary__label app-meta-label">earned</span>
-            </div>
-          </div>
+                <div className="profile-badge-summary">
+                  <span className="profile-badge-summary__count">{earnedBadgeCount}</span>
+                  <span className="profile-badge-summary__label">Earned</span>
+                </div>
+              </div>
 
-          <div className="friendsBox" style={{ marginBottom: '1rem' }}>
-            <h4 style={{ marginTop: 0 }}>Pending Friend Requests</h4>
-            {friendRequests.length === 0 ? (
-              <p style={{ margin: 0 }}>No pending requests.</p>
-            ) : (
-              <ul className="friendsList">
-                {friendRequests.map((requester) => (
-                  <li key={requester} className="friendsListRow">
-                    <span>{requester}</span>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <button
-                        className="btn"
-                        onClick={async () => {
-                          setFriendError('');
-                          setFriendNotice('');
-                          const res = await friendsAccept(requester);
-                          if (res.status !== 200) {
-                            setFriendError(res.data?.error || 'Failed to accept friend request');
-                            return;
-                          }
-                          setFriends(res.data.friends || []);
-                          setFriendRequests(res.data.requests || []);
-                          setFriendNotice(res.data?.message || 'Friend request accepted.');
-                        }}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={async () => {
-                          setFriendError('');
-                          setFriendNotice('');
-                          const res = await friendsDecline(requester);
-                          if (res.status !== 200) {
-                            setFriendError(res.data?.error || 'Failed to decline friend request');
-                            return;
-                          }
-                          setFriends(res.data.friends || []);
-                          setFriendRequests(res.data.requests || []);
-                          setFriendNotice(res.data?.message || 'Friend request declined.');
-                        }}
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="friendsBox">
-            <h4 style={{ marginTop: 0 }}>Friend List</h4>
-            {friends.length === 0 ? (
-              <p className="profile-friends-empty app-helper-text">No friends yet.</p>
-            ) : (
-              <ul className="friendsList">
-                {friends.map((f) => (
-                  <li key={f} className="friendsListRow">
-                    <span
-                      style={{
-                        textDecoration: 'underline',
-                        cursor: loadingFriend ? 'wait' : 'pointer',
-                        opacity: loadingFriend ? 0.5 : 1
-                      }}
-                      onClick={async () => {
-                        setFriendError('');
-                        setFriendNotice('');
-                        setLoadingFriend(true);
-                        try {
-                          const response = await friendsProfileGet(f);
-                          if (response.status !== 200) {
-                            setFriendError(response.data?.error || 'Failed to load friend profile');
-                            return;
-                          }
-
-                          const friendUser = response.data.user;
-                          const normalized = {
-                            ...friendUser,
-                            game_profile: GameProfile.from(friendUser.game_profile)
-                          };
-                          setFriendProfile(normalized);
-                        } finally {
-                          setLoadingFriend(false);
-                        }
-                      }}>
-                      {f}
-                    </span>
-                    <button
-                      className="btn"
-                      onClick={async () => {
-                        setFriendError('');
-                        setFriendNotice('');
-                        const res = await friendsRemove(f);
-                        if (res.status !== 200) {
-                          setFriendError(res.data?.error || 'Failed to remove');
-                          return;
-                        }
-                        setFriends(res.data.friends || []);
-                        setFriendRequests(res.data.requests || []);
-                        setFriendNotice('Friend removed.');
-                      }}
+              {badgeShelf.length === 0 ? (
+                <div className="profile-badges-empty">
+                  Your badges will appear here as you complete plans and hit streak milestones.
+                </div>
+              ) : (
+                <div className="profile-badge-grid">
+                  {badgeShelf.map((badge) => (
+                    <article
+                      key={badge.id}
+                      className={`profile-badge-card ${badge.earned ? 'is-earned' : 'is-locked'}`}
                     >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+                      <div className="profile-badge-card__icon">{badge.icon || '🏅'}</div>
 
-        {showFriends && (
-          <div className="profile-panel">
-            <div className="profile-panel__title app-panel-title">
-              Friend Requests
-              {pendingCount > 0 && (
-                <span className="profile-count-badge app-micro-text">{pendingCount}</span>
+                      <div className="profile-badge-card__content">
+                        <div className="profile-badge-card__top">
+                          <h3 className="profile-badge-card__label">{badge.label}</h3>
+                          <span
+                            className={`profile-badge-card__status ${
+                              badge.earned ? 'is-earned' : 'is-locked'
+                            }`}
+                          >
+                            {badge.earned ? 'Earned' : 'Locked'}
+                          </span>
+                        </div>
+
+                        <p className="profile-badge-card__description">
+                          {badge.description || 'Complete milestones to unlock this badge.'}
+                        </p>
+
+                        <div className="profile-badge-card__meta">
+                          <span
+                            className={`profile-badge-card__coins ${
+                              badge.coins ? '' : 'is-empty'
+                            }`}
+                          >
+                            {badge.coins ? `+${badge.coins} coins` : 'No coin bonus'}
+                          </span>
+
+                          {badge.earnedAt ? (
+                            <span className="profile-badge-card__date">
+                              Earned {badge.earnedAt}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               )}
             </div>
 
-            {friendRequests.length === 0 ? (
-              <p className="profile-friends-empty">No pending requests right now.</p>
-            ) : (
-              <div className="profile-request-list">
-                {friendRequests.map((requester) => {
-                  const busy = friendActionBusy === requester;
+            {showFriends && (
+              <div className="profile-panel">
+                <h2 className="profile-panel__title">
+                  Friends
+                  {friendRequests.length > 0 ? (
+                    <span className="profile-count-badge">{friendRequests.length}</span>
+                  ) : null}
+                </h2>
 
-                  return (
-                    <div key={requester} className="profile-request-row">
-                      <div className="profile-request-copy app-body-text">
-                        <strong className="app-card-title">{getFriendDisplayName(requester)}</strong> wants to connect.
-                      </div>
-                      <div className="profile-request-actions">
-                        <button
-                          type="button"
-                          className="profile-request-accept-btn app-button-label"
-                          onClick={() => handleAcceptRequest(requester)}
-                          disabled={busy}
-                        >
-                          Accept
-                        </button>
-                        <button
-                          type="button"
-                          className="profile-request-decline-btn app-button-label"
-                          onClick={() => handleDeclineRequest(requester)}
-                          disabled={busy}
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {friendError ? <p className="profile-friends-error">{friendError}</p> : null}
+                {friendNotice ? <p className="profile-friends-note">{friendNotice}</p> : null}
+
+                <div className="profile-friends-add">
+                  <input
+                    value={friendInput}
+                    onChange={(e) => setFriendInput(e.target.value)}
+                    placeholder="Add a friend (username or child username#code)"
+                  />
+                  <button
+                    type="button"
+                    className="profile-friends-add-btn"
+                    onClick={handleAddFriend}
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="profile-friends-block">
+                  <h3 className="profile-subtitle">Pending Friend Requests</h3>
+
+                  {friendRequests.length === 0 ? (
+                    <p className="profile-friends-empty">No pending requests.</p>
+                  ) : (
+                    <ul className="profile-friends-list">
+                      {friendRequests.map((requester) => (
+                        <li key={requester} className="profile-friend-row">
+                          <span className="profile-friend-name">
+                            {getFriendDisplayName(requester)}
+                          </span>
+
+                          <div className="profile-friend-actions">
+                            <button
+                              type="button"
+                              className="profile-friend-accept-btn"
+                              disabled={friendActionBusy === requester}
+                              onClick={() => handleAcceptRequest(requester)}
+                            >
+                              Accept
+                            </button>
+
+                            <button
+                              type="button"
+                              className="profile-friend-decline-btn"
+                              disabled={friendActionBusy === requester}
+                              onClick={() => handleDeclineRequest(requester)}
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="profile-friends-block">
+                  <h3 className="profile-subtitle">Friend List</h3>
+
+                  {friends.length === 0 ? (
+                    <p className="profile-friends-empty">No friends yet.</p>
+                  ) : (
+                    <ul className="profile-friends-list">
+                      {friends.map((friend) => {
+                        const rowKey = getFriendRowKey(friend);
+                        const lookup = getFriendLookupKey(friend);
+
+                        return (
+                          <li key={rowKey} className="profile-friend-row">
+                            <span
+                              className="profile-friend-name"
+                              onClick={() => handleViewFriend(lookup)}
+                            >
+                              {getFriendDisplayName(lookup)}
+                            </span>
+
+                            <button
+                              type="button"
+                              className="profile-friend-remove-btn"
+                              disabled={friendActionBusy === lookup}
+                              onClick={() => handleRemoveFriend(lookup)}
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               </div>
             )}
           </div>
-        )}
 
-        <div className="profile-panel profile-appearance-panel">
-          <div className="profile-panel__title app-panel-title">Appearance</div>
-          <p className="profile-appearance-copy app-helper-text">
-            Choose your app theme and viewing mode.
-          </p>
+          <div className="profile-lower-side">
+            <div className="profile-panel">
+              <h2 className="profile-panel__title">Appearance mode</h2>
 
-          <div className="profile-appearance-grid">
-            <div className="profile-appearance-column">
-              <div className="profile-appearance-subtitle app-field-label">Theme</div>
-
-              <div className="profile-theme-card-grid">
-                {allowedThemes.map((id) => {
-                  const option = allThemes[id];
-                  const active = themeId === id;
-
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className={`profile-theme-card ${active ? 'is-active' : ''}`}
-                      onClick={() => handleAppThemeChange(id)}
-                      disabled={savingAppTheme || savingTheme}
-                    >
-                      <span
-                        className="profile-theme-card__preview"
-                        style={{ background: option.preview }}
-                      />
-                      <span className="profile-theme-card__copy">
-                        <span>{option.label}</span>
-                        <small>{option.description}</small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="profile-appearance-column">
-              <div className="profile-appearance-subtitle app-field-label">Mode</div>
-
-              <div className="profile-theme-options">
-                <label className="profile-theme-option app-body-text">
-                  <span className="profile-theme-icon">☀️</span>
-                  <span className="profile-theme-copy">
-                    <span>Light</span>
-                    <small>Brighter surfaces and softer contrast</small>
-                  </span>
+              <div className="profile-setting-group">
+                <label className="profile-radio">
                   <input
                     type="radio"
                     name="themeMode"
                     value="light"
                     checked={themeMode !== 'dark'}
                     onChange={handleModeChange}
-                    disabled={savingTheme || savingAppTheme}
+                    disabled={savingTheme}
                   />
+                  <span>Light</span>
                 </label>
 
-                <label className="profile-theme-option app-body-text">
-                  <span className="profile-theme-icon">🌙</span>
-                  <span className="profile-theme-copy">
-                    <span>Dark</span>
-                    <small>Deeper contrast for low-light viewing</small>
-                  </span>
+                <label className="profile-radio">
                   <input
                     type="radio"
                     name="themeMode"
                     value="dark"
                     checked={themeMode === 'dark'}
                     onChange={handleModeChange}
-                    disabled={savingTheme || savingAppTheme}
+                    disabled={savingTheme}
                   />
+                  <span>Dark</span>
                 </label>
               </div>
             </div>
+
+            <div className="profile-panel">
+              <h2 className="profile-panel__title">App theme</h2>
+
+              <div className="profile-theme-grid">
+                {(allowedThemes || []).map((allowedThemeId) => {
+                  const theme = allThemes?.[allowedThemeId];
+                  if (!theme) return null;
+
+                  return (
+                    <button
+                      key={allowedThemeId}
+                      type="button"
+                      className={`profile-theme-card ${
+                        themeId === allowedThemeId ? 'is-active' : ''
+                      }`}
+                      onClick={() => handleAppThemeChange(allowedThemeId)}
+                      disabled={savingAppTheme}
+                    >
+                      <span className="profile-theme-card__label">
+                        {theme.label || allowedThemeId}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {friendProfile && items && (
-        <div
-          className="profile-modal-overlay"
-          onClick={() => setFriendProfile(null)}
-        >
+        {friendProfile && items && (
           <div
-            className="profile-modal"
-            onClick={(event) => event.stopPropagation()}
+            className="profile-modal-backdrop"
+            onClick={() => setFriendProfile(null)}
           >
-            <h2 className="profile-modal__username app-card-title">
-              {friendProfile.username}
-              {friendProfile.code ? `#${friendProfile.code}` : ''}
-            </h2>
-
-            <div className="profile-modal__avatar">
-              <DisplayAvatar invItems={friendInvItems} />
-            </div>
-
-            <div className="profile-modal__stats">
-              <div className="profile-modal__stat">
-                <div className="profile-modal__stat-label app-meta-label">Tasks</div>
-                <div className="profile-modal__stat-value app-micro-text">
-                  {friendProfile.stats?.tasksCompleted || 0}
-                </div>
-              </div>
-              <div className="profile-modal__stat">
-                <div className="profile-modal__stat-label app-meta-label">Habits</div>
-                <div className="profile-modal__stat-value app-micro-text">
-                  {friendProfile.stats?.habitsBuilt || 0}
-                </div>
-              </div>
-              <div className="profile-modal__stat">
-                <div className="profile-modal__stat-label app-meta-label">Streak</div>
-                <div className="profile-modal__stat-value app-micro-text">
-                  {friendProfile.stats?.longestStreak || 0}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="profile-modal__close app-button-label"
-              onClick={() => setFriendProfile(null)}
+            <div
+              className="profile-modal"
+              onClick={(e) => e.stopPropagation()}
             >
-              Close
-            </button>
+              <h2 className="profile-modal__title">
+                {friendProfile.username}
+                {friendProfile.code ? `#${friendProfile.code}` : ''}
+              </h2>
+
+              <div className="profile-modal__avatar">
+                <DisplayAvatar invItems={friendInvItems} />
+              </div>
+
+              <div className="profile-modal__stats">
+                <div className="profile-modal__stat">
+                  <div className="profile-modal__stat-label">Tasks</div>
+                  <div className="profile-modal__stat-value">{friendModalStats.tasks}</div>
+                </div>
+
+                <div className="profile-modal__stat">
+                  <div className="profile-modal__stat-label">Habits</div>
+                  <div className="profile-modal__stat-value">{friendModalStats.habits}</div>
+                </div>
+
+                <div className="profile-modal__stat">
+                  <div className="profile-modal__stat-label">Streak</div>
+                  <div className="profile-modal__stat-value">{friendModalStats.streak}</div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="profile-modal__close"
+                onClick={() => setFriendProfile(null)}
+              >
+                Close
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 }
