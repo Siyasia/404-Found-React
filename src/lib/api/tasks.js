@@ -1,4 +1,4 @@
-import { getItem, setItem, KEYS } from './storageAdapter.js'
+import { getJSON, postJSON } from './api.js'
 import {
   buildTaskAssignment,
   createTaskAssignment,
@@ -18,17 +18,41 @@ function ok(data = {}) {
   }
 }
 
-function fail(error, statusCode = 500) {
+function fail(error, statusCode = 500, data = null) {
   return {
     status_code: statusCode,
-    error: error?.message || String(error || 'Unknown error'),
-    data: null,
+    error: error?.message || error?.error || String(error || 'Unknown error'),
+    data,
   }
 }
 
 function toId(value) {
   if (value == null) return ''
   return String(value)
+}
+
+function toNullableId(value) {
+  const id = toId(value)
+  return id || null
+}
+
+function toBool(value) {
+  return value === true
+}
+
+function toPositiveInt(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num) || num <= 0) return null
+  return Math.round(num)
+}
+
+function normalizeError(info, fallback = 'Request failed') {
+  if (!info) return fallback
+  if (typeof info === 'string') return info
+  if (typeof info?.data === 'string') return info.data
+  if (info?.data?.error) return info.data.error
+  if (info?.error) return info.error
+  return fallback
 }
 
 function matchesFilter(assignment, filters = {}) {
@@ -58,7 +82,7 @@ function matchesFilter(assignment, filters = {}) {
     return false
   }
 
-  if (status != null && assignment.status !== status) {
+  if (status != null && String(assignment.status) !== String(status)) {
     return false
   }
 
@@ -76,17 +100,6 @@ function matchesFilter(assignment, filters = {}) {
   return true
 }
 
-function isExpiredPendingTask(task, nowMs = Date.now()) {
-  if (!task) return false
-  if (task.status !== TASK_ASSIGNMENT_STATUS.PENDING) return false
-  if (!task.dueDateISO) return false
-
-  const dueMs = new Date(task.dueDateISO).getTime()
-  if (!Number.isFinite(dueMs)) return false
-
-  return dueMs < nowMs
-}
-
 function sortTasks(assignments = []) {
   return [...assignments].sort((a, b) => {
     const aCompleted = a?.completedAt ? new Date(a.completedAt).getTime() : 0
@@ -96,260 +109,316 @@ function sortTasks(assignments = []) {
     const aSent = a?.sentAt ? new Date(a.sentAt).getTime() : 0
     const bSent = b?.sentAt ? new Date(b.sentAt).getTime() : 0
 
-    return (
-      bCompleted - aCompleted ||
-      bStarted - aStarted ||
-      bSent - aSent
-    )
+    return bCompleted - aCompleted || bStarted - aStarted || bSent - aSent
   })
 }
 
-async function readAllTasks() {
-  const raw = await getItem(KEYS.TASK_ASSIGNMENTS)
-  if (!Array.isArray(raw)) return []
+function taskToBackendPayload(taskLike = {}, { includeId = false } = {}) {
+  const task = buildTaskAssignment(taskLike)
 
-  const normalized = raw.map((item) => buildTaskAssignment(item))
-  const active = normalized.filter((item) => !isExpiredPendingTask(item))
-
-  if (active.length !== normalized.length) {
-    await writeAllTasks(active)
+  const meta = {
+    ...(task.meta && typeof task.meta === 'object' && !Array.isArray(task.meta) ? task.meta : {}),
+    checklist: Array.isArray(task.checklist)
+      ? task.checklist.map((item, index) => ({
+          id: toId(item?.id) || `task_step_${index + 1}`,
+          label: String(item?.label || '').trim(),
+          isCompleted: item?.isCompleted === true,
+          completedAt: item?.completedAt || null,
+          sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item.sortOrder) : index,
+        })).filter((item) => item.label)
+      : [],
+    useTimer: toBool(task.useTimer),
+    durationMinutes: toBool(task.useTimer) ? toPositiveInt(task.durationMinutes) : null,
+    linkedActionPlanId: toNullableId(task.linkedActionPlanId),
+    linkedGoalId: toNullableId(task.linkedGoalId),
+    startedAt: task.startedAt || null,
+    completedAt: task.completedAt || null,
+    completionSource: task.completionSource || null,
+    sentAt: task.sentAt || task.createdAt || null,
+    dueDateISO: task.dueDateISO || null,
+    note: task.note || task.notes || '',
+    schedule: task.schedule || task.frequency || null,
+    frequencyLabel: task.frequencyLabel || '',
   }
 
-  return active
+  const payload = {
+    assigneeId: toNullableId(task.assigneeId),
+    assigneeName: task.assigneeName || '',
+    title: task.title || 'Untitled task',
+    notes: task.note || task.notes || '',
+    taskType: task.taskType || 'assignment',
+    steps: Array.isArray(meta.checklist) ? meta.checklist.map((item) => item.label) : [],
+    habitToBreak: task.habitToBreak || '',
+    replacements: Array.isArray(task.replacements) ? task.replacements : [],
+    frequency: task.schedule || task.frequency || null,
+    streak: Number(task.streak || 0) || 0,
+    completedDates: Array.isArray(task.completedDates) ? task.completedDates : [],
+    status: task.status || TASK_ASSIGNMENT_STATUS.PENDING,
+    createdAt: task.createdAt || task.sentAt || new Date().toISOString(),
+    createdById: toNullableId(task.createdById),
+    createdByName: task.createdByName || '',
+    createdByRole: task.createdByRole || 'user',
+    needsApproval: task.needsApproval === true,
+    targetType: task.targetType ?? null,
+    targetName: task.targetName ?? null,
+    meta,
+  }
+
+  if (includeId) {
+    payload.id = task.id
+  }
+
+  return payload
 }
 
-async function writeAllTasks(assignments) {
-  await setItem(KEYS.TASK_ASSIGNMENTS, assignments.map((item) => buildTaskAssignment(item)))
+function taskFromBackendPayload(raw = {}) {
+  const meta = raw?.meta && typeof raw.meta === 'object' && !Array.isArray(raw.meta)
+    ? raw.meta
+    : {}
+
+  const checklist = Array.isArray(meta.checklist) && meta.checklist.length > 0
+    ? meta.checklist
+    : (Array.isArray(raw.steps) ? raw.steps : [])
+
+  return buildTaskAssignment({
+    ...raw,
+    note: raw.note ?? raw.notes ?? meta.note ?? '',
+    checklist,
+    useTimer: meta.useTimer === true,
+    durationMinutes: meta.durationMinutes ?? null,
+    linkedActionPlanId: raw.linkedActionPlanId ?? meta.linkedActionPlanId ?? null,
+    linkedGoalId: raw.linkedGoalId ?? meta.linkedGoalId ?? null,
+    startedAt: raw.startedAt ?? meta.startedAt ?? null,
+    completedAt: raw.completedAt ?? meta.completedAt ?? null,
+    completionSource: raw.completionSource ?? meta.completionSource ?? null,
+    sentAt: raw.sentAt ?? meta.sentAt ?? raw.createdAt ?? null,
+    dueDateISO: raw.dueDateISO ?? meta.dueDateISO ?? null,
+    schedule: raw.schedule ?? meta.schedule ?? raw.frequency ?? null,
+    frequency: raw.frequency ?? meta.schedule ?? null,
+  })
 }
 
-function findAssignmentIndex(assignments, id) {
-  return assignments.findIndex((item) => toId(item.id) === toId(id))
+async function fetchTaskById(id) {
+  const info = await getJSON(`/task/get/${encodeURIComponent(String(id))}`)
+
+  if (info.status >= 400) {
+    return fail(normalizeError(info, 'Task not found'), info.status)
+  }
+
+  const task = taskFromBackendPayload(info.data?.task || {})
+  return ok({ task })
 }
 
-/**
- * Create one assignment for the current user or a specific assignee.
- * Use this for the User Homepage self-flow.
- */
+async function fetchAllTasksFromBackend() {
+  const info = await getJSON('/task/list')
+
+  if (info.status >= 400) {
+    return fail(normalizeError(info, 'Failed to load tasks'), info.status)
+  }
+
+  const tasks = Array.isArray(info.data?.tasks)
+    ? info.data.tasks.map(taskFromBackendPayload)
+    : []
+
+  return ok({ tasks: sortTasks(tasks) })
+}
+
 export async function taskCreate(input = {}) {
   try {
-    const task = createTaskAssignment(input)
-    const all = await readAllTasks()
-    all.unshift(task)
-    await writeAllTasks(all)
-    return ok({ task })
+    const draft = createTaskAssignment(input)
+    const payload = taskToBackendPayload(draft)
+    const info = await postJSON('/task/create', payload)
+
+    if (info.status >= 400) {
+      return fail(normalizeError(info, 'Unable to create task.'), info.status)
+    }
+
+    const createdId = info.data?.id
+
+    if (createdId == null) {
+      return ok({ task: taskFromBackendPayload({ ...payload, id: draft.id }) })
+    }
+
+    const fetched = await fetchTaskById(createdId)
+    if (fetched.status_code >= 400) {
+      return ok({ task: taskFromBackendPayload({ ...payload, id: createdId }) })
+    }
+
+    return fetched
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Create many assignments at once.
- * Best for parent flow when one item is assigned to multiple people.
- * This expands one draft into one stored record per assignee.
- */
 export async function taskCreateMany(baseInput = {}, assignees = []) {
   try {
     const expanded = expandAssignmentForAssignees(baseInput, assignees)
-    const all = await readAllTasks()
-    const next = [...expanded, ...all]
-    await writeAllTasks(next)
-    return ok({ tasks: expanded })
+    const createdTasks = []
+
+    for (const item of expanded) {
+      const response = await taskCreate(item)
+      if (!response || response.status_code >= 400) {
+        return fail(response?.error || 'Unable to create tasks.', response?.status_code || 500, {
+          tasks: createdTasks,
+        })
+      }
+      if (response?.data?.task) {
+        createdTasks.push(response.data.task)
+      }
+    }
+
+    return ok({ tasks: createdTasks })
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Get one assignment by id.
- */
 export async function taskGet(id) {
   try {
-    const all = await readAllTasks()
-    const task = all.find((item) => toId(item.id) === toId(id)) || null
-
-    if (!task) {
-      return fail('Task not found', 404)
-    }
-
-    return ok({ task })
+    return await fetchTaskById(id)
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * List assignments with optional filters.
- *
- * Example:
- * taskAssignmentList()
- * taskAssignmentList({ assigneeId: user.id })
- * taskAssignmentList({ assigneeId: childId, status: TASK_ASSIGNMENT_STATUS.PENDING })
- */
 export async function taskList(filters = {}) {
   try {
-    const all = await readAllTasks()
-    const tasks = sortTasks(all.filter((item) => matchesFilter(item, filters)))
-    return ok({ tasks })
+    const response = await fetchAllTasksFromBackend()
+    if (response.status_code >= 400) {
+      return response
+    }
+
+    const tasks = response.data.tasks.filter((item) => matchesFilter(item, filters))
+    return ok({ tasks: sortTasks(tasks) })
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Update a task assignment with partial changes.
- * Use carefully — status transitions should usually go through
- * start/complete/checklist helpers instead.
- */
 export async function taskUpdate(id, changes = {}) {
   try {
-    const all = await readAllTasks()
-    const index = findAssignmentIndex(all, id)
-
-    if (index === -1) {
-      return fail('Task assignment not found', 404)
+    const currentResponse = await taskGet(id)
+    if (currentResponse.status_code >= 400) {
+      return currentResponse
     }
 
-    const current = all[index]
+    const current = currentResponse.data.task
     const updated = buildTaskAssignment({
       ...current,
       ...changes,
       id: current.id,
     })
 
-    all[index] = updated
-    await writeAllTasks(all)
+    const payload = taskToBackendPayload(updated, { includeId: true })
+    const info = await postJSON('/task/update/', payload)
 
-    return ok({ task: updated })
+    if (info.status >= 400) {
+      return fail(normalizeError(info, 'Unable to update task.'), info.status)
+    }
+
+    return await taskGet(id)
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Start a timed task assignment.
- * Untimed assignments stay pending until manual/checklist completion.
- */
 export async function taskStart(id, startedAt) {
   try {
-    const all = await readAllTasks()
-    const index = findAssignmentIndex(all, id)
-
-    if (index === -1) {
-      return fail('Task assignment not found', 404)
+    const currentResponse = await taskGet(id)
+    if (currentResponse.status_code >= 400) {
+      return currentResponse
     }
 
-    const current = all[index]
-
+    const current = currentResponse.data.task
     if (current.useTimer !== true) {
       return fail('Only timed tasks can be started', 400)
     }
 
     const started = startTaskAssignment(current, startedAt)
-    all[index] = started
-    await writeAllTasks(all)
-
-    return ok({ task: started })
+    return await taskUpdate(id, started)
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Toggle one checklist item.
- * If this finishes the checklist, the task auto-completes.
- */
 export async function taskToggleChecklistItem(id, itemId, completedAt) {
   try {
-    const all = await readAllTasks()
-    const index = findAssignmentIndex(all, id)
-
-    if (index === -1) {
-      return fail('Task assignment not found', 404)
+    const currentResponse = await taskGet(id)
+    if (currentResponse.status_code >= 400) {
+      return currentResponse
     }
 
-    const current = all[index]
+    const current = currentResponse.data.task
     const updated = toggleTaskAssignmentChecklistItem(current, itemId, completedAt)
-
-    all[index] = updated
-    await writeAllTasks(all)
-
-    return ok({ task: updated })
+    return await taskUpdate(id, updated)
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Complete an assignment manually or from timer/checklist logic.
- */
 export async function taskComplete(
   id,
   source = TASK_ASSIGNMENT_COMPLETION_SOURCE.MANUAL,
   completedAt
 ) {
   try {
-    const all = await readAllTasks()
-    const index = findAssignmentIndex(all, id)
-
-    if (index === -1) {
-      return fail('Task assignment not found', 404)
+    const currentResponse = await taskGet(id)
+    if (currentResponse.status_code >= 400) {
+      return currentResponse
     }
 
-    const current = all[index]
+    const current = currentResponse.data.task
     const completed = completeTaskAssignment(current, source, completedAt)
-
-    all[index] = completed
-    await writeAllTasks(all)
-
-    return ok({ task: completed })
+    return await taskUpdate(id, completed)
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Delete one assignment.
- */
 export async function taskDelete(id) {
   try {
-    const all = await readAllTasks()
-    const next = all.filter((item) => toId(item.id) !== toId(id))
+    const info = await getJSON(`/task/delete/${encodeURIComponent(String(id))}`)
 
-    if (next.length === all.length) {
-      return fail('Task not found', 404)
+    if (info.status >= 400) {
+      return fail(normalizeError(info, 'Could not delete task.'), info.status)
     }
 
-    await writeAllTasks(next)
     return ok({ id: toId(id) })
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Delete all assignments that match the given filters.
- * Handy later for bulk cleanup/testing.
- */
 export async function taskDeleteMany(filters = {}) {
   try {
-    const all = await readAllTasks()
-    const toDelete = all.filter((item) => matchesFilter(item, filters))
-    const next = all.filter((item) => !matchesFilter(item, filters))
+    const listed = await taskList(filters)
+    if (listed.status_code >= 400) {
+      return listed
+    }
 
-    await writeAllTasks(next)
+    const tasks = listed.data.tasks || []
+    const deletedIds = []
+
+    for (const task of tasks) {
+      const response = await taskDelete(task.id)
+      if (!response || response.status_code >= 400) {
+        return fail(response?.error || 'Could not delete all tasks.', response?.status_code || 500, {
+          deletedCount: deletedIds.length,
+          deletedIds,
+        })
+      }
+      deletedIds.push(toId(task.id))
+    }
 
     return ok({
-      deletedCount: toDelete.length,
-      deletedIds: toDelete.map((item) => item.id),
+      deletedCount: deletedIds.length,
+      deletedIds,
     })
   } catch (error) {
     return fail(error)
   }
 }
 
-/**
- * Convenience helpers for common list views.
- */
 export async function taskListPending(filters = {}) {
   return taskList({
     ...filters,
