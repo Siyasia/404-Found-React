@@ -41,6 +41,32 @@ export const BADGE_DEFINITIONS = [
     coins: 150,
     condition: ({ longest = 0 }) => longest >= 30,
   },
+
+  // milestone-only examples
+  {
+    id: 'streak_14',
+    label: 'Two-Week Hero',
+    icon: '💫',
+    description: 'Reach a 14-day milestone.',
+    coins: 75,
+    condition: () => false,
+  },
+  {
+    id: 'streak_21',
+    label: 'Three-Week Legend',
+    icon: '🚀',
+    description: 'Reach a 21-day milestone.',
+    coins: 100,
+    condition: () => false,
+  },
+  {
+    id: 'streak_30_milestone',
+    label: 'Thirty-Day Champion',
+    icon: '👑',
+    description: 'Hit a 30-day milestone reward.',
+    coins: 150,
+    condition: () => false,
+  },
 ]
 
 function isOk(response) {
@@ -73,6 +99,10 @@ async function readCurrentProfile() {
 
 function getProfileMeta(profile) {
   return ensureObject(profile?.meta)
+}
+
+export function getBadgeDefinition(badgeId) {
+  return BADGE_DEFINITIONS.find((badge) => badge.id === badgeId) || null
 }
 
 export function evaluateBadgeIds({ current = 0, longest = 0, totalCompletions = 0 } = {}) {
@@ -213,6 +243,7 @@ export async function awardBadgesFromStats(stats = {}, earnedAt = null) {
 
 export default {
   BADGE_DEFINITIONS,
+  getBadgeDefinition,
   evaluateBadgeIds,
   getEarnedBadges,
   mergeEarnedBadges,

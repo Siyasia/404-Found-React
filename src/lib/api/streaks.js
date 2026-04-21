@@ -3,6 +3,7 @@ import {
   BADGE_DEFINITIONS,
   awardBadgesFromStats,
   getEarnedBadges,
+  mergeEarnedBadges,
 } from './badges.js'
 import { getGameProfile, updateGameProfile } from './game.js'
 
@@ -220,9 +221,48 @@ export async function markComplete(actionPlanId, dateISO = toLocalISODate(), mil
       }
     }
 
-    const newBadges = ensureArray(badgeAwardResponse.newBadges)
-    const earnedBadges = ensureArray(badgeAwardResponse.data)
+    const statBadges = ensureArray(badgeAwardResponse.newBadges)
+    const earnedBadgesFromStats = ensureArray(badgeAwardResponse.data)
     const badgeEarnedDates = ensureObject(badgeAwardResponse.earnedDates)
+
+    const milestoneBadges = newMilestones
+      .map((milestone) => milestone?.badge)
+      .filter(Boolean)
+
+    const existingEarnedSet = new Set(earnedBadgesFromStats)
+    const newlyEarnedMilestoneBadges = []
+
+    milestoneBadges.forEach((badgeId) => {
+      if (!existingEarnedSet.has(badgeId)) {
+        existingEarnedSet.add(badgeId)
+        newlyEarnedMilestoneBadges.push(badgeId)
+
+        if (!badgeEarnedDates[badgeId]) {
+          badgeEarnedDates[badgeId] = dateISO
+        }
+      }
+    })
+
+    let earnedBadges = Array.from(existingEarnedSet)
+
+    if (newlyEarnedMilestoneBadges.length > 0) {
+      const mergeResponse = await mergeEarnedBadges(newlyEarnedMilestoneBadges, badgeEarnedDates)
+
+      if (mergeResponse.status_code !== 200) {
+        return {
+          status_code: 500,
+          error: mergeResponse?.error || 'Failed to persist milestone badges',
+        }
+      }
+
+      earnedBadges = ensureArray(mergeResponse.data)
+      Object.assign(badgeEarnedDates, ensureObject(mergeResponse.earnedDates))
+    }
+
+    const newBadges = Array.from(new Set([
+      ...statBadges,
+      ...newlyEarnedMilestoneBadges,
+    ]))
 
     const badgeCoinsEarned = sumBadgeCoins(newBadges)
     const milestoneCoinsEarned = newMilestones.reduce(
@@ -257,6 +297,8 @@ export async function markComplete(actionPlanId, dateISO = toLocalISODate(), mil
         totalCompletions: stats.totalCompletions,
         awardedMilestones: plan.awardedMilestones,
         rewardedCompletionDates,
+        earnedBadges,
+        badgeEarnedDates,
       },
     })
 
