@@ -1,6 +1,6 @@
 import json
 
-from modules.datatypes import UserInfo, BuildHabitInfo, BreakHabitInfo, TaskInfo, FormedHabitInfo, ChildInfo, \
+from modules.datatypes import ActionPlanInfo, GoalInfo, UserInfo, BuildHabitInfo, BreakHabitInfo, TaskInfo, FormedHabitInfo, ChildInfo, \
     GameProfile
 from state.database import Database
 
@@ -408,6 +408,27 @@ def profile_update_partial(fields: dict, profile_id: int):
     sql = f"UPDATE game_profiles SET {set_clause} WHERE id = ?"
     return sql, tuple(params)
 
+def profile_update_partial_for_user(fields: dict, profile_id: int):
+    """
+    Internal trusted helper for updating any user's game profile.
+    Use this from backend-owned reward flows, not from public frontend calls.
+    """
+    if not fields:
+        raise ValueError("no fields to update")
+
+    set_clauses = []
+    params = []
+    for col, val in fields.items():
+        if isinstance(val, (list, dict)):
+            val = json.dumps(val)
+        set_clauses.append(f"{col} = ?")
+        params.append(val)
+
+    params.append(profile_id)
+    set_clause = ", ".join(set_clauses)
+    sql = f"UPDATE game_profiles SET {set_clause} WHERE id = ?"
+    return sql, tuple(params)
+
 def get_item(item_id: int):
     query = "SELECT * FROM items WHERE id = ?"
     return query, (item_id,)
@@ -535,6 +556,34 @@ def action_plan_update_partial(fields: dict, plan_id: int):
     set_clause = ", ".join(set_clauses)
     sql = f"UPDATE action_plans SET {set_clause} WHERE id = ?"
     return sql, tuple(params)
+
+
+def action_plan_update_progress(
+    plan_id: int,
+    completed_dates: dict,
+    current_streak: int,
+    best_streak: int,
+    total_completions: int,
+    existing_meta=None,
+):
+    meta = existing_meta if isinstance(existing_meta, dict) else {}
+    meta = dict(meta)
+    meta["currentStreak"] = int(current_streak or 0)
+    meta["bestStreak"] = int(best_streak or 0)
+    meta["totalCompletions"] = int(total_completions or 0)
+
+    query = """
+        UPDATE action_plans
+        SET completedDates = ?, streak = ?, meta = ?
+        WHERE id = ?
+    """
+    params = (
+        json.dumps(completed_dates),
+        int(current_streak or 0),
+        json.dumps(meta),
+        plan_id,
+    )
+    return query, params
 
 
 def action_plan_list(owner_id: int):

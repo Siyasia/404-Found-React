@@ -100,8 +100,8 @@ export function mapWizardPayload(raw) {
     const timeOfDay = t.timeOfDay || incomingMeta.timeOfDay || ''
 
     const base = {
-      id: null,
-      goalId: null,
+      id: t.id ?? t.planId ?? null,
+      goalId: t.goalId ?? null,
       title: t.title || t.name || '',
       taskType,
       assigneeId: t.assigneeId ?? t.assignee ?? goal.assigneeId ?? null,

@@ -218,6 +218,52 @@
   width: 100%;
 }
 
+.home-reward-empty {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.home-reward-picker {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--app-border);
+}
+
+.home-reward-picker__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-card-soft);
+  color: var(--app-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.home-reward-picker__item:hover {
+  border-color: var(--app-primary);
+  background: var(--app-card);
+}
+
+.home-reward-picker__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-reward-clear {
+  width: fit-content;
+  padding: 6px 10px;
+}
+
 .home-panel--coins {
   display: flex;
   align-items: center;

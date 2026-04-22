@@ -39,7 +39,9 @@ export default function Shop() {
   if (loading || itemLoading) return <p>Loading...</p>;
 
   const shopItems = items.filter(item =>
-    item.type !== 'Default' && item.placement !== 'Base'
+    item.type !== 'Default' &&
+    item.placement !== 'Base' &&
+    item.name !== 'coins'
   );
 
   const filteredInv = invItems.filter(item =>
@@ -67,13 +69,6 @@ export default function Shop() {
       coins: profile.coins,
       inventory: profile.inventory,
     });
-
-    if (item.name === 'coins') {
-      updated.coins += 200;
-      showModal('You received 200 coins!');
-      await saveProfile(updated);
-      return;
-    }
 
     if (profile.inventory.find(i => i.id === item.id)) {
       showModal(`You already own a(n) ${item.name}.`);

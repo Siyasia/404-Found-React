@@ -1,5 +1,5 @@
 import { getGameProfile, getItem, updateGameProfile } from './game.js'
-import { goalList, goalUpdate } from './goals.js'
+import { goalList } from './goals.js'
 
 function readProfile(resp) {
   return resp?.game_profile ?? resp?.profile ?? resp?.data?.profile ?? null
@@ -43,35 +43,25 @@ function normalizeRewardWithSource(raw) {
 
   return {
     ...normalized,
-    sourceType: raw?.sourceType === 'goal' ? 'goal' : 'profile',
-    sourceGoalId: raw?.sourceGoalId != null ? String(raw.sourceGoalId) : '',
+    sourceType: raw?.sourceType === 'goal' ? 'goal' : (raw?.sourceType || 'profile'),
+    sourceGoalId: raw?.sourceGoalId != null ? String(raw.sourceGoalId) : (raw?.goalId != null ? String(raw.goalId) : ''),
     sourceGoalTitle: raw?.sourceGoalTitle ? String(raw.sourceGoalTitle) : '',
+    status: raw?.status || 'active',
   }
 }
 
 function getProfileStoredReward(profile) {
-  const profileReward = normalizeActiveReward(profile?.meta?.activeReward)
+  const profileReward = normalizeRewardWithSource(profile?.meta?.activeReward)
 
-  if (!profileReward) return null
+  if (!profileReward || profileReward.status !== 'active') return null
 
   return {
     ...profileReward,
-    sourceType: 'profile',
-    sourceGoalId: '',
-    sourceGoalTitle: '',
+    sourceType: profileReward.sourceType || 'profile',
   }
 }
 
-async function clearStoredProfileReward(profile) {
-  const nextMeta = {
-    ...(profile?.meta || {}),
-    activeReward: null,
-  }
-
-  await updateGameProfile({ meta: nextMeta })
-}
-
-async function getAssignedGoalReward({ userId = null, goals = null, profile = null } = {}) {
+async function getAssignedGoalReward({ userId = null, goals = null, profile = null, rewardHistory = {} } = {}) {
   const effectiveUserId =
     userId ??
     profile?.userId ??
@@ -85,7 +75,7 @@ async function getAssignedGoalReward({ userId = null, goals = null, profile = nu
     ? goals
     : extractGoals(await goalList())
 
-  return pickAssignedGoalReward(availableGoals, effectiveUserId)
+  return pickAssignedGoalReward(availableGoals, effectiveUserId, rewardHistory)
 }
 
 export function normalizeActiveReward(raw) {
@@ -99,11 +89,20 @@ export function normalizeActiveReward(raw) {
 
   if (!title || costCoins <= 0) return null
 
+  const goalId = raw.goalId ?? raw.sourceGoalId ?? null
+  const fallbackId = goalId != null
+    ? `goal:${goalId}:reward`
+    : `custom:${title.toLowerCase().replace(/\s+/g, '-')}:${costCoins}`
+
   return {
+    id: raw.id ? String(raw.id) : fallbackId,
+    goalId,
     type,
     title,
     costCoins,
     shopItemId,
+    sourceType: raw.sourceType || (goalId != null ? 'goal' : 'profile'),
+    status: raw.status || 'active',
   }
 }
 
@@ -123,6 +122,9 @@ export function buildActiveRewardFromPayload(payload) {
     type === 'shop' ? String(payload?.rewardShopItemId || '') : ''
 
   return normalizeActiveReward({
+    id: payload?.id || payload?.goalId ? `goal:${payload.id || payload.goalId}:reward` : undefined,
+    goalId: payload?.id || payload?.goalId || null,
+    sourceType: payload?.id || payload?.goalId ? 'goal' : 'profile',
     type,
     title,
     costCoins,
@@ -144,6 +146,8 @@ function getGoalReward(goal) {
     ''
 
   const reward = normalizeActiveReward({
+    goalId: goal?.id ?? null,
+    sourceType: 'goal',
     type: rewardType,
     title: goal?.rewardGoalTitle || goal?.savingFor || '',
     costCoins: Number(goal?.rewardGoalCostCoins || 0) || 0,
@@ -154,25 +158,33 @@ function getGoalReward(goal) {
 
   return {
     ...reward,
+    id: goal?.id != null ? `goal:${goal.id}:reward` : reward.id,
+    goalId: goal?.id ?? null,
     sourceType: 'goal',
     sourceGoalId: goal?.id != null ? String(goal.id) : '',
     sourceGoalTitle: goal?.title || goal?.goal || '',
   }
 }
 
-function pickAssignedGoalReward(goals, userId) {
-  if (!Array.isArray(goals) || userId == null) return null
+function pickAssignedGoalReward(goals, userId, rewardHistory = {}) {
+  const rewards = listAssignedGoalRewards(goals, userId, rewardHistory)
+  return rewards.length ? rewards[rewards.length - 1] : null
+}
 
-  const matchingGoals = goals.filter(
-    (goal) => String(goal?.assigneeId) === String(userId)
-  )
+export function listAssignedGoalRewards(goals, userId, rewardHistory = {}) {
+  if (!Array.isArray(goals) || userId == null) return []
 
-  for (let i = matchingGoals.length - 1; i >= 0; i -= 1) {
-    const reward = getGoalReward(matchingGoals[i])
-    if (reward) return reward
-  }
-
-  return null
+  return goals
+    .filter((goal) => String(goal?.assigneeId) === String(userId))
+    .map((goal) => getGoalReward(goal))
+    .filter(Boolean)
+    .filter((reward) => {
+      const historyEntry = reward?.id ? rewardHistory[reward.id] : null
+      return !(
+        historyEntry?.status === 'redeemed' ||
+        historyEntry?.status === 'dismissed'
+      )
+    })
 }
 
 async function resolveRewardInput({ reward = null, userId = null, goals = null } = {}) {
@@ -182,121 +194,120 @@ async function resolveRewardInput({ reward = null, userId = null, goals = null }
   return getActiveReward({ userId, goals })
 }
 
-async function clearGoalReward(goal) {
-  if (!goal?.id) {
-    throw new Error('Could not find the reward goal to clear.')
-  }
-
-  const nextMeta = {
-    ...(goal?.meta || {}),
-    rewardType: 'custom',
-    rewardShopItemId: '',
-  }
-
-  const resp = await goalUpdate(goal.id, {
-    ...goal,
-    rewardGoalTitle: '',
-    rewardGoalCostCoins: 0,
-    savingFor: '',
-    rewardType: 'custom',
-    rewardShopItemId: '',
-    meta: nextMeta,
-  })
-
-  const ok =
-    resp &&
-    (resp.status_code === 200 ||
-      resp.status === 200 ||
-      resp.status_code === '200' ||
-      resp.status === '200')
-
-  if (!ok) {
-    throw new Error(resp?.error || 'Failed to clear the redeemed goal reward.')
-  }
-}
-
 export async function getActiveReward({ userId = null, goals = null } = {}) {
-  const profileResp = await getGameProfile()
+  const profileResp = await getGameProfile(userId)
   const profile = readProfile(profileResp)
-
-  const assignedGoalReward = await getAssignedGoalReward({
-    userId,
-    goals,
-    profile,
-  })
+  const meta = profile?.meta && typeof profile.meta === 'object' ? profile.meta : {}
 
   const profileReward = getProfileStoredReward(profile)
-
-  // Assigned reward always wins.
-  // If an old self/profile reward still exists, clear it so there is truly only one active reward.
-  if (assignedGoalReward) {
-    if (profileReward) {
-      await clearStoredProfileReward(profile)
-    }
-    return assignedGoalReward
+  if (profileReward) {
+    return profileReward
   }
 
-  return profileReward
-}
+  const rewardHistory =
+    meta.rewardHistory && typeof meta.rewardHistory === 'object'
+      ? meta.rewardHistory
+      : {}
 
-export async function setActiveReward(reward, { userId = null, goals = null } = {}) {
-  const profileResp = await getGameProfile()
-  const profile = readProfile(profileResp)
-  const nextReward = normalizeActiveReward(reward)
-
-  const assignedGoalReward = await getAssignedGoalReward({
+  return getAssignedGoalReward({
     userId,
     goals,
     profile,
+    rewardHistory,
   })
+}
 
-  if (assignedGoalReward) {
-    throw new Error(
-      `You already have an assigned reward: ${assignedGoalReward.title}. Redeem that one first.`
-    )
-  }
+export async function getAvailableRewards({ userId = null, goals = null } = {}) {
+  const profileResp = await getGameProfile(userId)
+  const profile = readProfile(profileResp)
+  const meta = profile?.meta && typeof profile.meta === 'object' ? profile.meta : {}
+  const rewardHistory =
+    meta.rewardHistory && typeof meta.rewardHistory === 'object'
+      ? meta.rewardHistory
+      : {}
+
+  const availableGoals = Array.isArray(goals)
+    ? goals
+    : extractGoals(await goalList())
+
+  return listAssignedGoalRewards(availableGoals, userId, rewardHistory)
+}
+
+export async function setActiveReward(reward, { userId = null } = {}) {
+  const profileResp = await getGameProfile(userId)
+  const profile = readProfile(profileResp)
+  const nextReward = normalizeRewardWithSource(reward)
 
   const nextMeta = {
     ...(profile?.meta || {}),
-    activeReward: nextReward,
+    activeReward: nextReward ? { ...nextReward, status: 'active' } : null,
   }
 
-  await updateGameProfile({ meta: nextMeta })
+  await updateGameProfile({ meta: nextMeta }, userId)
 
-  return nextReward
+  return nextMeta.activeReward
+}
+
+export async function reactivateReward(reward, { userId = null } = {}) {
+  const profileResp = await getGameProfile(userId)
+  const profile = readProfile(profileResp)
+  const nextReward = normalizeRewardWithSource(reward)
+
+  const meta = profile?.meta && typeof profile.meta === 'object' ? { ...profile.meta } : {}
+  const rewardHistory =
+    meta.rewardHistory && typeof meta.rewardHistory === 'object'
+      ? { ...meta.rewardHistory }
+      : {}
+
+  if (nextReward?.id && rewardHistory[nextReward.id]) {
+    delete rewardHistory[nextReward.id]
+  }
+
+  const nextMeta = {
+    ...meta,
+    activeReward: nextReward ? { ...nextReward, status: 'active' } : null,
+    rewardHistory,
+  }
+
+  await updateGameProfile({ meta: nextMeta }, userId)
+  return nextMeta.activeReward
 }
 
 export async function clearActiveReward({ reward = null, userId = null, goals = null } = {}) {
   const resolvedReward = await resolveRewardInput({ reward, userId, goals })
   if (!resolvedReward) return null
 
-  if (resolvedReward.sourceType === 'goal' && resolvedReward.sourceGoalId) {
-    const availableGoals = Array.isArray(goals)
-      ? goals
-      : extractGoals(await goalList())
-
-    const sourceGoal = availableGoals.find(
-      (goal) => String(goal?.id) === String(resolvedReward.sourceGoalId)
-    )
-
-    await clearGoalReward(sourceGoal)
-    return null
-  }
-
-  const profileResp = await getGameProfile()
+  const profileResp = await getGameProfile(userId)
   const profile = readProfile(profileResp)
+  const meta = profile?.meta && typeof profile.meta === 'object' ? { ...profile.meta } : {}
+  const rewardHistory =
+    meta.rewardHistory && typeof meta.rewardHistory === 'object'
+      ? { ...meta.rewardHistory }
+      : {}
+
+  if (resolvedReward.id) {
+    rewardHistory[resolvedReward.id] = {
+      ...(rewardHistory[resolvedReward.id] || {}),
+      status: 'dismissed',
+      dismissedAt: new Date().toISOString(),
+      goalId: resolvedReward.goalId ?? resolvedReward.sourceGoalId ?? null,
+      title: resolvedReward.title || '',
+      costCoins: Number(resolvedReward.costCoins || 0),
+    }
+  }
 
   const nextMeta = {
-    ...(profile?.meta || {}),
+    ...meta,
     activeReward: null,
+    rewardHistory,
   }
 
-  await updateGameProfile({ meta: nextMeta })
+  await updateGameProfile({ meta: nextMeta }, userId)
   return null
 }
 
 export async function redeemActiveReward({ reward = null, userId = null, goals = null } = {}) {
-  const profileResp = await getGameProfile()
+  const profileResp = await getGameProfile(userId)
   const profile = readProfile(profileResp)
 
   if (!profile) {
@@ -315,9 +326,24 @@ export async function redeemActiveReward({ reward = null, userId = null, goals =
   }
 
   const nextCoins = currentCoins - activeReward.costCoins
+  const meta = profile?.meta && typeof profile.meta === 'object' ? { ...profile.meta } : {}
+  const rewardHistory =
+    meta.rewardHistory && typeof meta.rewardHistory === 'object'
+      ? { ...meta.rewardHistory }
+      : {}
+
+  rewardHistory[activeReward.id] = {
+    status: 'redeemed',
+    redeemedAt: new Date().toISOString(),
+    goalId: activeReward.goalId ?? activeReward.sourceGoalId ?? null,
+    title: activeReward.title || '',
+    costCoins: activeReward.costCoins,
+  }
+
   const nextMeta = {
-    ...(profile?.meta || {}),
-    activeReward: activeReward.sourceType === 'profile' ? null : (profile?.meta?.activeReward ?? null),
+    ...meta,
+    activeReward: null,
+    rewardHistory,
   }
 
   const currentInventory = normalizeInventory(profile?.inventory)
@@ -351,15 +377,14 @@ export async function redeemActiveReward({ reward = null, userId = null, goals =
       coins: nextCoins,
       inventory: nextInventory,
       meta: nextMeta,
-    })
-
-    await clearActiveReward({ reward: activeReward, userId, goals })
+    }, userId)
 
     return {
       reward: activeReward,
       spentCoins: activeReward.costCoins,
       remainingCoins: nextCoins,
       purchasedItem: item,
+      activeReward: null,
       updatedProfile: {
         ...profile,
         coins: nextCoins,
@@ -372,15 +397,14 @@ export async function redeemActiveReward({ reward = null, userId = null, goals =
   await updateGameProfile({
     coins: nextCoins,
     meta: nextMeta,
-  })
-
-  await clearActiveReward({ reward: activeReward, userId, goals })
+  }, userId)
 
   return {
     reward: activeReward,
     spentCoins: activeReward.costCoins,
     remainingCoins: nextCoins,
     purchasedItem: null,
+    activeReward: null,
     updatedProfile: {
       ...profile,
       coins: nextCoins,

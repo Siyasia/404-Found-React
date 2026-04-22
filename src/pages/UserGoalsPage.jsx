@@ -5,17 +5,14 @@ import Toast from '../components/Toast.jsx'
 import GoalCard from '../components/GoalCard.jsx'
 import HabitWizard from '../components/HabitWizard/HabitWizard.jsx'
 import { WIZARD_CONFIG } from '../components/HabitWizard/HabitWizard.utils.js'
-import { goalList, goalCreate, goalUpdate, goalDelete } from '../lib/api/goals.js'
+import { goalList, goalDelete, saveGoalBundle } from '../lib/api/goals.js'
 import {
   actionPlanList,
-  actionPlanCreate,
-  actionPlanDelete,
   actionPlanDeleteByGoal,
 } from '../lib/api/actionPlans.js'
-import { getCoins } from '../lib/api/streaks.js'
-import { buildActiveRewardFromPayload, setActiveReward } from '../lib/api/reward.js'
+import { getCoins, markComplete, markIncomplete } from '../lib/api/streaks.js'
+import { buildActiveRewardFromPayload, getActiveReward, setActiveReward } from '../lib/api/reward.js'
 import mapWizardPayload from '../lib/api/mapWizardPayload.js'
-import togglePlanCompletion from '../lib/actionPlanCompletion.js'
 import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
 import '../dashboardTheme.css'
 import './UserGoalsPage.css'
@@ -141,6 +138,33 @@ function getGoalInsights(goal, plans, todayISO) {
   }
 }
 
+function mergeUpdatedPlan(plan, resultData, todayISO, completedNow) {
+  const backendPlan = resultData?.plan
+  if (backendPlan && typeof backendPlan === 'object') return backendPlan
+
+  const nextCompletedDates = {
+    ...(plan?.completedDates || {}),
+  }
+
+  if (completedNow) nextCompletedDates[todayISO] = true
+  else delete nextCompletedDates[todayISO]
+
+  return {
+    ...plan,
+    completedDates: nextCompletedDates,
+    currentStreak: Number(resultData?.current ?? resultData?.currentStreak ?? plan?.currentStreak ?? 0) || 0,
+    bestStreak: Number(resultData?.longest ?? resultData?.bestStreak ?? plan?.bestStreak ?? 0) || 0,
+    totalCompletions: Number(resultData?.totalCompletions ?? plan?.totalCompletions ?? 0) || 0,
+    streak: Number(resultData?.current ?? resultData?.currentStreak ?? plan?.streak ?? 0) || 0,
+    earnedBadges: Array.isArray(resultData?.earnedBadges) ? resultData.earnedBadges : plan?.earnedBadges || [],
+    awardedMilestones: Array.isArray(resultData?.awardedMilestones) ? resultData.awardedMilestones : plan?.awardedMilestones || [],
+    badgeEarnedDates:
+      resultData?.badgeEarnedDates && typeof resultData.badgeEarnedDates === 'object'
+        ? resultData.badgeEarnedDates
+        : plan?.badgeEarnedDates || {},
+  }
+}
+
 function matchesSearch(goal, searchTerm) {
   if (!searchTerm.trim()) return true
   const needle = searchTerm.trim().toLowerCase()
@@ -258,7 +282,7 @@ export default function UserGoalsPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [rewardMessage, setRewardMessage] = useState('')
-  const [coins, setCoins] = useState(0)
+  const [, setCoins] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortKey, setSortKey] = useState('recent')
@@ -376,16 +400,6 @@ export default function UserGoalsPage() {
     return sortGoals(matched, sortKey, goalInsightsById)
   }, [goalInsightsById, searchTerm, sortKey, statusFilter, todayISO, visibleGoals])
 
-  const filteredGoalIds = useMemo(
-    () => new Set(filteredGoals.map((goal) => String(goal.id))),
-    [filteredGoals]
-  )
-
-  const filteredActionPlans = useMemo(
-    () => visibleActionPlans.filter((plan) => filteredGoalIds.has(String(plan.goalId))),
-    [visibleActionPlans, filteredGoalIds]
-  )
-
   const { buildGoals, breakGoals } = useMemo(() => {
     const build = []
     const brk = []
@@ -398,59 +412,67 @@ export default function UserGoalsPage() {
     return { buildGoals: build, breakGoals: brk }
   }, [filteredGoals])
 
-  const totalDueToday = useMemo(
-    () => filteredActionPlans.filter((plan) => isPlanDueToday(plan, todayISO)).length,
-    [filteredActionPlans, todayISO]
-  )
-
-  const totalDoneToday = useMemo(
-    () => filteredActionPlans.filter((plan) => isPlanDoneToday(plan, todayISO)).length,
-    [filteredActionPlans, todayISO]
-  )
-
   /* --------------------------------------------------
      Handlers
   -------------------------------------------------- */
-  const handleRewardFeedback = useCallback((newBadgeIds = [], coinPayload = null, planTitle = '') => {
-    if (Array.isArray(newBadgeIds) && newBadgeIds.length > 0) {
-      setRewardMessage(`New badge${newBadgeIds.length === 1 ? '' : 's'} earned: ${newBadgeIds.join(', ')}`)
-    }
-
-    const delta = Number(coinPayload?.delta || 0)
-    if (delta > 0) setSuccessMessage(`Completed ${planTitle || 'habit plan'} • earned ${delta} coins`)
-    else if (delta === 0) setSuccessMessage(`Updated ${planTitle || 'habit plan'} for today`)
-  }, [])
-
   const handleToggleActionPlanCompletion = useCallback(
     async (plan) => {
       if (!plan) return null
 
-      const goal = visibleGoals.find((item) => String(item.id) === String(plan.goalId))
-      const milestoneRewards = Array.isArray(goal?.milestoneRewards) ? goal.milestoneRewards : []
+      const alreadyDone = isPlanDoneToday(plan, todayISO)
 
       try {
-        return await togglePlanCompletion({
-          plan,
-          todayISO,
-          milestoneRewards,
-          setActionPlans,
-          onBadges: (ids) => handleRewardFeedback(ids, null, plan?.title),
-          onCoins: ({ delta = 0, total = null }) => {
-            if (String(plan?.assigneeId) === String(user?.id)) {
-              if (typeof total === 'number' && !Number.isNaN(total)) setCoins(total)
-              else if (typeof delta === 'number' && !Number.isNaN(delta)) {
-                setCoins((prev) => Math.max(0, prev + delta))
-              }
-            }
-            handleRewardFeedback([], { delta, total }, plan?.title)
-          },
-        })
-      } catch (err) {
-        console.error('[UserGoalsPage] toggle error:', err)
+        const response = alreadyDone
+          ? await markIncomplete(plan.id, todayISO)
+          : await markComplete(plan.id, todayISO)
+
+        if (!response || response.status_code !== 200) {
+          throw new Error(response?.error || 'Failed to update action plan.')
+        }
+
+        const data = response.data || {}
+        const updatedPlan = mergeUpdatedPlan(plan, data, todayISO, !alreadyDone)
+
+        setActionPlans((prev) =>
+          (Array.isArray(prev) ? prev : []).map((item) =>
+            String(item?.id) === String(plan?.id) ? { ...item, ...updatedPlan } : item
+          )
+        )
+
+        if (String(data?.assigneeId) === String(user?.id)) {
+          if (typeof data?.totalCoins === 'number' && !Number.isNaN(data.totalCoins)) {
+            setCoins(data.totalCoins)
+          }
+        }
+
+        if (Array.isArray(data?.newBadges) && data.newBadges.length > 0) {
+          setRewardMessage(
+            `New badge${data.newBadges.length === 1 ? '' : 's'} earned: ${data.newBadges.join(', ')}`
+          )
+        }
+
+        const coinDelta =
+          Number(data?.coinsEarned || 0) +
+          Number(data?.badgeCoinsEarned || 0)
+
+        if (!alreadyDone) {
+          if (coinDelta > 0) {
+            setSuccessMessage(`Completed ${plan?.title || 'habit plan'} • earned ${coinDelta} coins`)
+          } else {
+            setSuccessMessage(`Completed ${plan?.title || 'habit plan'}`)
+          }
+        } else {
+          setSuccessMessage(`Updated ${plan?.title || 'habit plan'} for today`)
+        }
+
+        return response
+      } catch (error) {
+        console.error('[UserGoalsPage] Failed to toggle action plan completion:', error)
+        setErrorMessage(error?.message || 'Failed to update habit plan.')
         return null
       }
     },
-    [handleRewardFeedback, todayISO, user?.id, visibleGoals]
+    [todayISO, user?.id]
   )
 
   const handleDeleteGoal = useCallback(
@@ -500,15 +522,15 @@ export default function UserGoalsPage() {
       try {
         const mapped = mapWizardPayload(payload)
         const { goal, actionPlans: mappedPlans } = mapped
-        const existingPlansForGoal = editingGoal?.id
-          ? (actionPlans || []).filter((plan) => String(plan.goalId) === String(editingGoal.id))
-          : []
 
-        goal.assigneeId = user?.id || goal.assigneeId || null
-        goal.assigneeName = user?.name || goal.assigneeName || ''
-        goal.createdById = user?.id || null
-        goal.createdByName = user?.name || ''
-        goal.createdByRole = user?.role || 'user'
+        const goalPayload = {
+          ...goal,
+          assigneeId: user?.id || goal.assigneeId || null,
+          assigneeName: user?.name || goal.assigneeName || '',
+          createdById: goal.createdById || user?.id || null,
+          createdByName: goal.createdByName || user?.name || '',
+          createdByRole: goal.createdByRole || user?.role || 'user',
+        }
 
         for (let i = 0; i < mappedPlans.length; i += 1) {
           const plan = mappedPlans[i]
@@ -518,85 +540,44 @@ export default function UserGoalsPage() {
           }
         }
 
-        let goalId = null
+        const response = await saveGoalBundle({
+          goalId: editingGoal?.id || null,
+          goal: goalPayload,
+          actionPlans: mappedPlans.map((plan) => ({
+            ...plan,
+            id: plan?.id || null,
+            assigneeId: user?.id || plan.assigneeId || null,
+            assigneeName: user?.name || plan.assigneeName || '',
+            createdById: plan.createdById || user?.id || null,
+            createdByName: plan.createdByName || user?.name || '',
+            createdByRole: plan.createdByRole || user?.role || 'user',
+          })),
+        })
 
-        if (editingGoal?.id) {
-          const res = await goalUpdate(editingGoal.id, goal)
-          if (!res || res.status_code !== 200) {
-            setErrorMessage(res?.error ? String(res.error) : 'Failed to update goal.')
-            return { success: false }
-          }
-
-          goalId = res?.id || editingGoal.id
-          const deletePlansRes = await actionPlanDeleteByGoal(goalId)
-          if (!deletePlansRes || deletePlansRes.status_code !== 200) {
-            setErrorMessage('Failed to replace action plans.')
-            return { success: false }
-          }
-        } else {
-          const res = await goalCreate(goal)
-          if (!res || res.status_code !== 200) {
-            setErrorMessage(res?.error ? String(res.error) : 'Failed to create goal.')
-            return { success: false }
-          }
-          goalId = res?.id || null
-        }
-
-        if (!goalId) {
-          setErrorMessage('Goal saved, but no goal id was returned.')
+        if (!response || response.status_code !== 200) {
+          setErrorMessage(response?.error ? String(response.error) : 'Failed to save goal.')
           return { success: false }
         }
 
-        const createdIds = []
-        for (const plan of mappedPlans) {
-          const nextPlan = {
-            ...plan,
-            goalId,
-            assigneeId: user?.id || plan.assigneeId || null,
-            assigneeName: user?.name || plan.assigneeName || '',
-            createdById: user?.id || null,
-            createdByName: user?.name || '',
-            createdByRole: user?.role || 'user',
+        const goalId = response.goal?.id || editingGoal?.id || null
+
+        const activeReward = buildActiveRewardFromPayload({
+          ...payload,
+          goalId,
+        })
+        if (activeReward) {
+          const currentReward = await getActiveReward({
+            userId: user?.id,
+            goals: visibleGoals,
+          })
+
+          if (!currentReward) {
+            await setActiveReward(activeReward, {
+              userId: user?.id,
+              goals: visibleGoals,
+            })
           }
-
-          const res = await actionPlanCreate(nextPlan)
-          if (!res || res.status_code !== 200) {
-            for (const id of createdIds) {
-              try {
-                await actionPlanDelete(id)
-              } catch {
-                // rollback best effort
-              }
-            }
-
-            if (!editingGoal && goalId) {
-              try {
-                await goalDelete(goalId)
-              } catch {
-                // rollback best effort
-              }
-            }
-
-            if (editingGoal && existingPlansForGoal.length > 0) {
-              for (const old of existingPlansForGoal) {
-                try {
-                  const { id, ...restored } = typeof old?.toJSON === 'function' ? old.toJSON() : { ...old }
-                  await actionPlanCreate({ ...restored, goalId })
-                } catch {
-                  // rollback best effort
-                }
-              }
-            }
-
-            setErrorMessage(res?.error ? String(res.error) : 'Failed to create action plan.')
-            return { success: false }
-          }
-
-          if (res?.id) createdIds.push(res.id)
         }
-
-        const activeReward = buildActiveRewardFromPayload(payload)
-        if (activeReward) await setActiveReward(activeReward)
 
         try {
           if (typeof window !== 'undefined') {
@@ -619,7 +600,7 @@ export default function UserGoalsPage() {
         setSaving(false)
       }
     },
-    [actionPlans, editingGoal, refreshGoalData, user?.id, user?.name, user?.role]
+    [editingGoal, refreshGoalData, user?.id, user?.name, user?.role, visibleGoals]
   )
 
   /* --------------------------------------------------
@@ -643,7 +624,7 @@ export default function UserGoalsPage() {
     const isBeingEdited = editingGoal && String(editingGoal.id) === String(goal.id)
 
     return (
-      <div key={goal.id} className={`goals-list-item ${isBeingEdited ? 'is-editing' : ''}`}>
+      <div key={`goal-${goal.id}`} className={`goals-list-item ${isBeingEdited ? 'is-editing' : ''}`}>
         <div className="goals-list-item__topbar">
           <GoalSummaryStrip goal={goal} insights={insights} isEditing={isBeingEdited} />
 

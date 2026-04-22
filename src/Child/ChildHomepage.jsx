@@ -13,11 +13,16 @@ import MissionsBoard from '../components/MissionsBoard.jsx'
 import FocusMissionPanel from '../components/FocusMissionPanel.jsx'
 import { goalList } from '../lib/api/goals.js'
 import { actionPlanList } from '../lib/api/actionPlans.js'
-import { getCoins } from '../lib/api/streaks.js'
-import { getActiveReward, redeemActiveReward } from '../lib/api/reward.js'
+import { getCoins, markComplete, markIncomplete } from '../lib/api/streaks.js'
+import {
+  clearActiveReward,
+  getActiveReward,
+  getAvailableRewards,
+  redeemActiveReward,
+  setActiveReward as persistActiveReward,
+} from '../lib/api/reward.js'
 import { friendsList } from '../lib/api/friends.js'
 import { getFriendDisplayName, getFriendIdentifier } from '../lib/friendsIdentity.js'
-import togglePlanCompletion from '../lib/actionPlanCompletion.js'
 import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
 import { getCueLabel } from '../lib/cuePresets.js'
 import {
@@ -161,6 +166,9 @@ export default function ChildHomepage() {
   const [rewardMessage, setRewardMessage] = useState('')
   const [rewardToastType, setRewardToastType] = useState('success')
   const [redeemingReward, setRedeemingReward] = useState(false)
+  const [showRewardPicker, setShowRewardPicker] = useState(false)
+  const [availableRewards, setAvailableRewards] = useState([])
+  const [rewardPickerLoading, setRewardPickerLoading] = useState(false)
 
   const [now, setNow] = useState(() => new Date())
 
@@ -414,7 +422,7 @@ export default function ChildHomepage() {
       })
 
       setCoins(Number(result?.remainingCoins || 0))
-      setActiveReward(null)
+      setActiveReward(result?.activeReward ?? null)
 
       if (result?.updatedProfile) {
         setProfile(result.updatedProfile)
@@ -445,6 +453,61 @@ export default function ChildHomepage() {
     user?.id,
     visibleGoals,
   ])
+
+  const openRewardPicker = useCallback(async () => {
+    try {
+      setRewardPickerLoading(true)
+      const rewards = await getAvailableRewards({
+        userId: user?.id,
+        goals: visibleGoals,
+      })
+      setAvailableRewards(Array.isArray(rewards) ? rewards : [])
+      setShowRewardPicker(true)
+    } catch (error) {
+      console.error('Failed to load rewards:', error)
+      setRewardToastType('error')
+      setRewardMessage('Could not load available rewards.')
+    } finally {
+      setRewardPickerLoading(false)
+    }
+  }, [user?.id, visibleGoals])
+
+  const handleSelectReward = useCallback(async (reward) => {
+    try {
+      const nextReward = await persistActiveReward(reward, {
+        userId: user?.id,
+        goals: visibleGoals,
+      })
+
+      setActiveReward(nextReward || null)
+      setShowRewardPicker(false)
+      setRewardToastType('success')
+      setRewardMessage(`Active reward set to ${reward?.title || 'your reward'}.`)
+    } catch (error) {
+      console.error('Failed to set active reward:', error)
+      setRewardToastType('error')
+      setRewardMessage('Could not set that reward.')
+    }
+  }, [user?.id, visibleGoals])
+
+  const handleClearReward = useCallback(async () => {
+    if (!activeReward) return
+
+    try {
+      await clearActiveReward({
+        reward: activeReward,
+        userId: user?.id,
+        goals: visibleGoals,
+      })
+      setActiveReward(null)
+      setRewardToastType('success')
+      setRewardMessage('Reward hidden for now.')
+    } catch (error) {
+      console.error('Failed to clear reward:', error)
+      setRewardToastType('error')
+      setRewardMessage('Could not hide reward.')
+    }
+  }, [activeReward, user?.id, visibleGoals])
 
   const latestGoals = useMemo(() => {
     return visibleGoals.slice(0, 4).map((goal) => {
@@ -547,45 +610,56 @@ export default function ChildHomepage() {
   }, [activeStreakCount, weeklyBadgeCount, weeklyTotals])
 
   const completePlanForToday = useCallback(async (plan) => {
-    if (!plan) return
+    if (!plan) return null
 
-    const goal = goalsById[String(plan.goalId)]
-    const milestoneRewards = Array.isArray(goal?.milestoneRewards) ? goal.milestoneRewards : []
+    const alreadyDone = plan?.completedDates?.[todayISO] === true
 
     try {
-      await togglePlanCompletion({
-        plan,
-        todayISO,
-        milestoneRewards,
-        setActionPlans,
-        onBadges: (badgeIds) => {
-          if (badgeIds?.length) {
-            setRewardMessage(`New badge${badgeIds.length === 1 ? '' : 's'} earned: ${badgeIds.join(', ')}`)
-            triggerFunConfetti()
-          }
-        },
-        onCoins: ({ delta = 0, total = null }) => {
-          if (String(plan?.assigneeId) === String(user?.id)) {
-            if (typeof total === 'number' && !Number.isNaN(total)) {
-              setCoins(total)
-            } else if (typeof delta === 'number' && !Number.isNaN(delta)) {
-              setCoins((prev) => Math.max(0, prev + delta))
-            }
-          }
+      const response = alreadyDone
+        ? await markIncomplete(plan.id, todayISO)
+        : await markComplete(plan.id, todayISO)
 
-          if (delta > 0) {
-            triggerFunConfetti()
-            speakAsPet(`Woohoo! +${delta} coins! 🎉`, 'excited')
-            setSuccessMessage(`Completed ${plan?.title || 'habit plan'} • earned ${delta} coins`)
-          } else {
-            setSuccessMessage(`Updated ${plan?.title || 'habit plan'} for today`)
-          }
-        },
-      })
+      if (!response || response.status_code !== 200) {
+        throw new Error(response?.error || 'Failed to update plan')
+      }
+
+      const data = response.data || {}
+
+      if (data?.plan) {
+        setActionPlans((prev) =>
+          (Array.isArray(prev) ? prev : []).map((item) =>
+            String(item.id) === String(plan.id) ? data.plan : item
+          )
+        )
+      }
+
+      if (String(data?.assigneeId) === String(user?.id)) {
+        if (typeof data?.totalCoins === 'number' && !Number.isNaN(data.totalCoins)) {
+          setCoins(data.totalCoins)
+        }
+      }
+
+      if (Array.isArray(data?.newBadges) && data.newBadges.length) {
+        setRewardMessage(
+          `New badge${data.newBadges.length === 1 ? '' : 's'} earned: ${data.newBadges.join(', ')}`
+        )
+        triggerFunConfetti()
+      }
+
+      if (!alreadyDone) {
+        triggerFunConfetti()
+        speakAsPet('Nice job! 🎉', 'excited')
+        setSuccessMessage(`Completed ${plan.title || 'habit plan'}`)
+      } else {
+        setSuccessMessage(`Updated ${plan.title || 'habit plan'}`)
+      }
+
+      return response
     } catch (error) {
-      console.error('Failed to toggle plan completion:', error)
+      console.error('Plan toggle failed:', error)
+      return null
     }
-  }, [goalsById, speakAsPet, todayISO, triggerFunConfetti, user?.id])
+  }, [speakAsPet, todayISO, triggerFunConfetti, user?.id])
 
   const syncLinkedPlanFromTask = useCallback(async (task) => {
     if (!task?.linkedActionPlanId) return
@@ -775,45 +849,100 @@ export default function ChildHomepage() {
             </div>
 
             <div className="home-panel home-panel--reward child-top-card">
-              <div className="home-reward-header">
-                <div className="home-panel__title app-panel-title">
-                  {activeReward?.title || 'Treasure chest'}
-                </div>
+              {activeReward ? (
+                <>
+                  <div className="home-reward-header">
+                    <div className="home-panel__title app-panel-title">
+                      {activeReward.title}
+                    </div>
 
-                <div className="home-reward-meta app-micro-text">
-                  {activeReward
-                    ? coins < activeReward.costCoins
-                      ? `${(activeReward.costCoins - coins).toLocaleString()} left`
-                      : activeReward?.sourceType === 'goal'
-                        ? 'Assigned'
-                        : 'Ready to claim'
-                    : 'Pick a reward'}
-                </div>
-              </div>
-
-              <div className="home-reward-row">
-                <div className="home-reward-track-wrap">
-                  <div className="home-progress-track">
-                    <div
-                      className="home-progress-fill"
-                      style={{ width: `${rewardProgress}%` }}
-                    />
+                    <div className="home-reward-meta app-micro-text">
+                      {coins < activeReward.costCoins
+                        ? `${(activeReward.costCoins - coins).toLocaleString()} left`
+                        : activeReward?.sourceType === 'goal'
+                          ? 'Assigned'
+                          : 'Ready to claim'}
+                    </div>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  className="home-redeem-btn btn-success app-button-label"
-                  onClick={handleRedeemReward}
-                  disabled={!activeReward || redeemingReward || coins < activeReward.costCoins}
-                  aria-label="Redeem reward"
-                  title="Redeem reward"
-                >
-                  <span className="home-redeem-btn__check" aria-hidden="true">
-                    ✓
-                  </span>
-                </button>
-              </div>
+                  <div className="home-reward-row">
+                    <div className="home-reward-track-wrap">
+                      <div className="home-progress-track">
+                        <div
+                          className="home-progress-fill"
+                          style={{ width: `${rewardProgress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="home-redeem-btn btn-success app-button-label"
+                      onClick={handleRedeemReward}
+                      disabled={redeemingReward || coins < activeReward.costCoins}
+                      aria-label="Redeem reward"
+                      title="Redeem reward"
+                    >
+                      <span className="home-redeem-btn__check" aria-hidden="true">
+                        ✓
+                      </span>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost app-button-label home-reward-clear"
+                    onClick={handleClearReward}
+                  >
+                    Hide reward
+                  </button>
+                </>
+              ) : (
+                <div className="home-reward-empty">
+                  <div className="home-panel__title app-panel-title">No active reward</div>
+                  <div className="app-helper-text">Pick something fun to save your coins for.</div>
+                  <button
+                    type="button"
+                    className="btn btn-primary app-button-label"
+                    onClick={openRewardPicker}
+                    disabled={rewardPickerLoading}
+                  >
+                    {rewardPickerLoading ? 'Loading...' : 'Choose reward'}
+                  </button>
+                </div>
+              )}
+
+              {showRewardPicker ? (
+                <div className="home-reward-picker">
+                  {availableRewards.length === 0 ? (
+                    <div className="app-helper-text">No saved rewards available yet.</div>
+                  ) : (
+                    availableRewards.map((reward, index) => (
+                      <button
+                        key={`reward-${reward.id || index}`}
+                        type="button"
+                        className="home-reward-picker__item"
+                        onClick={() => handleSelectReward(reward)}
+                      >
+                        <span className="home-reward-picker__copy">
+                          <span className="app-card-title">{reward.title}</span>
+                          <span className="app-micro-text">
+                            {reward.sourceGoalTitle ? `From ${reward.sourceGoalTitle}` : 'Saved reward'}
+                          </span>
+                        </span>
+                        <span className="app-helper-text">{reward.costCoins} coins</span>
+                      </button>
+                    ))
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost app-button-label"
+                    onClick={() => setShowRewardPicker(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="home-panel home-panel--coins child-top-card">
@@ -912,7 +1041,7 @@ export default function ChildHomepage() {
               ) : (
                 <div className="home-goal-list">
                   {latestGoals.map((goal, index) => (
-                    <div className="home-goal-item" key={goal.id || goal.tempId || `goal-${index}`}>
+                    <div className="home-goal-item" key={`goal-${goal.id || goal.tempId || index}`}>
                       <div className="home-goal-item__row">
                         <span className="home-goal-item__title app-card-title">{goal.title}</span>
                         <span className="home-goal-item__value app-micro-text">{goal.percent}%</span>
@@ -962,7 +1091,7 @@ export default function ChildHomepage() {
 
               <div className="home-week-summary">
                 {weeklySummary.map((stat) => (
-                  <article key={stat.key} className={`home-week-summary__card ${stat.tone}`}>
+                  <article key={`summary-${stat.key}`} className={`home-week-summary__card ${stat.tone}`}>
                     <div className="home-week-summary__icon" aria-hidden="true">
                       {stat.icon}
                     </div>
@@ -999,7 +1128,7 @@ export default function ChildHomepage() {
                     const friendStreak = typeof friend === 'object' ? Number(friend?.streak || 0) : 0
 
                     return (
-                      <div key={friendIdentifier || `friend-${index}`} className="home-friend-row">
+                      <div key={`friend-${friendIdentifier || index}`} className="home-friend-row">
                         <div className="home-friend-avatar">
                           {friendName[0]?.toUpperCase() ?? '?'}
                         </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { getCalendarMonth, getCalendarDay } from '../lib/api/calendar.js'
-import { togglePlanCompletion } from '../lib/actionPlanCompletion.js'
+import { markComplete, markIncomplete } from '../lib/api/streaks.js'
 import { toLocalISODate } from '../lib/schedule.js'
 
 function pad(num) {
@@ -18,7 +18,6 @@ function filterEntries(entries = [], assigneeId) {
 
 export default function HabitCalendar({
   assigneeId,
-  getMilestoneRewards,
   onRewardMessage,
   emptyStateLinkTo = '/habit-wizard',
   emptyStateLabel = 'Add a habit',
@@ -106,28 +105,29 @@ export default function HabitCalendar({
     const plan = entry?.actionPlan
     if (!plan) return
 
-    const milestoneRewards = typeof getMilestoneRewards === 'function' ? getMilestoneRewards(plan) : []
-    const res = await togglePlanCompletion({
-      plan,
-      todayISO: dateISO,
-      milestoneRewards,
-      onBadges: (badgeIds) => {
-        if (badgeIds?.length && typeof onRewardMessage === 'function') {
-          onRewardMessage(`New badge${badgeIds.length === 1 ? '' : 's'} earned: ${badgeIds.join(', ')}`)
-        }
-      },
-      onCoins: ({ delta = 0 }) => {
-        if (delta > 0 && typeof onRewardMessage === 'function') {
-          onRewardMessage(`Updated ${plan?.title || 'habit plan'} • earned ${delta} coins`)
-        }
-      },
-    })
+    const alreadyDone = plan?.completedDates?.[dateISO] === true
+    const res = alreadyDone
+      ? await markIncomplete(plan.id, dateISO)
+      : await markComplete(plan.id, dateISO)
 
-    if (!res?.updatedPlan) return
+    if (!res || res.status_code !== 200) return
 
-    const updatedPlan = res.updatedPlan
-    const streak = res.data?.current ?? updatedPlan.currentStreak ?? 0
+    const data = res.data || {}
+    const updatedPlan = data.plan || plan
+    const streak = data.current ?? data.currentStreak ?? updatedPlan.currentStreak ?? 0
     const completed = Boolean(updatedPlan?.completedDates?.[dateISO])
+
+    if (Array.isArray(data.newBadges) && data.newBadges.length && typeof onRewardMessage === 'function') {
+      onRewardMessage(`New badge${data.newBadges.length === 1 ? '' : 's'} earned: ${data.newBadges.join(', ')}`)
+    }
+
+    const coinDelta =
+      Number(data?.coinsEarned || 0) +
+      Number(data?.badgeCoinsEarned || 0)
+
+    if (!alreadyDone && coinDelta > 0 && typeof onRewardMessage === 'function') {
+      onRewardMessage(`Updated ${plan?.title || 'habit plan'} • earned ${coinDelta} coins`)
+    }
 
     setCalendarData((prev) => {
       const next = { ...prev }

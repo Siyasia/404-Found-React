@@ -17,14 +17,16 @@ function normalizeProfilePayload(value) {
   return { ...value };
 }
 
-export async function updateGameProfile(gameProfile) {
+export async function updateGameProfile(gameProfile, userId = null) {
   const json = normalizeProfilePayload(gameProfile);
-  const info = await patchJSON('/game/profile', json);
+  const suffix = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : '';
+  const info = await patchJSON(`/game/profile${suffix}`, json);
   return new UpdateGameProfileResponse(info.status, info.data);
 }
 
-export async function getGameProfile() {
-  const info = await getJSON('/game/profile');
+export async function getGameProfile(userId = null) {
+  const suffix = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : '';
+  const info = await getJSON(`/game/profile${suffix}`);
   return new GetGameProfileResponse(info.status, info.data);
 }
 

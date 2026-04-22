@@ -161,8 +161,8 @@ function ActiveDetail({ activeDate, entries, loading }) {
       <div className="weekStrip__detail">
         <div className="weekStrip__detailTitle">Due on {activeDate}</div>
         <ul className="weekStrip__detailList">
-          {entries.map((entry) => (
-            <li key={entry.actionPlan.id}>
+          {entries.map((entry, index) => (
+            <li key={`week-detail-${activeDate}-${entry.actionPlan.id || index}`}>
               {entry.actionPlan.title || entry.actionPlan.name || 'Habit'}
             </li>
           ))}
@@ -251,7 +251,7 @@ export default function WeekStrip({
           return (
             <button
               type="button"
-              key={iso}
+              key={`week-day-${iso}`}
               className={[
                 'weekStrip__day',
                 isToday && 'is-today',

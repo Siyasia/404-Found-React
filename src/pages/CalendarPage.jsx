@@ -4,7 +4,6 @@ import HabitCalendar from '../components/HabitCalendar.jsx'
 import Toast from '../components/Toast.jsx'
 import { useUser } from '../UserContext.jsx'
 import { ROLE } from '../Roles/roles.js'
-import { goalList } from '../lib/api/goals.js'
 import { childList } from '../lib/api/children.js'
 import './CalendarPage.css'
 
@@ -38,7 +37,6 @@ export default function CalendarPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [goals, setGoals] = useState([])
   const [children, setChildren] = useState([])
   const [selectedChildId, setSelectedChildId] = useState(null)
   const [rewardMessage, setRewardMessage] = useState('')
@@ -50,27 +48,17 @@ export default function CalendarPage() {
       setLoading(true)
       setError('')
       try {
-        const [goalResp, childResp] = await Promise.all([
-          goalList(),
-          user?.role === ROLE.PARENT
-            ? childList()
-            : Promise.resolve({ status_code: 200, children: [] }),
-        ])
+        const childResp = user?.role === ROLE.PARENT
+          ? await childList()
+          : { status_code: 200, children: [] }
 
         if (!cancelled) {
-          if (goalResp?.status_code === 200) {
-            setGoals(Array.isArray(goalResp.goals) ? goalResp.goals : [])
-          } else {
-            setGoals([])
-            setError('Could not load goals for the calendar.')
-          }
           if (childResp?.status_code === 200 && Array.isArray(childResp.children)) {
             setChildren(childResp.children)
           }
         }
       } catch (err) {
         if (!cancelled) {
-          setGoals([])
           setError(err?.message || 'Failed to load calendar data.')
         }
       } finally {
@@ -90,11 +78,6 @@ export default function CalendarPage() {
   }, [selectedChildId, user])
 
   const showChildSelector = user?.role === ROLE.PARENT && children.length > 0
-
-  const getMilestoneRewards = (plan) => {
-    const goal = (goals || []).find((g) => String(g.id) === String(plan?.goalId))
-    return Array.isArray(goal?.milestoneRewards) ? goal.milestoneRewards : []
-  }
 
   const emptyLink = user?.role === ROLE.PARENT ? '/parent/dashboard?tab=assign' : '/habit-wizard'
 
@@ -162,7 +145,6 @@ export default function CalendarPage() {
           <div className="calendar-page__calendar-wrapper">
             <HabitCalendar
               assigneeId={viewerChildId}
-              getMilestoneRewards={getMilestoneRewards}
               onRewardMessage={setRewardMessage}
               emptyStateLinkTo={emptyLink}
               emptyStateLabel={user?.role === ROLE.PARENT ? 'Assign a goal' : 'Create a goal'}

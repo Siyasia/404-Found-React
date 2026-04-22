@@ -22,7 +22,7 @@ import {
   useFriendRequests,
 } from '../lib/hooks/useFriendRequests.js';
 import { getFriendDisplayName } from '../lib/friendsIdentity.js';
-import { BADGE_DEFINITIONS, evaluateBadgeIds } from '../lib/api/badges.js';
+import { BADGE_DEFINITIONS } from '../lib/api/badges.js';
 import { goalList } from '../lib/api/goals.js';
 import { actionPlanList } from '../lib/api/actionPlans.js';
 import { taskList } from '../lib/api/tasks.js';
@@ -102,28 +102,6 @@ function planBestStreak(plan) {
   return 0;
 }
 
-function planCurrentStreak(plan) {
-  const current = Number(plan?.currentStreak ?? plan?.streak ?? plan?.meta?.currentStreak);
-  return Number.isFinite(current) && current >= 0 ? current : 0;
-}
-
-function planTotalCompletions(plan) {
-  const directTotal = Number(plan?.totalCompletions ?? plan?.meta?.totalCompletions);
-  if (Number.isFinite(directTotal) && directTotal >= 0) return directTotal;
-
-  const completedDates = plan?.completedDates;
-  if (completedDates && typeof completedDates === 'object' && !Array.isArray(completedDates)) {
-    return Object.values(completedDates).filter(Boolean).length;
-  }
-
-  const completionLog = plan?.completionLog ?? plan?.meta?.completionLog;
-  if (completionLog && typeof completionLog === 'object' && !Array.isArray(completionLog)) {
-    return Object.values(completionLog).filter(Boolean).length;
-  }
-
-  return 0;
-}
-
 export default function Profile() {
   const navigate = useNavigate();
   const { user, setUser } = useUser();
@@ -148,11 +126,6 @@ export default function Profile() {
     habitsBuilt: 0,
     habitsBroken: 0,
     longestStreak: 0,
-  });
-  const [badgeProgressStats, setBadgeProgressStats] = useState({
-    current: 0,
-    longest: 0,
-    totalCompletions: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -209,11 +182,6 @@ export default function Profile() {
             habitsBroken: 0,
             longestStreak: 0,
           });
-          setBadgeProgressStats({
-            current: 0,
-            longest: 0,
-            totalCompletions: 0,
-          });
           setStatsLoading(false);
         }
         return;
@@ -267,28 +235,11 @@ export default function Profile() {
           return Math.max(max, planBestStreak(plan));
         }, 0);
 
-        const currentStreak = visiblePlans.reduce((max, plan) => {
-          return Math.max(max, planCurrentStreak(plan));
-        }, 0);
-
-        const totalCompletions = visiblePlans.reduce((sum, plan) => {
-          return sum + planTotalCompletions(plan);
-        }, 0);
-
-        const inferredCurrentStreak = Math.max(currentStreak, longestStreak);
-        const inferredTotalCompletions = Math.max(totalCompletions, longestStreak);
-
         setRealStats({
           tasksCompleted,
           habitsBuilt,
           habitsBroken,
           longestStreak,
-        });
-
-        setBadgeProgressStats({
-          current: inferredCurrentStreak,
-          longest: longestStreak,
-          totalCompletions: inferredTotalCompletions,
         });
       } catch (error) {
         console.error('Failed to load profile stats:', error);
@@ -298,11 +249,6 @@ export default function Profile() {
             habitsBuilt: 0,
             habitsBroken: 0,
             longestStreak: 0,
-          });
-          setBadgeProgressStats({
-            current: 0,
-            longest: 0,
-            totalCompletions: 0,
           });
         }
       } finally {
@@ -317,21 +263,23 @@ export default function Profile() {
     };
   }, [user?.id]);
 
-  const badgeMeta =
+  const badgeMeta = useMemo(() => (
     profile?.meta && typeof profile.meta === 'object' && !Array.isArray(profile.meta)
       ? profile.meta
-      : {};
+      : {}
+  ), [profile]);
 
   const earnedBadgeIds = useMemo(() => {
-    const storedIds = Array.isArray(badgeMeta.earnedBadges)
-      ? badgeMeta.earnedBadges
-      : Array.isArray(profile?.earnedBadges)
-        ? profile.earnedBadges
-        : [];
-    const progressIds = evaluateBadgeIds(badgeProgressStats);
+    if (Array.isArray(badgeMeta.earnedBadges)) {
+      return badgeMeta.earnedBadges;
+    }
 
-    return Array.from(new Set([...storedIds, ...progressIds]));
-  }, [badgeMeta, profile, badgeProgressStats]);
+    if (Array.isArray(profile?.earnedBadges)) {
+      return profile.earnedBadges;
+    }
+
+    return [];
+  }, [badgeMeta, profile]);
 
   const badgeEarnedDates = useMemo(() => {
     if (

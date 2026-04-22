@@ -127,7 +127,7 @@ export default function CuePlanCard({
 
                     return (
                       <button
-                        key={item.id || item.tempId || `${section.key || section.label || sectionIndex}-item-${itemIndex}`}
+                        key={`cue-item-${section.key || section.label || sectionIndex}-${item.id || item.tempId || itemIndex}`}
                         type="button"
                         className={`cueCard__item ${isComplete ? 'is-complete' : ''} ${habitTypeClass}`}
                         aria-pressed={isComplete}

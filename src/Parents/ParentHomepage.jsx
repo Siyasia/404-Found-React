@@ -21,9 +21,14 @@ import {
 } from '../lib/api/tasks.js'
 import { goalList } from '../lib/api/goals.js'
 import { actionPlanList } from '../lib/api/actionPlans.js'
-import { getCoins } from '../lib/api/streaks.js'
-import { getActiveReward, redeemActiveReward } from '../lib/api/reward.js'
-import togglePlanCompletion from '../lib/actionPlanCompletion.js'
+import { getCoins, markComplete, markIncomplete } from '../lib/api/streaks.js'
+import {
+  clearActiveReward,
+  getActiveReward,
+  getAvailableRewards,
+  redeemActiveReward,
+  setActiveReward as persistActiveReward,
+} from '../lib/api/reward.js'
 import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
 import { getCueLabel } from '../lib/cuePresets.js'
 import {
@@ -122,6 +127,33 @@ function getPlanCueDetail(plan) {
   return ''
 }
 
+function mergeParentUpdatedPlan(plan, resultData, todayISO, completedNow) {
+  const backendPlan = resultData?.plan
+  if (backendPlan && typeof backendPlan === 'object') return backendPlan
+
+  const nextCompletedDates = {
+    ...(plan?.completedDates || {}),
+  }
+
+  if (completedNow) nextCompletedDates[todayISO] = true
+  else delete nextCompletedDates[todayISO]
+
+  return {
+    ...plan,
+    completedDates: nextCompletedDates,
+    currentStreak: Number(resultData?.current ?? resultData?.currentStreak ?? plan?.currentStreak ?? 0) || 0,
+    bestStreak: Number(resultData?.longest ?? resultData?.bestStreak ?? plan?.bestStreak ?? 0) || 0,
+    totalCompletions: Number(resultData?.totalCompletions ?? plan?.totalCompletions ?? 0) || 0,
+    streak: Number(resultData?.current ?? resultData?.currentStreak ?? plan?.streak ?? 0) || 0,
+    earnedBadges: Array.isArray(resultData?.earnedBadges) ? resultData.earnedBadges : plan?.earnedBadges || [],
+    awardedMilestones: Array.isArray(resultData?.awardedMilestones) ? resultData.awardedMilestones : plan?.awardedMilestones || [],
+    badgeEarnedDates:
+      resultData?.badgeEarnedDates && typeof resultData.badgeEarnedDates === 'object'
+        ? resultData.badgeEarnedDates
+        : plan?.badgeEarnedDates || {},
+  }
+}
+
 function EmptyState({ title, description }) {
   return (
     <div className="parent-empty-state">
@@ -161,6 +193,9 @@ export default function ParentHomepage() {
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [redeemingReward, setRedeemingReward] = useState(false)
+  const [showRewardPicker, setShowRewardPicker] = useState(false)
+  const [availableRewards, setAvailableRewards] = useState([])
+  const [rewardPickerLoading, setRewardPickerLoading] = useState(false)
   const [clockTime, setClockTime] = useState(formatClock())
   const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState('all')
 
@@ -521,6 +556,76 @@ export default function ParentHomepage() {
     setTaskView('board')
   }, [])
 
+  const handleTogglePlan = useCallback(
+    async (plan) => {
+      if (!plan) return null
+
+      const alreadyDone = plan?.completedDates?.[todayISO] === true
+
+      try {
+        const response = alreadyDone
+          ? await markIncomplete(plan.id, todayISO)
+          : await markComplete(plan.id, todayISO)
+
+        if (!response || response.status_code !== 200) {
+          throw new Error(response?.error || 'Failed to update action plan.')
+        }
+
+        const data = response.data || {}
+        const updatedPlan = mergeParentUpdatedPlan(plan, data, todayISO, !alreadyDone)
+
+        setActionPlans((prev) =>
+          (Array.isArray(prev) ? prev : []).map((item) =>
+            normalizeId(item?.id) === normalizeId(plan?.id) ? { ...item, ...updatedPlan } : item
+          )
+        )
+
+        if (normalizeId(data?.assigneeId) === normalizeId(user?.id)) {
+          if (typeof data?.totalCoins === 'number' && !Number.isNaN(data.totalCoins)) {
+            setCoins(data.totalCoins)
+          }
+        }
+
+        if (Array.isArray(data?.newBadges) && data.newBadges.length) {
+          const ownerLabel =
+            normalizeId(data?.assigneeId) === normalizeId(user?.id)
+              ? 'You'
+              : data?.assigneeName || 'Child'
+
+          setToast(
+            `${ownerLabel} earned ${data.newBadges.length === 1 ? 'a new badge' : 'new badges'}: ${data.newBadges.join(', ')}`
+          )
+        }
+
+        const coinDelta =
+          Number(data?.coinsEarned || 0) +
+          Number(data?.badgeCoinsEarned || 0)
+
+        if (!alreadyDone) {
+          const ownerLabel =
+            normalizeId(data?.assigneeId) === normalizeId(user?.id)
+              ? 'You'
+              : data?.assigneeName || 'Child'
+
+          if (coinDelta > 0) {
+            setToast(`${ownerLabel} completed ${plan?.title || 'habit plan'} • earned ${coinDelta} coins`)
+          } else {
+            setToast(`${ownerLabel} completed ${plan?.title || 'habit plan'}`)
+          }
+        } else {
+          setToast(`Updated ${plan?.title || 'habit plan'} for today`)
+        }
+
+        return response
+      } catch (err) {
+        console.error('[ParentHomepage] Failed to toggle action plan completion:', err)
+        setError(err?.message || 'Failed to update action plan.')
+        return null
+      }
+    },
+    [todayISO, user?.id]
+  )
+
   const syncLinkedPlanFromTask = useCallback(
     async (task) => {
       if (!task?.linkedActionPlanId) return
@@ -533,16 +638,12 @@ export default function ParentHomepage() {
       if (linkedPlan?.completedDates?.[todayISO] === true) return
 
       try {
-        await togglePlanCompletion({
-          plan: linkedPlan,
-          todayISO,
-          setActionPlans,
-        })
+        await handleTogglePlan(linkedPlan)
       } catch (err) {
         console.error('[ParentHomepage] sync linked plan from task error', err)
       }
     },
-    [visiblePlans, todayISO]
+    [visiblePlans, todayISO, handleTogglePlan]
   )
 
   const handleStartTask = useCallback(
@@ -807,28 +908,6 @@ export default function ParentHomepage() {
     setTimeout(() => setToast(''), 2500)
   }
 
-  const handleTogglePlan = useCallback(
-    async (plan) => {
-      if (!plan) return
-
-      try {
-        await togglePlanCompletion({
-          plan,
-          todayISO,
-          setActionPlans,
-        })
-
-        await loadParentHome()
-        setToast(`Updated ${sanitizeTitle(plan?.title || 'plan')} for today.`)
-        setTimeout(() => setToast(''), 2500)
-      } catch (err) {
-        console.error('[ParentHomepage] toggle plan error', err)
-        setError('Failed to update plan.')
-      }
-    },
-    [todayISO, loadParentHome]
-  )
-
   const handleRedeemReward = useCallback(async () => {
     if (!activeReward || redeemingReward) return
 
@@ -842,7 +921,7 @@ export default function ParentHomepage() {
       })
 
       setCoins(Number(result?.remainingCoins || 0))
-      setActiveReward(null)
+      setActiveReward(result?.activeReward ?? null)
 
       setToast(
         result?.purchasedItem?.name
@@ -857,6 +936,58 @@ export default function ParentHomepage() {
       setRedeemingReward(false)
     }
   }, [activeReward, redeemingReward, user?.id, ownGoals])
+
+  const openRewardPicker = useCallback(async () => {
+    try {
+      setRewardPickerLoading(true)
+      const rewards = await getAvailableRewards({
+        userId: user?.id,
+        goals: ownGoals,
+      })
+      setAvailableRewards(Array.isArray(rewards) ? rewards : [])
+      setShowRewardPicker(true)
+    } catch (err) {
+      console.error('[ParentHomepage] Failed to load rewards:', err)
+      setError('Could not load available rewards.')
+    } finally {
+      setRewardPickerLoading(false)
+    }
+  }, [ownGoals, user?.id])
+
+  const handleSelectReward = useCallback(async (reward) => {
+    try {
+      const nextReward = await persistActiveReward(reward, {
+        userId: user?.id,
+        goals: ownGoals,
+      })
+
+      setActiveReward(nextReward || null)
+      setShowRewardPicker(false)
+      setToast(`Active reward set to ${sanitizeTitle(reward?.title || 'your reward')}.`)
+      setTimeout(() => setToast(''), 2500)
+    } catch (err) {
+      console.error('[ParentHomepage] Failed to set active reward:', err)
+      setError('Could not set that reward.')
+    }
+  }, [ownGoals, user?.id])
+
+  const handleClearReward = useCallback(async () => {
+    if (!activeReward) return
+
+    try {
+      await clearActiveReward({
+        reward: activeReward,
+        userId: user?.id,
+        goals: ownGoals,
+      })
+      setActiveReward(null)
+      setToast('Reward hidden for now.')
+      setTimeout(() => setToast(''), 2500)
+    } catch (err) {
+      console.error('[ParentHomepage] Failed to clear reward:', err)
+      setError('Could not hide reward.')
+    }
+  }, [activeReward, ownGoals, user?.id])
 
   if (!user) {
     return (
@@ -898,42 +1029,97 @@ export default function ParentHomepage() {
             </div>
 
             <div className="home-panel home-panel--reward">
-              <div className="home-reward-header">
-                <div className="home-panel__title app-panel-title">
-                  {activeReward?.title ? sanitizeTitle(activeReward.title) : 'Active reward'}
-                </div>
-                <div className="home-reward-meta app-micro-text">
-                  {activeReward
-                    ? coins < activeReward.costCoins
-                      ? `${(activeReward.costCoins - coins).toLocaleString()} left`
-                      : activeReward?.sourceType === 'goal'
-                        ? 'Goal reward'
-                        : 'Ready to claim'
-                    : 'No active reward'}
-                </div>
-              </div>
-
-              <div className="home-reward-row">
-                <div className="home-reward-track-wrap">
-                  <div className="home-progress-track">
-                    <div
-                      className="home-progress-fill"
-                      style={{ width: `${rewardProgress}%` }}
-                    />
+              {activeReward ? (
+                <>
+                  <div className="home-reward-header">
+                    <div className="home-panel__title app-panel-title">
+                      {sanitizeTitle(activeReward.title)}
+                    </div>
+                    <div className="home-reward-meta app-micro-text">
+                      {coins < activeReward.costCoins
+                        ? `${(activeReward.costCoins - coins).toLocaleString()} left`
+                        : activeReward?.sourceType === 'goal'
+                          ? 'Goal reward'
+                          : 'Ready to claim'}
+                    </div>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  className="home-redeem-btn btn-success app-button-label"
-                  onClick={handleRedeemReward}
-                  disabled={!activeReward || redeemingReward || coins < (activeReward?.costCoins || 0)}
-                  aria-label="Redeem reward"
-                  title="Redeem reward"
-                >
-                  <span className="home-redeem-btn__check" aria-hidden="true">✓</span>
-                </button>
-              </div>
+                  <div className="home-reward-row">
+                    <div className="home-reward-track-wrap">
+                      <div className="home-progress-track">
+                        <div
+                          className="home-progress-fill"
+                          style={{ width: `${rewardProgress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="home-redeem-btn btn-success app-button-label"
+                      onClick={handleRedeemReward}
+                      disabled={redeemingReward || coins < (activeReward?.costCoins || 0)}
+                      aria-label="Redeem reward"
+                      title="Redeem reward"
+                    >
+                      <span className="home-redeem-btn__check" aria-hidden="true">✓</span>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost app-button-label home-reward-clear"
+                    onClick={handleClearReward}
+                  >
+                    Hide reward
+                  </button>
+                </>
+              ) : (
+                <div className="home-reward-empty">
+                  <div className="home-panel__title app-panel-title">No active reward</div>
+                  <div className="app-helper-text">Pick something fun to save your coins for.</div>
+                  <button
+                    type="button"
+                    className="btn btn-primary app-button-label"
+                    onClick={openRewardPicker}
+                    disabled={rewardPickerLoading}
+                  >
+                    {rewardPickerLoading ? 'Loading...' : 'Choose reward'}
+                  </button>
+                </div>
+              )}
+
+              {showRewardPicker ? (
+                <div className="home-reward-picker">
+                  {availableRewards.length === 0 ? (
+                    <div className="app-helper-text">No saved rewards available yet.</div>
+                  ) : (
+                    availableRewards.map((reward, index) => (
+                      <button
+                        key={`reward-${reward.id || index}`}
+                        type="button"
+                        className="home-reward-picker__item"
+                        onClick={() => handleSelectReward(reward)}
+                      >
+                        <span className="home-reward-picker__copy">
+                          <span className="app-card-title">{sanitizeTitle(reward.title)}</span>
+                          <span className="app-micro-text">
+                            {reward.sourceGoalTitle ? `From ${sanitizeTitle(reward.sourceGoalTitle)}` : 'Saved reward'}
+                          </span>
+                        </span>
+                        <span className="app-helper-text">{reward.costCoins} coins</span>
+                      </button>
+                    ))
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost app-button-label"
+                    onClick={() => setShowRewardPicker(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="home-panel home-panel--coins">
@@ -1093,7 +1279,7 @@ export default function ParentHomepage() {
 
                         return (
                           <button
-                            key={entry.child.id}
+                            key={`attention-child-${entry.child.id}`}
                             type="button"
                             className="parent-compact-row"
                             onClick={() => setSelectedFamilyMemberId(normalizeId(entry.child.id))}
@@ -1129,7 +1315,7 @@ export default function ParentHomepage() {
                     <div className="parent-compact-list">
                       {childOverviewRows.map((entry) => (
                         <button
-                          key={entry.child.id}
+                          key={`overview-child-${entry.child.id}`}
                           type="button"
                           className="parent-compact-row parent-compact-row--stacked"
                           onClick={() => setSelectedFamilyMemberId(normalizeId(entry.child.id))}
@@ -1191,7 +1377,7 @@ export default function ParentHomepage() {
               <div className="home-week-summary">
                 {familyWeekSummary.map((stat) => (
                   <article
-                    key={stat.key}
+                    key={`summary-${stat.key}`}
                     className={`home-week-summary__card ${stat.tone}`}
                   >
                     <div className="home-week-summary__icon" aria-hidden="true">
@@ -1244,7 +1430,7 @@ export default function ParentHomepage() {
               ) : (
                 <div className="home-badges-list">
                   {providerPendingApprovals.slice(0, 6).map((task, index) => (
-                    <div key={task.id || task.tempId || `provider-approval-${index}`} className="home-friend-row">
+                    <div key={`provider-approval-${task.id || task.tempId || index}`} className="home-friend-row">
                       <div className="home-friend-avatar">
                         {(task.assigneeName || 'P')?.[0]?.toUpperCase() ?? 'P'}
                       </div>
