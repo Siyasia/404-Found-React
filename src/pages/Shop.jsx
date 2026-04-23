@@ -1,73 +1,85 @@
 import React, { useState } from 'react';
+import { useUser } from '../UserContext.jsx';
 import { useGameProfile } from '../components/useGameProfile.jsx';
 import { GameProfile } from '../models/index.js';
 import { useItems } from '../components/useItems.jsx';
 import { useInventory } from '../components/useInventory.jsx';
-import { DisplayAvatar  } from '../components/DisplayAvatar.jsx';
+import { DisplayAvatar } from '../components/DisplayAvatar.jsx';
+import { getActiveReward, setActiveReward, clearActiveReward } from '../lib/api/reward.js';
+import './Shop.css';
 
 export default function Shop() {
-
+  const { user } = useUser();
   const { profile, saveProfile, loading, error } = useGameProfile();
-  const { items, loading: itemLoading, error: itemError } = useItems();
+  const { items, itemloading: itemLoading, error: itemError } = useItems();
   const invItems = useInventory(profile, items);
-  const [modal, setModal] = useState(null); 
+
+  const [modal, setModal] = useState(null);
   const [chosenCategory, setChosenCategory] = useState('all');
   const [preview, setPreview] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [activeReward, setActiveRewardState] = useState(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function loadReward() {
+      try {
+        const reward = await getActiveReward({ userId: user?.id });
+        if (mounted) setActiveRewardState(reward);
+      } catch (err) {
+        console.error('Failed to load active reward', err);
+      }
+    }
+
+    loadReward();
+    return () => { mounted = false; };
+  }, [user?.id]);
 
   if (loading || itemLoading) return <p>Loading...</p>;
 
-  const shopItems = items.filter(item => 
-    item.type !== "Default" && item.placement !== "Base"
+  const shopItems = items.filter(item =>
+    item.type !== 'Default' &&
+    item.placement !== 'Base' &&
+    item.name !== 'coins'
   );
 
   const filteredInv = invItems.filter(item =>
     item.type !== 'Default' && item.placement !== 'Base'
-  ) 
+  );
 
-  //for tabs to display item placement
   const categories = ['all', ...new Set(shopItems.map(i => i.placement))];
   const filtered =
-    chosenCategory === 'all' ? shopItems : shopItems.filter(item => item.placement === chosenCategory);
+    chosenCategory === 'all'
+      ? shopItems
+      : shopItems.filter(item => item.placement === chosenCategory);
 
-  const showModal = (message, type = 'info') => {
-    setModal(message, type);
-  };
+  /* --------------------------------------------------
+     Helpers
+  -------------------------------------------------- */
+  const showModal = (message) => setModal(message);
+  const closeModal = () => setModal(null);
 
-  const closeModal = (message) => {
-    setModal(null);
-  };
-
-  //function to handle buying items
+  /* --------------------------------------------------
+     Buy item
+  -------------------------------------------------- */
   async function buyItem(item) {
-
-    //holds profile information to be updated after buying item
     const updated = new GameProfile({
       id: profile.id,
       coins: profile.coins,
-      inventory: profile.inventory
+      inventory: profile.inventory,
     });
-    console.log("Current profile ID:", profile.id);
-    console.log("Saving profile ID:", updated.id);
 
-    //temporary solution to add coins to user's game profile
-    if (item.name === 'coins') {
-      updated.coins += 200;
-      showModal("You received 200 coins!");
-      await saveProfile(updated);
-      return;
-    }
     if (profile.inventory.find(i => i.id === item.id)) {
       showModal(`You already own a(n) ${item.name}.`);
       return;
     }
-    //if they do not own the item and have enough money, buy item
+
     if (profile.coins < item.price) {
-      showModal("Not enough coins.");
+      showModal('Not enough coins.');
       return;
     }
 
-    //if passed all above cases, buy item
     updated.coins -= item.price;
     updated.inventory.push({
       id: item.id,
@@ -78,256 +90,286 @@ export default function Shop() {
       placement: item.placement,
       equipped: false,
     });
-
     updated.inventory.sort((a, b) => a.id - b.id);
-    showModal(`You bought a(n) ${item.name} ${item.placement}!`)
 
-    console.log("Saving profile ID:", updated.id);
-    //update user's profile with item and coin info
+    showModal(`You bought a(n) ${item.name} ${item.placement}!`);
     await saveProfile(updated);
 
-  };
-
-  const getPreviewInventory = () => {
-    if (!preview) return invItems;
-
-    //remove currently equipped item for display purposes
-    const filtered = invItems.filter(
-      i => !(i.equipped && i.placement === preview.placement)
-    );
-
-    return [
-      ...filtered,
-      { ...preview, equipped: true }
-    ]
+    if (
+      activeReward?.type === 'shop' &&
+      String(activeReward.shopItemId) === String(item.id)
+    ) {
+      await clearActiveReward({ reward: activeReward, userId: user?.id });
+      setActiveRewardState(null);
+    }
   }
 
+  /* --------------------------------------------------
+     Preview inventory helper
+  -------------------------------------------------- */
+  const getPreviewInventory = () => {
+    if (!preview) return invItems;
+    const withoutSlot = invItems.filter(
+      i => !(i.equipped && i.placement === preview.placement)
+    );
+    return [...withoutSlot, { ...preview, equipped: true }];
+  };
+
+  /* --------------------------------------------------
+     Set item as reward goal
+  -------------------------------------------------- */
+  async function chooseShopReward(item) {
+    if (activeReward?.sourceType === 'goal') {
+      showModal(`You already have an assigned reward: ${activeReward.title}. Redeem that one first.`);
+      return;
+    }
+
+    const reward = {
+      type: 'shop',
+      title: item.name || item.title || 'Shop reward',
+      costCoins: Number(item.price || 0),
+      shopItemId: String(item.id),
+    };
+
+    const saved = await setActiveReward(reward, { userId: user?.id });
+    setActiveRewardState(saved);
+    showModal(`Now saving for ${saved.title}!`);
+  }
+
+  /* --------------------------------------------------
+     Reward progress
+  -------------------------------------------------- */
+  const rewardProgress =
+    activeReward?.costCoins > 0
+      ? Math.min(100, Math.round((profile.coins / activeReward.costCoins) * 100))
+      : 0;
+
+  const activeRewardItem = activeReward?.shopItemId
+    ? shopItems.find(i => String(i.id) === String(activeReward.shopItemId))
+    : null;
+
+  /* ====================================================
+     RENDER
+  ==================================================== */
   return (
-    <section className="container" style={{ 
-      display: 'flex', 
-      justifyContent: 'flex-end', 
-      width: '100%', 
-      paddingTop: '2rem', 
-      flexGrow: 1, gap: '1.5rem', 
-      paddingLeft: '0rem', 
-      paddingRight: '0rem' }}>
+    <div className="shop-page">
+      <div className="shop-canvas">
 
-      <div className="container" style={{  
-        width: '1000px', 
-        padding: '1.4rem', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center' }}>
+        {/* ---- TOP BAR ---- */}
+        <div className="shop-panel shop-topbar">
+          <div className="shop-topbar__left">
+            <h1>Shop</h1>
+            <p>Trade your coins for items to customise your avatar</p>
+          </div>
 
-        <div className="shop-title" style={{ 
-          borderRadius: '12px',
-          background: '#d1d5ff5c',
-          width: '700px', 
-          padding: '1.4rem', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center' }}>
-
-          <h1>Shop</h1>
-          <p>Here, you can trade your coins for items.</p>
-
-          <div className="coin-balance" style={{ 
-            marginBottom: '.5rem', 
-            fontSize: '1rem' }}>
-
-            <p><strong>Your Coins: </strong>{profile.coins}</p>
+          <div className="shop-coin-badge">
+            <span className="shop-coin-badge__icon">🪙</span>
+            <span className="shop-coin-badge__label">Your coins</span>
+            <span className="shop-coin-badge__count">{profile.coins.toLocaleString()}</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', marginBottom: '1.5rem' }}>
+        {/* ---- BODY: grid + sidebar ---- */}
+        <div className="shop-body">
 
-          {categories.map(category => (
-            
-            <button
-              key={category}
-              type="button"
-              className="btn"
-              onClick={() => setChosenCategory(category)}
-              style={{ 
-                borderColor: '#aaa8d0',
-                background: '#d1d5ffb4',
-                fontWeight: chosenCategory === category ? 'bold' : 'normal',
-                marginTop: '1.25rem', 
-                width: '100%', 
-                marginLeft: '0.5rem', 
-                marginRight: '1rem'  }}
-            >
-              {category}
-            </button>
-          ))}
-
-        </div>
-
-        <div className="items" style={{ 
-          display: 'flex', 
-          gap: '1.5rem', 
-          flexWrap: 'wrap', 
-          justifyContent: 'center' }}>
-
-          {filtered.map(item => {
-            const owned = profile.inventory.some(inv => inv.id === item.id);
-
-            return (
-              <div
-                key={item.id}
-                className="item-card"
-                style={{ 
-                  border: '1px solid #ccc', 
-                  borderRadius: '12px', 
-                  padding: '1rem', 
-                  width: '150px', 
-                  textAlign: 'center',
-                  opacity: owned ? 0.5 : 1,
-                  backgroundColor: owned ? '#f5f5f5' : '#fff'
-                }}
-              >
-                <img src={`${item.path}.PNG`} alt={item.name} style={{ width: '100px', height: '100px' }} />
-                <h3>{item.name}</h3>
-                <p><strong>Price:</strong> {item.price} coins</p>
-
+          {/* LEFT: tabs + item grid */}
+          <div>
+            {/* Category tabs */}
+            <div className="shop-tabs">
+              {categories.map(category => (
                 <button
-                  onClick={() => buyItem(item)}
-                  disabled={owned}
-                  style={{ 
-                    borderColor: '#aaa8d0',
-                    borderRadius: '10px',
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.9rem',
-                    backgroundColor: owned ? '#a9add9b4' : '#d1d5ffb4',
-                    cursor: owned ? 'not-allowed' : 'pointer'
-                  }}
+                  key={category}
+                  type="button"
+                  className={`shop-tab ${chosenCategory === category ? 'is-active' : ''}`}
+                  onClick={() => setChosenCategory(category)}
                 >
-                  {owned ? 'Owned' : 'Buy'}
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
                 </button>
-                <button
-                  onClick={() => { setPreview(item); setPreviewOpen(true); }}
-                  disabled={owned}
-                  style={{
-                    borderColor: '#aaa8d0',
-                    borderRadius: '10px',
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.9rem',
-                    backgroundColor: owned ? '#a9add9b4' : '#d1d5ffb4',
-                    cursor: owned ? 'not-allowed' : 'pointer'
-                  }}
+              ))}
+            </div>
+
+            {/* Items grid */}
+            <div className="shop-items-grid">
+              {filtered.map(item => {
+                const owned = profile.inventory.some(inv => inv.id === item.id);
+                const isActiveReward =
+                  activeReward?.type === 'shop' &&
+                  String(activeReward.shopItemId) === String(item.id);
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`shop-item-card ${owned ? 'is-owned' : ''}`}
                   >
-                    Preview
-                  </button>
+                    {owned && (
+                      <span className="shop-item-card__badge shop-item-card__badge--owned">
+                        Owned
+                      </span>
+                    )}
+                    {isActiveReward && (
+                      <span className="shop-item-card__badge shop-item-card__badge--reward">
+                        Saving
+                      </span>
+                    )}
+
+                    <div className="shop-item-card__img-wrap">
+                      <img src={`${item.path}.PNG`} alt={item.name} />
+                    </div>
+
+                    <div className="shop-item-card__name">{item.name}</div>
+
+                    <div className="shop-item-card__price">
+                      <span className="shop-item-card__price-dot" />
+                      {item.price} coins
+                    </div>
+
+                    <div className="shop-item-card__actions">
+                      <button
+                        type="button"
+                        className="shop-btn shop-btn--primary"
+                        onClick={() => buyItem(item)}
+                        disabled={owned}
+                      >
+                        {owned ? 'Owned' : 'Buy'}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="shop-btn shop-btn--secondary"
+                        onClick={() => { setPreview(item); setPreviewOpen(true); }}
+                        disabled={owned}
+                      >
+                        Preview
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`shop-btn ${isActiveReward ? 'shop-btn--reward' : 'shop-btn--secondary'}`}
+                        onClick={() => chooseShopReward(item)}
+                        disabled={owned}
+                      >
+                        {isActiveReward ? 'Saving for this' : 'Set as reward'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT: sidebar */}
+          <div className="shop-sidebar">
+
+            {/* Active reward card */}
+            {activeReward && (
+              <div className="shop-panel">
+                <div className="shop-panel__title">Saving for</div>
+
+                <div className="shop-reward-card">
+                  <div className="shop-reward-card__img">
+                    {activeRewardItem
+                      ? <img src={`${activeRewardItem.path}.PNG`} alt={activeRewardItem.name} />
+                      : <span>🎁</span>}
+                  </div>
+                  <div>
+                    <div className="shop-reward-card__name">
+                      {activeReward.title}
+                    </div>
+                    <div className="shop-reward-card__meta">
+                      {activeReward.costCoins} coins needed
+                    </div>
+                  </div>
+                </div>
+
+                <div className="shop-reward-progress-track">
+                  <div
+                    className="shop-reward-progress-fill"
+                    style={{ width: `${rewardProgress}%` }}
+                  />
+                </div>
+
+                <div className="shop-reward-progress-label">
+                  <span>{profile.coins} coins</span>
+                  <span>{rewardProgress}%</span>
+                </div>
               </div>
-            );
-          })}
+            )}
+
+            {/* Inventory */}
+            <div className="shop-panel">
+              <div className="shop-panel__title">Your inventory</div>
+
+              {filteredInv.length === 0 ? (
+                <p className="shop-inv-empty">
+                  No items yet. Buy something from the shop!
+                </p>
+              ) : (
+                <div className="shop-inv-grid">
+                  {filteredInv.map(item => (
+                    <div key={item.id} className="shop-inv-item">
+                      <div className="shop-inv-item__img">
+                        <img src={`${item.path}.PNG`} alt={item.name} />
+                      </div>
+                      <div className="shop-inv-item__name">{item.name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
-      </div> 
+      </div>
 
+      {/* ---- INFO MODAL ---- */}
       {modal && (
-        <div className="modal" style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          backgroundColor: 'rgba(0,0,0,0.5)', 
-          display: 'flex', justifyContent: 'center', 
-          alignItems: 'center' }}>
-
-          <div className="modal-content" style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
-            <p>{modal}</p>
-            <button onClick={closeModal} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>Close</button>
+        <div className="shop-modal-overlay">
+          <div className="shop-modal">
+            <p className="shop-modal__message">{modal}</p>
+            <button type="button" className="shop-btn shop-btn--secondary shop-modal__close" onClick={closeModal}>
+              Close
+            </button>
           </div>
         </div>
       )}
 
+      {/* ---- PREVIEW MODAL ---- */}
       {previewOpen && preview && (
-        <div className="modal" style={{
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          backgroundColor: 'rgba(0,0,0,0.5)', 
-          display: 'flex', justifyContent: 'center', 
-          alignItems: 'center' }}
-
-        onClick={() => setPreviewOpen(false)}
+        <div
+          className="shop-modal-overlay"
+          onClick={() => setPreviewOpen(false)}
         >
-
-          <div className="modal-content" 
-            onClick={(e) => e.stopPropagation()} 
-            style={{
-            padding: '2rem',
-            borderRadius: '12px',
-            textAlign: 'center',
-            width: '300px',
-            backgroundColor: '#fff'
-          }}
+          <div
+            className="shop-preview-modal"
+            onClick={e => e.stopPropagation()}
           >
-          <h2>Preview</h2>
+            <h2 className="shop-preview-modal__title">Preview</h2>
 
-        <DisplayAvatar invItems={getPreviewInventory()} />
+            <DisplayAvatar invItems={getPreviewInventory()} />
 
-          <h3 style={{ marginTop: '1rem' }}>{preview.name}</h3>
-          <p>{preview.price} coins</p>
+            <p className="shop-preview-modal__name">{preview.name}</p>
+            <p className="shop-preview-modal__price">{preview.price} coins</p>
 
-            <div style={{ marginTop: '1rem' }}>
+            <div className="shop-preview-modal__actions">
               <button
-                onClick={() => { buyItem(preview); setPreviewOpen(false); }} style={{
-                  marginRight: '.5rem'
-                }}
+                type="button"
+                className="shop-btn shop-btn--primary"
+                onClick={() => { buyItem(preview); setPreviewOpen(false); }}
               >
                 Buy
               </button>
 
-              <button onClick={() => { setPreviewOpen(false); setPreview(null); }}>
+              <button
+                type="button"
+                className="shop-btn shop-btn--secondary"
+                onClick={() => { setPreviewOpen(false); setPreview(null); }}
+              >
                 Close
               </button>
-              </div>
+            </div>
           </div>
         </div>
       )}
-      
-      <div className="card" style={{ 
-        width: '400px', 
-        padding: '1rem', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        flexWrap: 'wrap' }}>
-
-        <h3>Your Inventory</h3>
-        <br></br>
-        {filteredInv.length === 0 ? (
-          <p>You don't have any items yet. Try buying some from the shop!</p>
-        ) : (
-          <div className="inventory" style={{ 
-            display: 'flex', 
-            gap: '1.5rem', 
-            flexWrap: 'wrap', 
-            justifyContent: 'center' }}>
-
-            {filteredInv.map(item => (
-              <div key={item.id} className="inventory-item" style={{ 
-                border: '1px solid #ccc', 
-                borderRadius: '8px', 
-                padding: '.5rem',
-                width: '100px', 
-                textAlign: 'center' }}>
-
-                <img src={`${item.path}.PNG`} alt={item.name} style={{ 
-                  width: '75px', 
-                  height: '75px' }} />
-
-                <h4>{item.name}</h4>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-    </section>
+    </div>
   );
 }

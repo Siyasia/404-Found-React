@@ -1,0 +1,300 @@
+.task-assignment-panel {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-assignment-panel__form {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+
+.task-assignment-panel__header {
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  box-shadow: var(--app-shadow-soft);
+  padding: 10px 16px;
+}
+
+.task-assignment-panel__title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--app-heading);
+}
+
+.task-assignment-panel__top-row,
+.task-assignment-panel__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.task-assignment-panel__left {
+  display: grid;
+  gap: 12px;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.task-assignment-panel__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.task-assignment-panel__label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
+}
+
+.task-assignment-panel input,
+.task-assignment-panel select,
+.task-assignment-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-card);
+  color: var(--app-text);
+  padding: 11px 14px;
+  font: inherit;
+  transition:
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.task-assignment-panel input:focus,
+.task-assignment-panel select:focus,
+.task-assignment-panel textarea:focus {
+  outline: none;
+  border-color: var(--app-border-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 14%, transparent);
+}
+
+.task-assignment-panel textarea {
+  resize: vertical;
+  min-height: 84px;
+  max-height: 140px;
+}
+
+.task-assignment-panel__box {
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  box-shadow: var(--app-shadow-soft);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-assignment-panel__box-title {
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--app-heading);
+  line-height: 1.2;
+}
+
+.task-assignment-panel__multi {
+  min-height: 84px;
+}
+
+.task-assignment-panel__hint,
+.task-assignment-panel__helper,
+.task-assignment-panel__for-you {
+  color: var(--app-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.task-assignment-panel__for-you {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+  font-weight: 700;
+}
+
+.task-assignment-panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.task-assignment-panel__toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.task-assignment-panel__timer-select {
+  max-width: 140px;
+}
+
+.task-assignment-panel__field--notes {
+  min-height: 0;
+}
+
+.task-assignment-panel__box--timer {
+  align-content: start;
+}
+
+.task-assignment-panel__box--checklist {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-color: var(--app-border-strong);
+}
+
+.task-assignment-panel__checklist-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.task-assignment-panel__checklist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.task-assignment-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.task-assignment-panel__footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.task-assignment-panel__btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.task-assignment-panel__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.task-assignment-panel__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.task-assignment-panel__small-btn,
+.task-assignment-panel__link-btn {
+  background: var(--app-secondary-bg);
+  border: 1px solid var(--app-secondary-border);
+  color: var(--app-secondary-text);
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-weight: 700;
+}
+
+.task-assignment-panel__small-btn:hover,
+.task-assignment-panel__link-btn:hover {
+  background: var(--app-secondary-hover);
+}
+
+.task-assignment-panel__cancel {
+  background: var(--app-secondary-bg);
+  color: var(--app-secondary-text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  border: 1px solid var(--app-secondary-border);
+}
+
+.task-assignment-panel__submit {
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-weight: 800;
+  border: 1px solid transparent;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+
+.task-assignment-panel__error {
+  background: var(--app-danger-bg);
+  border: 1px solid var(--app-danger-border);
+  border-radius: 12px;
+  padding: 9px 11px;
+  color: var(--app-danger-text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  max-width: 420px;
+}
+
+@media (max-width: 900px) {
+  .task-assignment-panel__form {
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .task-assignment-panel__top-row,
+  .task-assignment-panel__body {
+    grid-template-columns: 1fr;
+  }
+
+  .task-assignment-panel__left {
+    grid-template-rows: auto auto;
+  }
+
+  .task-assignment-panel__checklist-row {
+    grid-template-columns: 1fr;
+  }
+
+  .task-assignment-panel__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .task-assignment-panel__submit,
+  .task-assignment-panel__cancel {
+    width: 100%;
+  }
+}
+
+  .task-assignment-panel__footer-right {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
+

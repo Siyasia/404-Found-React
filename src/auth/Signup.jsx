@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { signupAdult } from '../lib/api/authentication.js';
-import {createGameProfile} from "../lib/api/game.js";
-import {GameProfile} from "../models/index.js";
+import { createGameProfile } from '../lib/api/game.js';
+import { GameProfile } from '../models/index.js';
 import './Auth.css';
 
 export default function Signup() {
@@ -18,14 +18,11 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [username, setUsername] = useState('');
 
-  async function makeGameProfile (userId) {
-    console.log('Creating game profile for new user...');
-    const profile = new GameProfile({id: userId, coins: 0, inventory: []});
+  async function makeGameProfile(userId) {
+    const profile = new GameProfile({ id: userId, coins: 0, inventory: [] });
     const gameProfileResponse = await createGameProfile(profile);
     if (gameProfileResponse.status_code !== 200) {
       console.error('Failed to create game profile:', gameProfileResponse);
-    } else {
-      console.log('Game profile created successfully:', gameProfileResponse.id);
     }
   }
 
@@ -35,7 +32,6 @@ export default function Signup() {
 
     const trimmedName = name.trim();
 
-    // ==== ADULT ROLES (user, parent, provider) ====
     if (!trimmedName || !role || !password || !email) {
       setError('Please fill in all fields.');
       return;
@@ -52,47 +48,22 @@ export default function Signup() {
       );
       return;
     }
-/*
-    if ((role === 'user' || role === 'parent') && numericAge < 14) {
-      setError(
-        'Users and parents must be at least 14 years old. Please adjust the age or choose a different role.'
-      );
-      return;
-    }*/
 
-    /*Changing to accept Usernames (Sprint 5)*/
     const response = await signupAdult('50', name, role, email, password, username);
 
-    console.log('📨 Signup API Response:', response);
-    console.log('📊 Response status:', response.status_code);
-    console.log('👤 Response user:', response.user);
-
     if (response.status_code !== 200 || !response.user) {
-      // Extract error message from backend response
-      const errorMsg = response.error 
-        || (typeof response.data === 'object' && response.data?.error) 
-        || (typeof response.data === 'object' && response.data?.detail)
-        || 'Failed to signup. Email may be associated with another account.';
+      const errorMsg =
+        response.error ||
+        (typeof response.data === 'object' && response.data?.error) ||
+        (typeof response.data === 'object' && response.data?.detail) ||
+        'Failed to signup. Email may be associated with another account.';
       setError(errorMsg);
       return;
     }
 
     setUser(response.user);
     await makeGameProfile(response.user.id);
-    navigate('/home'); // Let RoleHomeRouter decide where to send the user based on their role
-
-    {/* // Navigate based on user role
-    const userRole = response.user.role;
-    console.log('User signed up with role:', userRole, 'Full user:', response.user);
-    
-    if (userRole === 'parent') {
-      navigate('/parent');
-    } else if (userRole === 'provider') {
-      navigate('/provider');
-    } else {
-      navigate('/home');
-    } */}
-
+    navigate('/home');
   };
 
   return (

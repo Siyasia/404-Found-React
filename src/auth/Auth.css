@@ -1,50 +1,81 @@
 /* =========================================================
-   AUTH / SPLASH TYPOGRAPHY
-   This imports the same font pairing used by Habit Wizard:
-   - Playfair Display for big editorial headings
-   - DM Sans for body text, labels, and buttons
+   AUTH / SPLASH BRAND SYSTEM
+   Hardcoded pre-login styling inspired by your final theme set:
+   Water Lily, Golden Hour, Blush Coast, Daisy Morning,
+   Midnight Velvet, Royal Sapphire, Emberwood, Verdant Moss
    ========================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --ns-font-display: 'Playfair Display', Georgia, serif;
-  --ns-font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --ns-font-display: var(--app-font-display, "Playfair Display", serif);
+  --ns-font-body: var(--app-font-body, "DM Sans", system-ui, sans-serif);
+
+  /* hardcoded auth palette */
+  --ns-cream-1: #f8f6ef;
+  --ns-cream-2: #f3efe5;
+  --ns-panel: rgba(255, 255, 255, 0.78);
+  --ns-panel-strong: rgba(255, 255, 255, 0.9);
+  --ns-panel-dark: rgba(28, 35, 31, 0.84);
+
+  --ns-text: #2f3e37;
+  --ns-text-strong: #223028;
+  --ns-text-muted: #66756d;
+  --ns-text-soft: #8b978f;
+  --ns-white: #ffffff;
+
+  --ns-border: rgba(112, 132, 119, 0.18);
+  --ns-border-strong: rgba(95, 125, 110, 0.28);
+
+  --ns-water: #8faf9d;
+  --ns-water-deep: #5f7d6e;
+  --ns-gold: #d9a65d;
+  --ns-gold-deep: #a67339;
+  --ns-blush: #d79b95;
+  --ns-blush-deep: #984343;
+  --ns-sky: #7eacce;
+  --ns-daisy: #d6bf5e;
+  --ns-sage: #879374;
+  --ns-moss: #4e5e47;
+  --ns-ember: #a34226;
+  --ns-ember-deep: #713723;
+  --ns-night: #0f172a;
+  --ns-sapphire: #112250;
+
+  --ns-shadow-sm: 0 12px 28px rgba(63, 73, 67, 0.08);
+  --ns-shadow-md: 0 24px 54px rgba(54, 63, 58, 0.12);
+  --ns-shadow-lg: 0 38px 80px rgba(35, 42, 38, 0.16);
 }
 
 /* =========================================================
    PAGE BACKGROUNDS
-   Controls the overall page backdrop for splash + auth pages
    ========================================================= */
 
 .ns-splash-page,
 .ns-auth-page {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    radial-gradient(circle at 10% 15%, rgba(201, 162, 74, 0.12), transparent 18%),
-    radial-gradient(circle at 88% 20%, rgba(46, 125, 107, 0.10), transparent 18%),
-    radial-gradient(circle at 78% 82%, rgba(201, 162, 74, 0.08), transparent 18%),
-    var(--body-bg);
   font-family: var(--ns-font-body);
+  color: var(--ns-text);
+  background:
+    radial-gradient(circle at 12% 14%, rgba(143, 175, 157, 0.22), transparent 20%),
+    radial-gradient(circle at 86% 16%, rgba(217, 166, 93, 0.18), transparent 20%),
+    radial-gradient(circle at 78% 78%, rgba(215, 155, 149, 0.16), transparent 18%),
+    radial-gradient(circle at 28% 82%, rgba(126, 172, 206, 0.14), transparent 18%),
+    linear-gradient(180deg, #fbfaf6 0%, #f3efe6 52%, #ece8dd 100%);
 }
 
 .ns-splash-page {
   width: 100%;
-  align-items: stretch;
-  justify-content: stretch;
-  padding: 0;
   overflow: hidden;
 }
 
 .ns-auth-page {
   padding: 2rem 1rem 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* =========================================================
    SPLASH SCREEN SHELL
-   Makes the splash full-screen instead of a centered card
    ========================================================= */
 
 .ns-splash-shell {
@@ -52,64 +83,87 @@
   width: 100%;
   min-height: 100vh;
   overflow: hidden;
-  border-radius: 0;
   padding: 2.8rem 2rem 2.4rem;
-  border: none;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.62)),
-    linear-gradient(135deg, rgba(201, 162, 74, 0.08), rgba(46, 125, 107, 0.06));
-  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 1.35rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16)),
+    linear-gradient(135deg, rgba(143, 175, 157, 0.08), rgba(217, 166, 93, 0.08), rgba(126, 172, 206, 0.08));
   backdrop-filter: blur(8px);
-  font-family: var(--ns-font-body);
+}
+
+/* theme ribbons / blurred overlays */
+.ns-splash-shell::before,
+.ns-splash-shell::after {
+  content: "";
+  position: absolute;
+  inset: auto;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(16px);
+}
+
+.ns-splash-shell::before {
+  width: 420px;
+  height: 420px;
+  top: 18%;
+  left: -120px;
+  background:
+    radial-gradient(circle, rgba(143, 175, 157, 0.24) 0%, rgba(143, 175, 157, 0.08) 42%, transparent 72%);
+}
+
+.ns-splash-shell::after {
+  width: 480px;
+  height: 480px;
+  bottom: -140px;
+  right: -120px;
+  background:
+    radial-gradient(circle, rgba(163, 66, 38, 0.18) 0%, rgba(217, 166, 93, 0.14) 34%, transparent 74%);
 }
 
 /* =========================================================
    FLOATING GLOWS
-   Decorative soft background blobs for the splash page
    ========================================================= */
 
 .ns-splash-glow {
   position: absolute;
   border-radius: 999px;
   pointer-events: none;
-  filter: blur(10px);
-  animation: nsGlowDrift 8s ease-in-out infinite;
+  animation: nsGlowDrift 9s ease-in-out infinite;
+  filter: blur(14px);
 }
 
 .ns-splash-glow--one {
-  width: 240px;
-  height: 240px;
-  top: -90px;
-  left: -60px;
-  background: rgba(201, 162, 74, 0.14);
+  width: 260px;
+  height: 260px;
+  top: -100px;
+  left: -50px;
+  background: rgba(143, 175, 157, 0.18);
 }
 
 .ns-splash-glow--two {
-  width: 280px;
-  height: 280px;
-  top: -80px;
-  right: -100px;
-  background: rgba(46, 125, 107, 0.10);
-  animation-delay: -2s;
+  width: 320px;
+  height: 320px;
+  top: -90px;
+  right: -120px;
+  background: rgba(217, 166, 93, 0.16);
+  animation-delay: -2.2s;
 }
 
 .ns-splash-glow--three {
-  width: 220px;
-  height: 220px;
-  bottom: -100px;
-  left: 28%;
-  background: rgba(201, 162, 74, 0.08);
-  animation-delay: -4s;
+  width: 240px;
+  height: 240px;
+  bottom: -90px;
+  left: 30%;
+  background: rgba(126, 172, 206, 0.16);
+  animation-delay: -4.4s;
 }
 
 /* =========================================================
    BADGES
-   The small rounded badge at the top of splash/login/signup
    ========================================================= */
 
 .ns-splash-badge,
@@ -119,15 +173,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.55rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.92);
-  box-shadow: var(--shadow-sm);
-  color: var(--text-muted);
-  font-size: 0.92rem;
   width: fit-content;
+  padding: 0.58rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 125, 110, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--ns-shadow-sm);
+  color: var(--ns-text-muted);
+  font-size: 0.92rem;
   font-family: var(--ns-font-body);
+  backdrop-filter: blur(10px);
 }
 
 .ns-splash-badge-dot,
@@ -135,13 +190,13 @@
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: var(--brand);
-  box-shadow: 0 0 0 6px rgba(201, 162, 74, 0.14);
+  background:
+    linear-gradient(180deg, var(--ns-water), var(--ns-gold));
+  box-shadow: 0 0 0 6px rgba(143, 175, 157, 0.14);
 }
 
 /* =========================================================
    SPLASH LOGO WATERMARK
-   Faded decorative logo circle behind the splash heading
    ========================================================= */
 
 .ns-splash-logo-wrap {
@@ -149,8 +204,8 @@
   top: 88px;
   left: 50%;
   transform: translateX(-50%);
-  width: 126px;
-  height: 126px;
+  width: 132px;
+  height: 132px;
   opacity: 0.16;
   pointer-events: none;
   z-index: 1;
@@ -161,8 +216,10 @@
   position: absolute;
   inset: 10px;
   border-radius: 999px;
-  border: 1px solid rgba(201, 162, 74, 0.3);
-  box-shadow: 0 0 0 12px rgba(201, 162, 74, 0.06);
+  border: 1px solid rgba(95, 125, 110, 0.22);
+  box-shadow:
+    0 0 0 12px rgba(143, 175, 157, 0.08),
+    0 0 0 24px rgba(217, 166, 93, 0.04);
 }
 
 .ns-splash-logo {
@@ -175,56 +232,83 @@
 
 /* =========================================================
    SPLASH COPY
-   Main splash heading, subheading, and intro text
-   Uses Playfair for the large title to match Habit Wizard
    ========================================================= */
 
 .ns-splash-copy {
   position: relative;
   z-index: 2;
-  max-width: 860px;
+  max-width: 920px;
   margin-top: 1.5rem;
 }
 
 .ns-splash-copy h1 {
   margin: 0;
   font-family: var(--ns-font-display);
-  font-size: clamp(3.4rem, 7vw, 5.8rem);
+  font-size: clamp(3.5rem, 7vw, 6rem);
   font-weight: 700;
   font-style: italic;
   line-height: 0.96;
   letter-spacing: -0.03em;
-  color: var(--text-dark);
+  color: var(--ns-text-strong);
+  text-shadow: 0 4px 18px rgba(255, 255, 255, 0.24);
 }
 
 .ns-splash-tagline {
-  margin: 0.85rem 0 0;
+  margin: 0.9rem 0 0;
   font-size: clamp(1.12rem, 2vw, 1.5rem);
   font-weight: 700;
-  color: var(--text-dark);
-  font-family: var(--ns-font-body);
+  color: var(--ns-text-strong);
 }
 
 .ns-splash-subtext {
   margin: 1rem auto 0;
-  max-width: 690px;
-  color: var(--text-muted);
+  max-width: 720px;
+  color: var(--ns-text-muted);
   font-size: 1.04rem;
-  line-height: 1.8;
-  font-family: var(--ns-font-body);
+  line-height: 1.82;
 }
 
 /* =========================================================
+   SPLASH PALETTE STRIP
+   ========================================================= */
+
+.ns-splash-palette {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  max-width: 900px;
+  margin-top: 0.2rem;
+}
+
+.ns-splash-palette-swatch {
+  width: 54px;
+  height: 18px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28), 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.ns-splash-palette-swatch--water { background: #8faf9d; }
+.ns-splash-palette-swatch--gold { background: #d9a65d; }
+.ns-splash-palette-swatch--blush { background: #d79b95; }
+.ns-splash-palette-swatch--sky { background: #7eacce; }
+.ns-splash-palette-swatch--night { background: #0f172a; }
+.ns-splash-palette-swatch--sapphire { background: #112250; }
+.ns-splash-palette-swatch--ember { background: #a34226; }
+.ns-splash-palette-swatch--moss { background: #4e5e47; }
+
+/* =========================================================
    SPLASH PATH / JOURNEY
-   The dashed path and floating milestone cards on splash
    ========================================================= */
 
 .ns-splash-path {
   position: relative;
   z-index: 2;
-  width: min(860px, 100%);
-  height: 310px;
-  margin-top: 0.2rem;
+  width: min(900px, 100%);
+  height: 320px;
+  margin-top: 0.15rem;
 }
 
 .ns-splash-path-line {
@@ -232,8 +316,8 @@
   left: 8%;
   right: 8%;
   top: 106px;
-  height: 118px;
-  border-top: 3px dashed rgba(201, 162, 74, 0.24);
+  height: 124px;
+  border-top: 3px dashed rgba(95, 125, 110, 0.3);
   border-radius: 50%;
   transform: rotate(-6deg);
   animation: nsPathPulse 4s ease-in-out infinite;
@@ -241,36 +325,35 @@
 
 /* =========================================================
    SPLASH STEPS
-   Floating path cards like plan / track / grow
    ========================================================= */
 
 .ns-splash-step {
   position: absolute;
-  width: 122px;
-  min-height: 84px;
+  width: 126px;
+  min-height: 88px;
   border-radius: 28px;
   display: grid;
   place-items: center;
   text-align: center;
-  padding: 0.85rem 0.8rem;
-  background: linear-gradient(180deg, #ffffff, #faf6ef);
-  border: 1px solid rgba(255, 255, 255, 0.94);
-  box-shadow: var(--shadow-sm);
-  color: var(--text-dark);
+  padding: 0.9rem 0.82rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 248, 0.84));
+  border: 1px solid rgba(112, 132, 119, 0.18);
+  box-shadow: var(--ns-shadow-sm);
+  color: var(--ns-text-strong);
   font-size: 0.98rem;
   font-weight: 700;
   animation: nsFloat 5.5s ease-in-out infinite;
-  font-family: var(--ns-font-body);
+  backdrop-filter: blur(10px);
 }
 
 .ns-splash-step small {
   display: block;
   margin-top: 0.2rem;
   font-size: 0.74rem;
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
   font-weight: 600;
   line-height: 1.35;
-  font-family: var(--ns-font-body);
 }
 
 .ns-splash-step--1 {
@@ -303,7 +386,6 @@
 
 /* =========================================================
    SPLASH FEATURE CHIPS
-   Small floating labels around the splash content
    ========================================================= */
 
 .ns-splash-chip {
@@ -311,17 +393,17 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.8rem 1rem;
+  padding: 0.82rem 1rem;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(255, 255, 255, 0.94);
-  box-shadow: var(--shadow-sm);
-  color: var(--text-dark);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(112, 132, 119, 0.18);
+  box-shadow: var(--ns-shadow-sm);
+  color: var(--ns-text-strong);
   font-size: 0.92rem;
   font-weight: 600;
   white-space: nowrap;
   animation: nsFloat 6s ease-in-out infinite;
-  font-family: var(--ns-font-body);
+  backdrop-filter: blur(10px);
 }
 
 .ns-splash-chip span {
@@ -330,9 +412,22 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(201, 162, 74, 0.12);
-  color: var(--text-dark);
-  font-weight: 700;
+  font-weight: 800;
+}
+
+.ns-splash-chip--left span {
+  background: rgba(143, 175, 157, 0.16);
+  color: var(--ns-water-deep);
+}
+
+.ns-splash-chip--right span {
+  background: rgba(217, 166, 93, 0.16);
+  color: var(--ns-gold-deep);
+}
+
+.ns-splash-chip--bottom span {
+  background: rgba(126, 172, 206, 0.16);
+  color: #426984;
 }
 
 .ns-splash-chip--left {
@@ -354,7 +449,6 @@
 
 /* =========================================================
    SPLASH ACTION BUTTONS
-   Login / signup buttons at the bottom of the splash
    ========================================================= */
 
 .ns-splash-actions {
@@ -365,7 +459,7 @@
   gap: 1rem;
   justify-content: center;
   align-items: center;
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
 }
 
 .ns-splash-action-btn {
@@ -373,19 +467,23 @@
   align-items: center;
   justify-content: center;
   gap: 0.7rem;
-  min-width: 180px;
-  padding: 0.95rem 1.3rem;
+  min-width: 190px;
+  padding: 0.98rem 1.36rem;
   border-radius: 999px;
   text-decoration: none;
   font-weight: 700;
   font-size: 1rem;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-  box-shadow: var(--shadow-sm);
-  font-family: var(--ns-font-body);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease,
+    border-color 0.18s ease;
+  box-shadow: var(--ns-shadow-sm);
 }
 
 .ns-splash-action-btn:hover {
   transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--ns-shadow-md);
 }
 
 .ns-splash-action-icon {
@@ -399,67 +497,57 @@
 }
 
 .ns-splash-action-btn--login {
-  color: white;
-  background: linear-gradient(180deg, var(--brand), var(--brand-700, var(--brand)));
+  color: #fffaf4;
+  background:
+    linear-gradient(135deg, var(--ns-water) 0%, var(--ns-gold) 100%);
 }
 
 .ns-splash-action-btn--login .ns-splash-action-icon {
-  background: rgba(255, 255, 255, 0.18);
-  color: white;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fffaf4;
 }
 
 .ns-splash-action-btn--signup {
-  color: var(--text-dark);
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  color: var(--ns-text-strong);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(112, 132, 119, 0.18);
+  backdrop-filter: blur(8px);
 }
 
 .ns-splash-action-btn--signup .ns-splash-action-icon {
-  background: rgba(201, 162, 74, 0.12);
-  color: var(--text-dark);
+  background: rgba(143, 175, 157, 0.14);
+  color: var(--ns-water-deep);
 }
 
-/* =========================================================
-   OLDER SPLASH BUTTON CLASS SUPPORT
-   Keeps compatibility if old class names still exist in JSX
-   ========================================================= */
-
+/* older support */
 .ns-splash-primary,
 .ns-splash-secondary {
   min-width: 152px;
   justify-content: center;
   text-decoration: none;
-  font-family: var(--ns-font-body);
-}
-
-.ns-splash-secondary {
-  border-radius: 999px;
 }
 
 /* =========================================================
    AUTH LAYOUT
-   Main two-column layout used by login and signup pages
    ========================================================= */
 
 .ns-auth-shell {
-  width: min(1120px, 100%);
+  width: min(1160px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 440px);
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 448px);
   gap: 1.25rem;
   align-items: stretch;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-hero,
 .ns-auth-card {
-  border-radius: 28px;
-  border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-md);
+  border-radius: 30px;
+  border: 1px solid rgba(112, 132, 119, 0.16);
+  box-shadow: var(--ns-shadow-lg);
 }
 
 /* =========================================================
    AUTH HERO PANEL
-   Left side panel with heading, highlights, and journey
    ========================================================= */
 
 .ns-auth-hero {
@@ -467,11 +555,12 @@
   overflow: hidden;
   padding: 2rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.70)),
-    linear-gradient(135deg, rgba(201, 162, 74, 0.08), rgba(46, 125, 107, 0.06));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(247, 250, 248, 0.76)),
+    linear-gradient(135deg, rgba(143, 175, 157, 0.08), rgba(217, 166, 93, 0.08), rgba(126, 172, 206, 0.06));
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  backdrop-filter: blur(14px);
 }
 
 .ns-auth-hero::before,
@@ -483,24 +572,68 @@
 }
 
 .ns-auth-hero::before {
-  width: 220px;
-  height: 220px;
-  top: -70px;
-  right: -70px;
-  background: rgba(201, 162, 74, 0.14);
+  width: 240px;
+  height: 240px;
+  top: -72px;
+  right: -72px;
+  background: radial-gradient(circle, rgba(217, 166, 93, 0.16), transparent 68%);
 }
 
 .ns-auth-hero::after {
-  width: 180px;
-  height: 180px;
+  width: 190px;
+  height: 190px;
   bottom: -60px;
   left: -50px;
-  background: rgba(46, 125, 107, 0.08);
+  background: radial-gradient(circle, rgba(143, 175, 157, 0.16), transparent 68%);
 }
 
 /* =========================================================
+   AUTH PALETTE DOTS
+   ========================================================= */
+
+.ns-auth-theme-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.ns-auth-theme-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.48rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(112, 132, 119, 0.14);
+  color: var(--ns-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: var(--ns-shadow-sm);
+}
+
+.ns-auth-theme-pill::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.ns-auth-theme-pill--water::before { background: #8faf9d; }
+.ns-auth-theme-pill--gold::before { background: #d9a65d; }
+.ns-auth-theme-pill--blush::before { background: #d79b95; }
+.ns-auth-theme-pill--daisy::before { background: #d6bf5e; }
+.ns-auth-theme-pill--midnight::before { background: #0f172a; }
+.ns-auth-theme-pill--sapphire::before { background: #112250; }
+.ns-auth-theme-pill--ember::before { background: #a34226; }
+.ns-auth-theme-pill--moss::before { background: #4e5e47; }
+
+/* =========================================================
    AUTH BRAND COPY
-   Big login/signup heading and intro paragraph
    ========================================================= */
 
 .ns-auth-brand {
@@ -511,25 +644,24 @@
 .ns-auth-brand h1 {
   margin: 0;
   font-family: var(--ns-font-display);
-  font-size: clamp(2.3rem, 5vw, 4rem);
+  font-size: clamp(2.4rem, 5vw, 4rem);
   font-weight: 700;
   font-style: italic;
   line-height: 1.02;
   letter-spacing: -0.02em;
+  color: var(--ns-text-strong);
 }
 
 .ns-auth-brand p {
-  margin-top: 0.75rem;
-  max-width: 560px;
-  color: var(--text-muted);
-  font-size: 1.02rem;
-  line-height: 1.7;
-  font-family: var(--ns-font-body);
+  margin-top: 0.78rem;
+  max-width: 580px;
+  color: var(--ns-text-muted);
+  font-size: 1.03rem;
+  line-height: 1.72;
 }
 
 /* =========================================================
    AUTH HIGHLIGHT CARDS
-   Small info cards under the auth heading
    ========================================================= */
 
 .ns-auth-highlight-grid {
@@ -542,45 +674,45 @@
 }
 
 .ns-auth-highlight {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.88);
-  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(247, 250, 248, 0.7));
+  border: 1px solid rgba(112, 132, 119, 0.16);
+  border-radius: 22px;
   padding: 1rem;
-  box-shadow: var(--shadow-sm);
-  font-family: var(--ns-font-body);
+  box-shadow: var(--ns-shadow-sm);
+  backdrop-filter: blur(10px);
 }
 
 .ns-auth-highlight strong {
   display: block;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.38rem;
   font-size: 0.96rem;
-  color: var(--text-dark);
-  font-family: var(--ns-font-body);
+  color: var(--ns-text-strong);
 }
 
 .ns-auth-highlight span {
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
   font-size: 0.88rem;
   line-height: 1.5;
-  font-family: var(--ns-font-body);
 }
 
 /* =========================================================
    AUTH HERO JOURNEY
-   Decorative bottom section on login/signup left panel
    ========================================================= */
 
 .ns-auth-journey {
   position: relative;
   z-index: 1;
   margin-top: auto;
-  min-height: 200px;
+  min-height: 220px;
   border-radius: 24px;
   padding: 1.25rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.65));
-  border: 1px solid rgba(255, 255, 255, 0.90);
-  box-shadow: var(--shadow-sm);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(247, 250, 248, 0.72));
+  border: 1px solid rgba(112, 132, 119, 0.16);
+  box-shadow: var(--ns-shadow-sm);
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .ns-auth-journey-line {
@@ -588,26 +720,26 @@
   left: 8%;
   right: 8%;
   top: 58%;
-  border-top: 3px dashed rgba(201, 162, 74, 0.28);
+  border-top: 3px dashed rgba(95, 125, 110, 0.24);
   transform: rotate(-7deg);
 }
 
 .ns-auth-step {
   position: absolute;
-  width: 82px;
-  height: 82px;
+  width: 84px;
+  height: 84px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   text-align: center;
   padding: 0.75rem;
-  background: linear-gradient(180deg, #ffffff, #faf6ef);
-  border: 1px solid rgba(255, 255, 255, 0.90);
-  box-shadow: var(--shadow-sm);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 248, 0.8));
+  border: 1px solid rgba(112, 132, 119, 0.16);
+  box-shadow: var(--ns-shadow-sm);
   font-size: 0.74rem;
   font-weight: 700;
-  color: var(--text-dark);
-  font-family: var(--ns-font-body);
+  color: var(--ns-text-strong);
 }
 
 .ns-auth-step--1 { left: 6%; top: 52%; }
@@ -617,16 +749,16 @@
 
 /* =========================================================
    AUTH CARD
-   Right side card that contains the actual form
    ========================================================= */
 
 .ns-auth-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 250, 247, 0.88));
   padding: 1.75rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  font-family: var(--ns-font-body);
+  backdrop-filter: blur(14px);
 }
 
 .ns-auth-card h2 {
@@ -636,26 +768,25 @@
   font-weight: 700;
   font-style: italic;
   letter-spacing: -0.02em;
+  color: var(--ns-text-strong);
 }
 
 .ns-auth-card-sub {
   margin-bottom: 1.2rem;
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
   font-size: 0.96rem;
   line-height: 1.6;
-  font-family: var(--ns-font-body);
 }
 
 /* =========================================================
    AUTH TABS
-   Login page admin/child toggle tabs
    ========================================================= */
 
 .ns-auth-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
-  background: rgba(201, 162, 74, 0.08);
+  background: rgba(143, 175, 157, 0.08);
   padding: 0.45rem;
   border-radius: 999px;
   margin-bottom: 1rem;
@@ -667,32 +798,31 @@
   padding: 0.8rem 1rem;
   border-radius: 999px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
   cursor: pointer;
   transition: 0.18s ease;
   font-family: var(--ns-font-body);
 }
 
 .ns-auth-tab:hover {
-  color: var(--text-dark);
+  color: var(--ns-text-strong);
 }
 
 .ns-auth-tab.is-active {
-  background: #fff;
-  color: var(--text-dark);
-  box-shadow: var(--shadow-sm);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 248, 244, 0.9));
+  color: var(--ns-text-strong);
+  box-shadow: var(--ns-shadow-sm);
 }
 
 /* =========================================================
    AUTH FORM LAYOUT
-   Form stack + two-column field grid used in signup
    ========================================================= */
 
 .ns-auth-form {
   display: flex;
   flex-direction: column;
   gap: 0.95rem;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-field-grid {
@@ -703,7 +833,6 @@
 
 /* =========================================================
    AUTH LABELS + INPUTS
-   Labels, text fields, selects, and focus styles
    ========================================================= */
 
 .ns-auth-label {
@@ -711,39 +840,44 @@
   flex-direction: column;
   gap: 0.45rem;
   font-size: 0.92rem;
-  color: var(--text-dark);
+  color: var(--ns-text-strong);
   font-weight: 600;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-label input,
 .ns-auth-label select {
   width: 100%;
-  padding: 0.9rem 1rem;
+  padding: 0.92rem 1rem;
   border-radius: 16px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--text-dark);
+  border: 1px solid rgba(112, 132, 119, 0.18);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ns-text-strong);
   font: inherit;
-  font-family: var(--ns-font-body);
   transition: 0.18s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .ns-auth-label input::placeholder,
 .ns-auth-label select {
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
 }
 
 .ns-auth-label input:focus,
 .ns-auth-label select:focus {
   outline: none;
-  border-color: var(--brand);
-  box-shadow: 0 0 0 4px rgba(201, 162, 74, 0.14);
+  border-color: rgba(95, 125, 110, 0.45);
+  box-shadow:
+    0 0 0 4px rgba(143, 175, 157, 0.14),
+    0 10px 22px rgba(95, 125, 110, 0.08);
+}
+
+.ns-auth-label input:hover,
+.ns-auth-label select:hover {
+  border-color: rgba(95, 125, 110, 0.28);
 }
 
 /* =========================================================
    PASSWORD ROW
-   Input + show/hide button on the same line
    ========================================================= */
 
 .ns-auth-password-row {
@@ -754,13 +888,12 @@
 }
 
 .ns-auth-show-btn {
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--text-dark);
+  border: 1px solid rgba(112, 132, 119, 0.18);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ns-text-strong);
   border-radius: 14px;
   padding: 0.85rem 0.95rem;
   font: inherit;
-  font-family: var(--ns-font-body);
   font-weight: 600;
   cursor: pointer;
   transition: 0.18s ease;
@@ -768,70 +901,63 @@
 
 .ns-auth-show-btn:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ns-shadow-sm);
 }
 
 /* =========================================================
    FORM MESSAGES
-   Error, helper text, password note, switch links, etc.
    ========================================================= */
 
 .ns-auth-error {
   margin: 0.1rem 0 0;
-  color: #b91c1c;
+  color: #9a3c31;
   font-size: 0.92rem;
   line-height: 1.5;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-helper {
   margin-top: -0.2rem;
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
   font-size: 0.88rem;
   line-height: 1.5;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-password-note {
   margin-top: -0.2rem;
-  color: var(--text-muted);
+  color: var(--ns-text-muted);
   font-size: 0.86rem;
-  line-height: 1.5;
-  background: rgba(201, 162, 74, 0.08);
-  border: 1px solid rgba(201, 162, 74, 0.14);
+  line-height: 1.55;
+  background:
+    linear-gradient(180deg, rgba(143, 175, 157, 0.08), rgba(217, 166, 93, 0.05));
+  border: 1px solid rgba(143, 175, 157, 0.16);
   border-radius: 14px;
-  padding: 0.8rem 0.9rem;
-  font-family: var(--ns-font-body);
+  padding: 0.82rem 0.92rem;
 }
 
 .ns-auth-submit {
   margin-top: 0.35rem;
   width: 100%;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-footnote {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-  color: var(--text-muted);
+  border-top: 1px solid rgba(112, 132, 119, 0.16);
+  color: var(--ns-text-muted);
   font-size: 0.92rem;
   line-height: 1.55;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-switch {
   margin-top: 0.85rem;
   font-size: 0.94rem;
-  color: var(--text-muted);
-  font-family: var(--ns-font-body);
+  color: var(--ns-text-muted);
 }
 
 .ns-auth-switch a {
   font-weight: 700;
-  color: var(--brand-700, var(--brand));
+  color: var(--ns-water-deep);
   text-decoration: none;
-  font-family: var(--ns-font-body);
 }
 
 .ns-auth-switch a:hover {
@@ -839,21 +965,43 @@
 }
 
 .ns-required {
-  color: #b91c1c;
+  color: #a34226;
+}
+
+/* =========================================================
+   BUTTON SUPPORT
+   Keeps working with your existing .btn classes
+   ========================================================= */
+
+.ns-auth-submit.btn,
+.ns-auth-submit.btn-primary,
+.ns-auth-submit {
+  border: none;
+  border-radius: 18px;
+  padding: 0.98rem 1.15rem;
+  background:
+    linear-gradient(135deg, var(--ns-water) 0%, var(--ns-gold) 100%);
+  color: #fffaf4;
+  font-weight: 800;
+  box-shadow: 0 18px 30px rgba(143, 175, 157, 0.18);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.ns-auth-submit.btn:hover,
+.ns-auth-submit.btn-primary:hover,
+.ns-auth-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 24px 34px rgba(143, 175, 157, 0.22);
+  filter: saturate(1.03);
 }
 
 /* =========================================================
    ANIMATIONS
-   Reusable motion used by splash page elements
    ========================================================= */
 
 @keyframes nsFloat {
-  0%, 100% {
-    translate: 0 0;
-  }
-  50% {
-    translate: 0 -8px;
-  }
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
 }
 
 @keyframes nsGlowDrift {
@@ -866,17 +1014,12 @@
 }
 
 @keyframes nsPathPulse {
-  0%, 100% {
-    opacity: 0.72;
-  }
-  50% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
 }
 
 /* =========================================================
    TABLET / SMALL DESKTOP
-   Stacks the login/signup columns into one column
    ========================================================= */
 
 @media (max-width: 980px) {
@@ -896,15 +1039,12 @@
 
 /* =========================================================
    MOBILE
-   Adjusts splash spacing, step sizes, auth form layout,
-   and stacks password rows / signup field grid
    ========================================================= */
 
 @media (max-width: 760px) {
   .ns-splash-shell {
     min-height: 100vh;
     padding: 1.5rem 1rem 1.8rem;
-    border-radius: 0;
   }
 
   .ns-splash-logo-wrap {
@@ -920,6 +1060,14 @@
   .ns-splash-subtext {
     font-size: 0.98rem;
     line-height: 1.7;
+  }
+
+  .ns-splash-palette {
+    gap: 0.45rem;
+  }
+
+  .ns-splash-palette-swatch {
+    width: 44px;
   }
 
   .ns-splash-path {
@@ -1001,5 +1149,14 @@
     width: 72px;
     height: 72px;
     font-size: 0.68rem;
+  }
+
+  .ns-auth-theme-row {
+    gap: 0.45rem;
+  }
+
+  .ns-auth-theme-pill {
+    font-size: 0.72rem;
+    padding: 0.42rem 0.6rem;
   }
 }

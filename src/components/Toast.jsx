@@ -15,9 +15,9 @@ export default function Toast({ message, type = 'success', duration = 3000, onCl
 
   if (!visible || !message) return null;
 
-  const bg = type === 'error' ? '#fee2e2' : '#dcfce7';
-  const border = type === 'error' ? '#fca5a5' : '#86efac';
-  const color = type === 'error' ? '#991b1b' : '#14532d';
+  const bg = type === 'error' ? 'var(--app-danger-bg)' : 'var(--app-build-bg)';
+  const border = type === 'error' ? 'var(--app-danger-border)' : 'var(--app-build-border)';
+  const color = type === 'error' ? 'var(--app-danger-text)' : 'var(--app-build-text)';
 
   return (
     <div className="toast-container" aria-live="polite" aria-atomic="true">
@@ -27,7 +27,7 @@ export default function Toast({ message, type = 'success', duration = 3000, onCl
           background: bg,
           color,
           border: `1px solid ${border}`,
-          boxShadow: '0 10px 24px rgba(0,0,0,0.12)',
+          boxShadow: 'var(--app-shadow-soft)',
         }}
       >
         {message}

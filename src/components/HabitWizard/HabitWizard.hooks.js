@@ -14,13 +14,14 @@ import {
   normalizeSchedule,
   inferGoalType,
 } from './HabitWizard.utils.js'; // Pure utilities
+import { getCueLabel } from '../../lib/cuePresets.js';
 
 /**
  * Main hook for the Habit Wizard.
  * Manages all state, validation, and side effects (auto-save, navigation).
  */
 
-export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onDraftSave) {
+export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onDraftSave, context = 'self') {
   // Load initial data from props or localStorage draft
   const initialData = useMemo(
     () => loadDraft(initialValues, today, WIZARD_CONFIG),
@@ -47,12 +48,17 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
     savingFor: initialData.savingFor,
     rewardGoalTitle: initialData.rewardGoalTitle,
     rewardGoalCostCoins: initialData.rewardGoalCostCoins,
+    rewardType: initialData.rewardType || 'custom',
+    rewardShopItemId: initialData.rewardShopItemId || '',
     milestoneRewards: initialData.milestoneRewards || WIZARD_CONFIG.DEFAULT_MILESTONES,
-    assignee: initialData.assignee,
+    assignees: initialData.assignees,
     tasks: initialData.tasks,
     taskForm: {
       title: '',
       cue: '',
+      cuePreset: '',
+      cueLabel: '',
+      cueDetail: '',
       timeOfDay: '',
       startDate: initialData.goalStartDate,
       endDate: initialData.goalEndDate || '',
@@ -101,7 +107,8 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       triggers: state.triggers,
       makeItEasier: state.makeItEasier,
       replacements: state.replacements,
-      assignee: state.assignee,
+      assignees: state.assignees,
+      assignee: state.assignees[0] || null,
     }),
     [
       state.habitType,
@@ -113,7 +120,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       state.triggers,
       state.makeItEasier,
       state.replacements,
-      state.assignee,
+      state.assignees,
     ]
   );
 
@@ -267,14 +274,28 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
         return { ...baseState, errors: { ...prev.errors, taskForm: taskErrors }, isSavingTask: false };
       }
 
+      const cuePreset = prev.taskForm.cuePreset || '';
+      const cueLabel = prev.taskForm.cueLabel || getCueLabel(cuePreset);
+      const cueDetail = (prev.taskForm.cueDetail || prev.taskForm.cue || '').trim();
+      const displayCue = cueDetail || cueLabel || '';
+
       const nextTask = {
         title: prev.taskForm.title.trim(),
-        cue: prev.taskForm.cue || '',
+        cue: displayCue,
+        cuePreset,
+        cueLabel,
+        cueDetail,
         timeOfDay: prev.taskForm.timeOfDay || '',
         startDate: prev.taskForm.startDate || prev.goalStartDate,
         endDate: prev.taskForm.endDate || '',
         schedule,
         completionLog: prev.taskForm.completionLog || {},
+        meta: {
+          cuePreset: cuePreset || null,
+          cueLabel: cueLabel || null,
+          cueDetail: cueDetail || null,
+          timeOfDay: prev.taskForm.timeOfDay || null,
+        },
       };
 
       const newTasks =
@@ -288,6 +309,9 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
         taskForm: {
           title: '',
           cue: '',
+          cuePreset: '',
+          cueLabel: '',
+          cueDetail: '',
           timeOfDay: '',
           startDate: prev.goalStartDate,
           endDate: prev.goalEndDate || '',
@@ -309,7 +333,13 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
         taskForm: {
           title: task.title || '',
           cue: task.cue || '',
-          timeOfDay: task.timeOfDay || '',
+          cuePreset: task.cuePreset || task?.meta?.cuePreset || '',
+          cueLabel:
+            task.cueLabel ||
+            task?.meta?.cueLabel ||
+            getCueLabel(task.cuePreset || task?.meta?.cuePreset || ''),
+          cueDetail: task.cueDetail || task?.meta?.cueDetail || task.cue || '',
+          timeOfDay: task.timeOfDay || task?.meta?.timeOfDay || '',
           startDate: task.startDate || prev.goalStartDate,
           endDate: task.endDate || '',
           schedule: task.schedule || defaultSchedule(prev.goalStartDate, prev.goalEndDate),
@@ -341,7 +371,9 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
           prev.habitType,
           prev.goalStartDate,
           prev.hasGoalEndDate,
-          prev.goalEndDate
+          prev.goalEndDate,
+          prev.assignees,
+          context
         );
       } else if (prev.currentStepIndex === 1) {
         stepErrors = validateDetailsStep(prev.habitType, prev.replacements);
@@ -360,7 +392,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       }
       return prev;
     });
-  }, [totalSteps]);
+  }, [totalSteps, context]);
 
   // Go to previous step
   const goBack = useCallback(() => {
@@ -389,11 +421,13 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
         state.savingFor,
         state.rewardGoalTitle,
         state.rewardGoalCostCoins,
+        state.rewardType,
+        state.rewardShopItemId,
         state.triggers,
         state.location,
         state.makeItEasier,
         state.replacements,
-        state.assignee,
+        state.assignees,
         state.milestoneRewards,
         WIZARD_CONFIG
       );
@@ -435,8 +469,10 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
           savingFor: state.savingFor,
           rewardGoalTitle: state.rewardGoalTitle,
           rewardGoalCostCoins: state.rewardGoalCostCoins,
+          rewardType: state.rewardType,
+          rewardShopItemId: state.rewardShopItemId,
           milestoneRewards: state.milestoneRewards,
-          assignee: state.assignee,
+          assignees: state.assignees,
           tasks: state.tasks,
         },
         WIZARD_CONFIG,
@@ -461,7 +497,9 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
               state.habitType,
               state.goalStartDate,
               state.hasGoalEndDate,
-              state.goalEndDate
+              state.goalEndDate,
+              state.assignees,
+              context
             )
           ).length === 0
         );
@@ -477,7 +515,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       }
       return true;
     },
-    [state]
+    [state, context]
   );
 
   // Helper to check if a step is complete (used for navigation dot styling)
@@ -490,7 +528,9 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
           state.habitType,
           state.goalStartDate,
           state.hasGoalEndDate,
-          state.goalEndDate
+          state.goalEndDate,
+          state.assignees,
+          context
         );
         return Object.keys(goalErrors).length === 0;
       }
@@ -509,7 +549,7 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
       }
       return false;
     },
-    [state]
+    [state, context]
   );
 
   return {
@@ -625,7 +665,34 @@ export function useHabitWizard(initialValues, today, draftApiUrl, authToken, onD
     setSavingFor: (value) => setState((prev) => ({ ...prev, savingFor: value })),
     setRewardGoalTitle: (value) => setState((prev) => ({ ...prev, rewardGoalTitle: value })),
     setRewardGoalCostCoins: (value) => setState((prev) => ({ ...prev, rewardGoalCostCoins: value })),
-    setAssignee: (value) => setState((prev) => ({ ...prev, assignee: value })),
+    setRewardType: (value) => setState((prev) => ({ ...prev, rewardType: value })),
+    setRewardShopItemId: (value) => setState((prev) => ({ ...prev, rewardShopItemId: value })),
+    setAssignees: (values) =>
+      setState((prev) => ({
+        ...prev,
+        assignees: Array.isArray(values)
+          ? [...new Set(values.map((value) => String(value)).filter(Boolean))]
+          : [],
+        errors: { ...prev.errors, assignees: undefined },
+      })),
+    toggleAssignee: (value) =>
+      setState((prev) => {
+        const nextId = String(value);
+        const hasId = prev.assignees.includes(nextId);
+        return {
+          ...prev,
+          assignees: hasId
+            ? prev.assignees.filter((item) => item !== nextId)
+            : [...prev.assignees, nextId],
+          errors: { ...prev.errors, assignees: undefined },
+        };
+      }),
+    setAssignee: (value) =>
+      setState((prev) => ({
+        ...prev,
+        assignees: value == null || value === '' ? [] : [String(value)],
+        errors: { ...prev.errors, assignees: undefined },
+      })),
     // Task actions
     updateTaskForm,
     saveTask,

@@ -57,4 +57,27 @@ export async function goalDelete(id) {
   }
 }
 
-export default { goalCreate, goalGet, goalList, goalUpdate, goalDelete }
+export async function saveGoalBundle(payload) {
+  try {
+    const info = await postJSON('/goal-bundle/save', payload || {})
+    return {
+      status_code: info.status,
+      error: info.data?.error || null,
+      data: info.data || null,
+      success: Boolean(info.data?.success),
+      goal: info.data?.goal || null,
+      actionPlans: Array.isArray(info.data?.actionPlans) ? info.data.actionPlans : [],
+    }
+  } catch (err) {
+    return {
+      status_code: 500,
+      error: err?.message || String(err),
+      data: { error: err?.message || String(err) },
+      success: false,
+      goal: null,
+      actionPlans: [],
+    }
+  }
+}
+
+export default { goalCreate, goalGet, goalList, goalUpdate, goalDelete, saveGoalBundle }

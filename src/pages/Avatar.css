@@ -1,0 +1,513 @@
+/* =========================================================
+   AVATAR PAGE — fun, child-friendly
+========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --avatar-gap: clamp(10px, 0.9vw, 16px);
+  --avatar-radius: 18px;
+  --avatar-panel-padding: clamp(14px, 0.9vw, 18px);
+  --avatar-accent: var(--app-primary);
+  --avatar-accent-hover: var(--app-primary-hover);
+  --avatar-accent-text: var(--app-primary-text);
+}
+
+/* =========================================================
+   PAGE SHELL
+========================================================= */
+.avatar-page {
+  width: 100%;
+  padding: clamp(10px, 0.9vw, 14px) clamp(12px, 1vw, 18px);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--app-primary) 12%, transparent), transparent 30%),
+    linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-elevated) 100%);
+  min-height: 100vh;
+  color: var(--app-text);
+}
+
+.avatar-canvas {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--avatar-gap);
+}
+
+.avatar-page h1 {
+  margin: 0 0 var(--avatar-gap);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--app-heading);
+}
+
+/* =========================================================
+   SHARED PANEL
+========================================================= */
+.avatar-panel {
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  border-radius: var(--avatar-radius);
+  padding: var(--avatar-panel-padding);
+}
+
+.avatar-panel__title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-heading);
+}
+
+/* =========================================================
+   BODY LAYOUT
+========================================================= */
+.avatar-body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: var(--avatar-gap);
+  align-items: start;
+}
+
+/* =========================================================
+   AVATAR PREVIEW CARD
+========================================================= */
+.avatar-preview-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: sticky;
+  top: 16px;
+  padding: 2rem 1.5rem 1.5rem;
+  background: linear-gradient(160deg, var(--app-highlight-soft) 0%, var(--app-card-soft) 100%);
+  border: 2px dashed var(--app-highlight);
+  border-radius: 24px;
+  min-height: 500px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Sparkle corners */
+.avatar-preview-card::before,
+.avatar-preview-card::after {
+  content: '✦';
+  position: absolute;
+  font-size: 20px;
+  color: var(--app-primary);
+  animation: avatar-sparkle 2.5s ease-in-out infinite;
+}
+.avatar-preview-card::before { top: 16px; left: 20px; animation-delay: 0s; }
+.avatar-preview-card::after  { top: 16px; right: 20px; animation-delay: 1.2s; }
+
+@keyframes avatar-sparkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8) rotate(0deg); }
+  50%       { opacity: 1;   transform: scale(1.2) rotate(20deg); }
+}
+
+.avatar-preview-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--app-link);
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Avatar container */
+.avatar-preview-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 280px;
+  height: 280px;
+}
+
+.avatar-preview-inner > *,
+.avatar-preview-inner canvas,
+.avatar-preview-inner img,
+.avatar-preview-inner svg {
+  width: 260px !important;
+  height: 260px !important;
+  max-width: 260px !important;
+}
+
+/* Bounce animation triggered via JS class */
+.avatar-preview-inner.did-equip {
+  animation: avatar-bounce 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes avatar-bounce {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.08) translateY(-8px); }
+  50%  { transform: scale(0.96) translateY(2px); }
+  75%  { transform: scale(1.04) translateY(-3px); }
+  100% { transform: scale(1); }
+}
+
+/* Reaction message */
+.avatar-reaction {
+  margin-top: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--app-link);
+  min-height: 24px;
+  animation: avatar-fade-up 0.4s ease;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes avatar-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Surprise Me button */
+.avatar-surprise-btn {
+  margin-top: 18px;
+  padding: 11px 28px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 800;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-hover));
+  color: var(--app-primary-text);
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--app-primary) 34%, transparent);
+  position: relative;
+  z-index: 1;
+}
+
+.avatar-surprise-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--app-primary) 42%, transparent);
+}
+
+.avatar-surprise-btn:active {
+  transform: scale(0.97);
+}
+
+/* =========================================================
+   CONFETTI
+========================================================= */
+.avatar-confetti-wrap {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.avatar-confetti-piece {
+  position: absolute;
+  top: -16px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  animation: avatar-confetti-fall linear forwards;
+}
+
+@keyframes avatar-confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* =========================================================
+   CATEGORY TABS
+========================================================= */
+.avatar-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.avatar-tab {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 2px solid var(--app-border);
+  background: var(--app-card);
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avatar-tab:hover {
+  border-color: var(--app-primary);
+  color: var(--app-link);
+  transform: translateY(-1px);
+}
+
+.avatar-tab.is-active {
+  background: var(--app-primary);
+  border-color: var(--app-primary);
+  color: var(--app-primary-text);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--app-primary) 28%, transparent);
+}
+
+.avatar-tab__icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* =========================================================
+   ITEMS GRID
+========================================================= */
+.avatar-items-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+/* =========================================================
+   ITEM CARD
+========================================================= */
+.avatar-item-card {
+  border: 2px solid var(--app-border);
+  border-radius: var(--avatar-radius);
+  padding: 0.75rem;
+  width: 118px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--app-card);
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  position: relative;
+}
+
+.avatar-item-card:hover {
+  transform: translateY(-4px) scale(1.03);
+  border-color: var(--app-primary);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+
+.avatar-item-card.is-equipped {
+  border: 2px solid var(--app-primary);
+  background: var(--app-highlight-soft);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--app-primary) 20%, transparent);
+}
+
+/* Gold star badge on equipped */
+.avatar-item-card.is-equipped::after {
+  content: '★';
+  position: absolute;
+  top: -11px;
+  right: -8px;
+  font-size: 22px;
+  color: var(--app-primary);
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--app-text) 18%, transparent));
+  animation: avatar-star-pop 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes avatar-star-pop {
+  0%   { transform: scale(0) rotate(-30deg); opacity: 0; }
+  60%  { transform: scale(1.4) rotate(10deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+
+.avatar-item-card__img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  transition: transform 150ms ease;
+}
+
+.avatar-item-card:hover .avatar-item-card__img {
+  transform: scale(1.1);
+}
+
+/* =========================================================
+   COLOR SWATCHES
+========================================================= */
+.avatar-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.avatar-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 120ms ease, border-color 120ms ease;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--app-text) 20%, transparent);
+}
+
+.avatar-swatch:hover {
+  transform: scale(1.35);
+}
+
+.avatar-swatch.is-selected {
+  border-color: var(--app-primary);
+  transform: scale(1.25);
+  box-shadow: 0 0 0 2px var(--app-panel), 0 0 0 4px var(--app-primary);
+}
+
+/* =========================================================
+   EQUIP / UNEQUIP BUTTONS
+========================================================= */
+.avatar-btn {
+  width: 100%;
+  padding: 7px 0;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.avatar-btn--equip {
+  background: var(--app-secondary-bg);
+  border: 2px solid var(--app-secondary-border);
+  color: var(--app-secondary-text);
+}
+
+.avatar-btn--equip:hover {
+  background: var(--app-secondary-hover);
+  border-color: var(--app-primary);
+  color: var(--app-link);
+}
+
+.avatar-btn--unequip {
+  background: var(--app-primary);
+  border: 2px solid var(--app-primary);
+  color: var(--app-primary-text);
+}
+
+.avatar-btn--unequip:hover {
+  background: var(--app-primary-hover);
+  border-color: var(--app-primary-hover);
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+@media (max-width: 960px) {
+  .avatar-body {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-preview-card {
+    position: static;
+    min-height: 360px;
+  }
+
+  .avatar-preview-inner > *,
+  .avatar-preview-inner canvas,
+  .avatar-preview-inner img,
+  .avatar-preview-inner svg {
+    width: 200px !important;
+    height: 200px !important;
+    max-width: 200px !important;
+  }
+}
+
+@media (max-width: 580px) {
+  .avatar-item-card { width: 90px; }
+  .avatar-item-card__img { width: 60px; height: 60px; }
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.avatar-panel,
+.avatar-preview-card,
+.avatar-item-card,
+.avatar-tab {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.avatar-panel {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.avatar-preview-card {
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--app-highlight) 42%, transparent), transparent 38%),
+    linear-gradient(160deg, var(--app-highlight-soft) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+}
+
+.avatar-tab {
+  background: var(--app-chip-soft-bg);
+  border-color: var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+}
+
+.avatar-tab:hover {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+}
+
+.avatar-tab.is-active {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-link);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 16%, transparent);
+}
+
+.avatar-item-card {
+  background: linear-gradient(180deg, var(--app-card) 0%, var(--app-card-soft) 100%);
+}
+
+.avatar-item-card:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+}
+
+.avatar-item-card.is-equipped {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+}
+
+.avatar-btn--equip {
+  background: var(--app-secondary-bg);
+  border-color: var(--app-secondary-border);
+  color: var(--app-secondary-text);
+}
+
+.avatar-btn--unequip {
+  background: var(--app-build-bg);
+  border-color: var(--app-build-border);
+  color: var(--app-build-text);
+}
+
+.avatar-swatch.is-selected {
+  box-shadow:
+    0 0 0 2px var(--app-panel),
+    0 0 0 4px var(--app-border-strong),
+    var(--app-shadow-soft);
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { getCalendarMonth, getCalendarDay } from '../lib/api/calendar.js'
-import { togglePlanCompletion } from '../lib/actionPlanCompletion.js'
+import { markComplete, markIncomplete } from '../lib/api/streaks.js'
 import { toLocalISODate } from '../lib/schedule.js'
 
 function pad(num) {
@@ -18,7 +18,6 @@ function filterEntries(entries = [], assigneeId) {
 
 export default function HabitCalendar({
   assigneeId,
-  getMilestoneRewards,
   onRewardMessage,
   emptyStateLinkTo = '/habit-wizard',
   emptyStateLabel = 'Add a habit',
@@ -106,28 +105,29 @@ export default function HabitCalendar({
     const plan = entry?.actionPlan
     if (!plan) return
 
-    const milestoneRewards = typeof getMilestoneRewards === 'function' ? getMilestoneRewards(plan) : []
-    const res = await togglePlanCompletion({
-      plan,
-      todayISO: dateISO,
-      milestoneRewards,
-      onBadges: (badgeIds) => {
-        if (badgeIds?.length && typeof onRewardMessage === 'function') {
-          onRewardMessage(`New badge${badgeIds.length === 1 ? '' : 's'} earned: ${badgeIds.join(', ')}`)
-        }
-      },
-      onCoins: ({ delta = 0 }) => {
-        if (delta > 0 && typeof onRewardMessage === 'function') {
-          onRewardMessage(`Updated ${plan?.title || 'habit plan'} • earned ${delta} coins`)
-        }
-      },
-    })
+    const alreadyDone = plan?.completedDates?.[dateISO] === true
+    const res = alreadyDone
+      ? await markIncomplete(plan.id, dateISO)
+      : await markComplete(plan.id, dateISO)
 
-    if (!res?.updatedPlan) return
+    if (!res || res.status_code !== 200) return
 
-    const updatedPlan = res.updatedPlan
-    const streak = res.data?.current ?? updatedPlan.currentStreak ?? 0
+    const data = res.data || {}
+    const updatedPlan = data.plan || plan
+    const streak = data.current ?? data.currentStreak ?? updatedPlan.currentStreak ?? 0
     const completed = Boolean(updatedPlan?.completedDates?.[dateISO])
+
+    if (Array.isArray(data.newBadges) && data.newBadges.length && typeof onRewardMessage === 'function') {
+      onRewardMessage(`New badge${data.newBadges.length === 1 ? '' : 's'} earned: ${data.newBadges.join(', ')}`)
+    }
+
+    const coinDelta =
+      Number(data?.coinsEarned || 0) +
+      Number(data?.badgeCoinsEarned || 0)
+
+    if (!alreadyDone && coinDelta > 0 && typeof onRewardMessage === 'function') {
+      onRewardMessage(`Updated ${plan?.title || 'habit plan'} • earned ${coinDelta} coins`)
+    }
 
     setCalendarData((prev) => {
       const next = { ...prev }
@@ -165,12 +165,12 @@ export default function HabitCalendar({
               width: 8,
               height: 8,
               borderRadius: '50%',
-              backgroundColor: entry.completed ? '#16a34a' : '#cbd5e1',
+              backgroundColor: entry.completed ? 'var(--app-success)' : 'var(--app-progress-track)',
               display: 'inline-block',
             }}
           />
         ))}
-        {overflow > 0 && <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 700 }}>+{overflow}</span>}
+        {overflow > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', fontWeight: 700 }}>+{overflow}</span>}
       </div>
     )
   }
@@ -193,13 +193,14 @@ export default function HabitCalendar({
           style={{
             textAlign: 'left',
             border: isSelected
-              ? '2px solid #7c3aed'
+              ? '2px solid var(--app-primary)'
               : isToday
-                ? '2px solid #4f46e5'
-                : '1px solid rgba(226,232,240,.9)',
+                ? '2px solid var(--app-success)'
+                : '1px solid var(--app-border)',
             borderRadius: '10px',
             padding: '8px',
-            background: 'white',
+            background: 'var(--app-card)',
+            color: 'var(--app-text)',
             cursor: 'pointer',
             minHeight: '82px',
             display: 'flex',
@@ -208,7 +209,7 @@ export default function HabitCalendar({
             alignItems: 'flex-start',
           }}
         >
-          <div style={{ fontWeight: 800, color: '#0f172a' }}>{day}</div>
+          <div style={{ fontWeight: 800, color: 'var(--app-heading)' }}>{day}</div>
           {renderDots(filtered)}
         </button>
       )
@@ -222,7 +223,7 @@ export default function HabitCalendar({
       <div
         key={`s-${idx}`}
         style={{
-          background: 'linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9)',
+          background: 'linear-gradient(90deg, var(--app-card-soft), var(--app-secondary-bg), var(--app-card-soft))',
           borderRadius: '10px',
           height: '82px',
           animation: 'pulse 1.2s ease-in-out infinite',
@@ -238,7 +239,7 @@ export default function HabitCalendar({
   )
 
   return (
-    <div className="card" style={{ padding: '12px', border: '1px solid rgba(226,232,240,.9)', background: 'rgba(255,255,255,.65)', minHeight: '720px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="card" style={{ padding: '12px', border: '1px solid var(--app-border)', background: 'color-mix(in srgb, var(--app-card) 65%, transparent)', minHeight: '720px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <button type="button" onClick={handlePrevMonth} aria-label="Previous month" className="btn btn-ghost" style={{ padding: '6px 10px' }}>
           ←
@@ -250,7 +251,7 @@ export default function HabitCalendar({
       </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecdd3', color: '#991b1b', padding: '10px', borderRadius: '10px' }}>
+        <div style={{ background: 'var(--app-danger-bg)', border: '1px solid var(--app-danger-border)', color: 'var(--app-danger-text)', padding: '10px', borderRadius: '10px' }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Could not load calendar</div>
           <div style={{ marginBottom: 8 }}>{error}</div>
           <button type="button" className="btn" onClick={fetchMonth} style={{ padding: '8px 12px' }}>
@@ -260,7 +261,7 @@ export default function HabitCalendar({
       )}
 
       {!error && !loading && !hasAnyEntries && (
-        <div style={{ border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '18px', textAlign: 'center', color: '#475569' }}>
+        <div style={{ border: '1px dashed var(--app-border-strong)', borderRadius: '12px', padding: '18px', textAlign: 'center', color: 'var(--app-text-muted)' }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>No habits scheduled this month</div>
           <div style={{ marginBottom: 10 }}>Add a habit to see it on the calendar.</div>
           <a href={emptyStateLinkTo} className="btn" style={{ padding: '8px 12px', display: 'inline-block' }}>
@@ -269,7 +270,7 @@ export default function HabitCalendar({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', color: '#64748b', fontWeight: 700, fontSize: '.9rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', color: 'var(--app-text-muted)', fontWeight: 700, fontSize: '.9rem' }}>
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
           <div key={d} style={{ textAlign: 'center' }}>{d}</div>
         ))}
@@ -279,15 +280,15 @@ export default function HabitCalendar({
         {loading ? skeletonCells : dayCells}
       </div>
 
-      <div style={{ borderTop: '1px solid rgba(226,232,240,.9)', paddingTop: '10px' }}>
+      <div style={{ borderTop: '1px solid var(--app-border)', paddingTop: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
           <div style={{ fontWeight: 800 }}>{selectedDate || 'Day details'}</div>
-          {dayDetailLoading && <span style={{ fontSize: '.85rem', color: '#64748b' }}>Loading…</span>}
+          {dayDetailLoading && <span style={{ fontSize: '.85rem', color: 'var(--app-text-muted)' }}>Loading…</span>}
         </div>
 
-        {!selectedDate && <div style={{ color: '#64748b' }}>Select any day to see plan details.</div>}
+        {!selectedDate && <div style={{ color: 'var(--app-text-muted)' }}>Select any day to see plan details.</div>}
         {selectedDate && filteredSelectedEntries.length === 0 && !dayDetailLoading && (
-          <div style={{ color: '#64748b' }}>No habits due for this day.</div>
+          <div style={{ color: 'var(--app-text-muted)' }}>No habits due for this day.</div>
         )}
 
         {filteredSelectedEntries.map((entry) => (
@@ -299,12 +300,12 @@ export default function HabitCalendar({
               gap: '8px',
               alignItems: 'center',
               padding: '8px 0',
-              borderBottom: '1px solid rgba(226,232,240,.7)',
+              borderBottom: '1px solid var(--app-border)',
             }}
           >
             <div>
               <div style={{ fontWeight: 800 }}>{entry.actionPlan.title || 'Habit plan'}</div>
-              <div style={{ color: '#64748b', fontSize: '.9rem' }}>
+              <div style={{ color: 'var(--app-text-muted)', fontSize: '.9rem' }}>
                 {entry.actionPlan.assigneeName || 'Assignee'} • Streak {entry.streak}
               </div>
             </div>

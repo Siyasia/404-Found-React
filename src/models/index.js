@@ -23,14 +23,39 @@ const deriveFrequencyLabel = (schedule) => {
   }
 };
 
-// Task type constants
-export const TASK_TYPE_SIMPLE = 'simple';
+// Task / Task Assignment constants
+// Keep the old export name "Task" so existing imports do not explode.
+// But the actual shape is now the new assignment model.
+
+export const TASK_ASSIGNMENT_STATUS = Object.freeze({
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+});
+
+export const TASK_ASSIGNMENT_COMPLETION_SOURCE = Object.freeze({
+  MANUAL: 'manual',
+  TIMER: 'timer',
+  CHECKLIST: 'checklist',
+});
+
+export const TASK_ASSIGNMENT_CREATED_BY_ROLE = Object.freeze({
+  USER: 'user',
+  PARENT: 'parent',
+  PROVIDER: 'provider',
+});
+
+// Legacy aliases kept so old imports do not crash.
+// Use the TASK_ASSIGNMENT_* constants in new code.
+export const TASK_STATUS_PENDING = TASK_ASSIGNMENT_STATUS.PENDING;
+export const TASK_STATUS_ACTIVE = TASK_ASSIGNMENT_STATUS.ACTIVE;
+export const TASK_STATUS_COMPLETED = TASK_ASSIGNMENT_STATUS.COMPLETED;
+export const TASK_STATUS_DONE = TASK_ASSIGNMENT_STATUS.COMPLETED;
+
+// Legacy task type exports kept only for compatibility.
+export const TASK_TYPE_SIMPLE = 'assignment';
 export const TASK_TYPE_BUILD_HABIT = 'build-habit';
 export const TASK_TYPE_BREAK_HABIT = 'break-habit';
-
-// Task status constants
-export const TASK_STATUS_PENDING = 'pending';
-export const TASK_STATUS_DONE = 'done'
 
 //create a Schedule class to clearly define what a schedule looks like.
 export class Schedule {
@@ -64,50 +89,409 @@ export class Schedule {
   }
 }
 
+function taskNowIso() {
+  return new Date().toISOString();
+}
+
+function taskDefaultDueDateISO() {
+  const date = new Date()
+  date.setHours(23, 59, 59, 999)
+  return date.toISOString()
+}
+
+function taskToId(value) {
+  if (value == null) return '';
+  return String(value);
+}
+
+function taskToNullableId(value) {
+  if (value == null || value === '') return null;
+  return String(value);
+}
+
+function taskToSafeString(value) {
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+function taskToNullableString(value) {
+  const str = taskToSafeString(value);
+  return str ? str : null;
+}
+
+function taskToBool(value) {
+  return value === true;
+}
+
+function taskToPositiveInt(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (num <= 0) return null;
+  return Math.round(num);
+}
+
+function createTaskLocalId(prefix = 'task_assignment') {
+  const random = Math.random().toString(36).slice(2, 10);
+  return `${prefix}_${Date.now()}_${random}`;
+}
+
+function normalizeTaskRole(role) {
+  const safe = taskToSafeString(role).toLowerCase();
+  if (safe === TASK_ASSIGNMENT_CREATED_BY_ROLE.PARENT) {
+    return TASK_ASSIGNMENT_CREATED_BY_ROLE.PARENT;
+  }
+  if (safe === TASK_ASSIGNMENT_CREATED_BY_ROLE.PROVIDER) {
+    return TASK_ASSIGNMENT_CREATED_BY_ROLE.PROVIDER;
+  }
+  return TASK_ASSIGNMENT_CREATED_BY_ROLE.USER;
+}
+
+function normalizeTaskStatus(status) {
+  const safe = taskToSafeString(status).toLowerCase();
+
+  if (safe === TASK_ASSIGNMENT_STATUS.ACTIVE) {
+    return TASK_ASSIGNMENT_STATUS.ACTIVE;
+  }
+
+  if (
+    safe === TASK_ASSIGNMENT_STATUS.COMPLETED ||
+    safe === 'done'
+  ) {
+    return TASK_ASSIGNMENT_STATUS.COMPLETED;
+  }
+
+  return TASK_ASSIGNMENT_STATUS.PENDING;
+}
+
+function normalizeTaskCompletionSource(source) {
+  const safe = taskToSafeString(source).toLowerCase();
+
+  if (safe === TASK_ASSIGNMENT_COMPLETION_SOURCE.MANUAL) {
+    return TASK_ASSIGNMENT_COMPLETION_SOURCE.MANUAL;
+  }
+  if (safe === TASK_ASSIGNMENT_COMPLETION_SOURCE.TIMER) {
+    return TASK_ASSIGNMENT_COMPLETION_SOURCE.TIMER;
+  }
+  if (safe === TASK_ASSIGNMENT_COMPLETION_SOURCE.CHECKLIST) {
+    return TASK_ASSIGNMENT_COMPLETION_SOURCE.CHECKLIST;
+  }
+
+  return null;
+}
+
+export function normalizeChecklistItems(items = []) {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const label = item.trim();
+        if (!label) return null;
+
+        return {
+          id: createTaskLocalId('task_step'),
+          label,
+          isCompleted: false,
+          completedAt: null,
+          sortOrder: index,
+        };
+      }
+
+      if (!item || typeof item !== 'object') return null;
+
+      const label = taskToSafeString(item.label ?? item.title ?? item.text);
+      if (!label) return null;
+
+      return {
+        id: taskToId(item.id) || createTaskLocalId('task_step'),
+        label,
+        isCompleted: taskToBool(item.isCompleted),
+        completedAt: item.completedAt || null,
+        sortOrder: Number.isFinite(Number(item.sortOrder))
+          ? Number(item.sortOrder)
+          : index,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    }));
+}
+
+export function isChecklistComplete(checklist = []) {
+  if (!Array.isArray(checklist) || checklist.length === 0) return false;
+  return checklist.every((item) => item?.isCompleted === true);
+}
+
+export function buildTaskAssignment(data = {}) {
+  const incomingMeta =
+    data.meta && typeof data.meta === 'object' && !Array.isArray(data.meta)
+      ? { ...data.meta }
+      : {};
+
+  const useTimer = taskToBool(data.useTimer);
+  const checklist = normalizeChecklistItems(
+    data.checklist ?? data.steps ?? []
+  );
+
+  const schedule = Schedule.from(data.schedule ?? data.frequency ?? incomingMeta.schedule);
+  const scheduleJson = schedule ? schedule.toJSON() : null;
+
+  let completedDates;
+  if (data.completedDates && typeof data.completedDates === 'object' && !Array.isArray(data.completedDates)) {
+    completedDates = { ...data.completedDates };
+  } else if (Array.isArray(data.completedDates)) {
+    completedDates = data.completedDates.slice();
+  } else {
+    completedDates = {};
+  }
+
+  const status = normalizeTaskStatus(data.status);
+  const completionSource =
+    status === TASK_ASSIGNMENT_STATUS.COMPLETED
+      ? normalizeTaskCompletionSource(data.completionSource)
+      : null;
+
+  const normalized = {
+    id: taskToId(data.id) || createTaskLocalId('task_assignment'),
+
+    title: taskToSafeString(data.title) || 'Untitled task',
+    note: taskToSafeString(data.note ?? data.notes),
+
+    linkedActionPlanId: taskToNullableId(
+      data.linkedActionPlanId ?? data.actionPlanId
+    ),
+    linkedGoalId: taskToNullableId(
+      data.linkedGoalId ?? data.goalId
+    ),
+
+    assigneeId: taskToId(data.assigneeId),
+    assigneeName: taskToSafeString(data.assigneeName),
+
+    createdById: taskToId(data.createdById),
+    createdByName: taskToSafeString(data.createdByName),
+    createdByRole: normalizeTaskRole(data.createdByRole),
+
+    useTimer,
+    durationMinutes: useTimer ? taskToPositiveInt(data.durationMinutes) : null,
+
+    checklist,
+
+    status,
+    completionSource,
+
+    sentAt: data.sentAt || data.createdAt || taskNowIso(),
+    startedAt: data.startedAt || null,
+    completedAt: data.completedAt || null,
+
+    dueDateISO: taskToNullableString(data.dueDateISO) || taskDefaultDueDateISO(),
+
+    // Compatibility fields so older UI does not instantly break
+    notes: taskToSafeString(data.note ?? data.notes),
+    steps: checklist.map((item) => ({
+      id: item.id,
+      label: item.label,
+      isCompleted: item.isCompleted,
+      completedAt: item.completedAt,
+      sortOrder: item.sortOrder,
+    })),
+    taskType: 'assignment',
+    childCode: 0,
+    habitToBreak: taskToSafeString(data.habitToBreak),
+    replacements: Array.isArray(data.replacements) ? data.replacements.slice() : [],
+    streak: Number(data.streak ?? 0) || 0,
+    completedDates,
+    schedule: scheduleJson,
+    frequency: scheduleJson,
+    frequencyLabel: deriveFrequencyLabel(scheduleJson),
+    completionLog: data.completionLog ?? incomingMeta.completionLog ?? {},
+    stats: data.stats ?? incomingMeta.stats ?? {},
+    timeOfDay: taskToSafeString(data.timeOfDay ?? incomingMeta.timeOfDay),
+    lastCompletedOn: data.lastCompletedOn ?? incomingMeta.lastCompletedOn ?? null,
+    needsApproval: taskToBool(data.needsApproval),
+    targetType: data.targetType ?? null,
+    targetName: data.targetName ?? null,
+    createdAt: data.createdAt || data.sentAt || taskNowIso(),
+
+    meta: { ...incomingMeta },
+  };
+
+  Object.keys(data).forEach((key) => {
+    if (!(key in normalized)) normalized.meta[key] = data[key];
+  });
+
+  return normalized;
+}
+
+export function createTaskAssignment(data = {}) {
+  return buildTaskAssignment({
+    ...data,
+    status: TASK_ASSIGNMENT_STATUS.PENDING,
+    completionSource: null,
+    startedAt: null,
+    completedAt: null,
+    sentAt: data.sentAt || taskNowIso(),
+  });
+}
+
+export function canStartTaskAssignment(task) {
+  if (!task) return false;
+  const normalized = buildTaskAssignment(task);
+  if (normalized.useTimer !== true) return false;
+  return normalized.status === TASK_ASSIGNMENT_STATUS.PENDING;
+}
+
+export function canCompleteTaskAssignment(task) {
+  if (!task) return false;
+  const normalized = buildTaskAssignment(task);
+  return normalized.status !== TASK_ASSIGNMENT_STATUS.COMPLETED;
+}
+
+export function startTaskAssignment(task, startedAt = taskNowIso()) {
+  const normalized = buildTaskAssignment(task);
+
+  if (!canStartTaskAssignment(normalized)) {
+    return normalized;
+  }
+
+  return buildTaskAssignment({
+    ...normalized,
+    status: TASK_ASSIGNMENT_STATUS.ACTIVE,
+    startedAt,
+    completedAt: null,
+    completionSource: null,
+  });
+}
+
+export function completeTaskAssignment(
+  task,
+  source = TASK_ASSIGNMENT_COMPLETION_SOURCE.MANUAL,
+  completedAt = taskNowIso()
+) {
+  const normalized = buildTaskAssignment(task);
+
+  if (!canCompleteTaskAssignment(normalized)) {
+    return normalized;
+  }
+
+  const normalizedSource =
+    normalizeTaskCompletionSource(source) ||
+    TASK_ASSIGNMENT_COMPLETION_SOURCE.MANUAL;
+
+  return buildTaskAssignment({
+    ...normalized,
+    status: TASK_ASSIGNMENT_STATUS.COMPLETED,
+    completionSource: normalizedSource,
+    completedAt,
+    startedAt:
+      normalized.startedAt ||
+      (normalized.useTimer ? completedAt : null),
+  });
+}
+
+export function toggleTaskAssignmentChecklistItem(
+  task,
+  itemId,
+  completedAt = taskNowIso()
+) {
+  const normalized = buildTaskAssignment(task);
+  const targetId = taskToId(itemId);
+
+  const checklist = normalized.checklist.map((item) => {
+    if (taskToId(item.id) !== targetId) return item;
+
+    const nextCompleted = !item.isCompleted;
+    return {
+      ...item,
+      isCompleted: nextCompleted,
+      completedAt: nextCompleted ? completedAt : null,
+    };
+  });
+
+  const nextTask = buildTaskAssignment({
+    ...normalized,
+    checklist,
+  });
+
+  if (isChecklistComplete(nextTask.checklist)) {
+    return completeTaskAssignment(
+      nextTask,
+      TASK_ASSIGNMENT_COMPLETION_SOURCE.CHECKLIST,
+      completedAt
+    );
+  }
+
+  return nextTask;
+}
+
+export function expandAssignmentForAssignees(baseAssignment = {}, assignees = []) {
+  const safeAssignees = Array.isArray(assignees) ? assignees : [];
+
+  return safeAssignees
+    .map((assignee) => {
+      if (!assignee) return null;
+
+      if (typeof assignee === 'string' || typeof assignee === 'number') {
+        const assigneeId = taskToId(assignee);
+        if (!assigneeId) return null;
+
+        return createTaskAssignment({
+          ...baseAssignment,
+          assigneeId,
+          assigneeName: '',
+        });
+      }
+
+      const assigneeId = taskToId(
+        assignee.id ?? assignee.assigneeId ?? assignee.userId
+      );
+      if (!assigneeId) return null;
+
+      const assigneeName = taskToSafeString(
+        assignee.name ?? assignee.assigneeName ?? assignee.displayName
+      );
+
+      return createTaskAssignment({
+        ...baseAssignment,
+        assigneeId,
+        assigneeName,
+      });
+    })
+    .filter(Boolean);
+}
+
+export function isTimedTaskAssignment(task) {
+  return buildTaskAssignment(task).useTimer === true;
+}
+
+export function isUntimedTaskAssignment(task) {
+  return !isTimedTaskAssignment(task);
+}
+
+export function isPendingTaskAssignment(task) {
+  return buildTaskAssignment(task).status === TASK_ASSIGNMENT_STATUS.PENDING;
+}
+
+export function isActiveTaskAssignment(task) {
+  return buildTaskAssignment(task).status === TASK_ASSIGNMENT_STATUS.ACTIVE;
+}
+
+export function isCompletedTaskAssignment(task) {
+  return buildTaskAssignment(task).status === TASK_ASSIGNMENT_STATUS.COMPLETED;
+}
+
+export function isTaskAssignmentLinked(task) {
+  const normalized = buildTaskAssignment(task);
+  return Boolean(normalized.linkedActionPlanId);
+}
+
 // For each model class, we allow constructing from a plain object with flexible field names, and we provide a toJSON method that returns a clean plain object for serialization. The meta field can be used to store any additional data that doesn't fit into the defined properties, without losing it during normalization.
 export class Task {
   constructor(props = {}) {
-    // assign all known properties so code can read t.title, t.status, etc.
-    this.id = parseInt(props.id) ?? 0;
-    this.assigneeId = parseInt(props.assigneeId) ?? 0;
-    this.assigneeName = props.assigneeName ?? '';
-    this.childCode = props.childCode ?? 0;
-    this.title = props.title ?? '';
-    this.notes = props.notes ?? '';
-    this.taskType = props.taskType ?? 'simple';
-    this.steps = Array.isArray(props.steps) ? props.steps.slice() : [];
-    this.habitToBreak = props.habitToBreak ?? '';
-    this.replacements = Array.isArray(props.replacements) ? props.replacements.slice() : [];
-    this.streak = props.streak ?? 0;
-    if (props.completedDates && typeof props.completedDates === 'object' && !Array.isArray(props.completedDates)) {
-      this.completedDates = { ...props.completedDates };
-    } else {
-      this.completedDates = Array.isArray(props.completedDates) ? props.completedDates.slice() : [];
-    }
-    const incomingMeta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
-      ? { ...props.meta }
-      : {};
-    this.schedule = Schedule.from(props.schedule ?? props.frequency ?? incomingMeta.schedule);
-    const scheduleJson = this.schedule ? this.schedule.toJSON() : null;
-    this.frequencyLabel = deriveFrequencyLabel(scheduleJson);
-    this.frequency = scheduleJson;
-    this.completionLog = props.completionLog ?? incomingMeta.completionLog ?? {};
-    this.stats = props.stats ?? incomingMeta.stats ?? {};
-    this.timeOfDay = props.timeOfDay ?? incomingMeta.timeOfDay ?? '';
-    this.lastCompletedOn = props.lastCompletedOn ?? incomingMeta.lastCompletedOn ?? null;
-    this.status = props.status ?? 'pending';
-    this.createdAt = props.createdAt ?? new Date().toISOString();
-    this.createdById = props.createdById ?? null;
-    this.createdByName = props.createdByName ?? '';
-    this.createdByRole = props.createdByRole ?? '';
-    this.needsApproval = props.needsApproval ?? false;
-    this.targetType = props.targetType ?? null;
-    this.targetName = props.targetName ?? null;
-
-    this.meta = incomingMeta;
-    Object.keys(props).forEach((k) => {
-      if (!(k in this)) this.meta[k] = props[k];
-    });
+    const normalized = buildTaskAssignment(props);
+    Object.assign(this, normalized);
   }
 
   static from(obj) {
@@ -116,23 +500,39 @@ export class Task {
   }
 
   toJSON() {
-    const scheduleJson = this.schedule ? this.schedule.toJSON() : null;
-    const out = {
+    return {
       id: this.id,
       assigneeId: this.assigneeId,
       assigneeName: this.assigneeName,
       childCode: this.childCode,
       title: this.title,
+      note: this.note,
       notes: this.notes,
       taskType: this.taskType,
-      steps: this.steps.slice(),
+      checklist: Array.isArray(this.checklist)
+        ? this.checklist.map((item) => ({ ...item }))
+        : [],
+      steps: Array.isArray(this.steps)
+        ? this.steps.map((item) => ({ ...item }))
+        : [],
+      linkedActionPlanId: this.linkedActionPlanId,
+      linkedGoalId: this.linkedGoalId,
+      useTimer: this.useTimer,
+      durationMinutes: this.durationMinutes,
+      completionSource: this.completionSource,
+      sentAt: this.sentAt,
+      startedAt: this.startedAt,
+      completedAt: this.completedAt,
+      dueDateISO: this.dueDateISO,
       habitToBreak: this.habitToBreak,
       replacements: this.replacements.slice(),
-      frequency: scheduleJson,
+      frequency: this.frequency,
       frequencyLabel: this.frequencyLabel,
       streak: this.streak,
-      completedDates: Array.isArray(this.completedDates) ? this.completedDates.slice() : { ...this.completedDates },
-      schedule: scheduleJson,
+      completedDates: Array.isArray(this.completedDates)
+        ? this.completedDates.slice()
+        : { ...(this.completedDates || {}) },
+      schedule: this.schedule,
       completionLog: { ...(this.completionLog || {}) },
       stats: { ...(this.stats || {}) },
       timeOfDay: this.timeOfDay,
@@ -145,13 +545,11 @@ export class Task {
       needsApproval: this.needsApproval,
       targetType: this.targetType,
       targetName: this.targetName,
+      meta: { ...(this.meta || {}) },
     };
-    Object.keys(this.meta || {}).forEach((k) => {
-      out[k] = this.meta[k];
-    });
-    return out;
   }
 }
+
 export class BuildHabit {
   constructor(props = {}) {
     this.id = props.id ?? null;
@@ -422,12 +820,13 @@ export class GameProfile {
   constructor(props = {}) {
     this.id = props.id ?? null;
     this.coins = props.coins ?? 0;
+
     let inventory = props.inventory;
 
     if (typeof inventory === "string") {
       try {
         inventory = JSON.parse(inventory || "[]");
-      } catch (e) {
+      } catch {
         console.error("Inventory parse failed:", inventory);
         inventory = [];
       }
@@ -436,9 +835,33 @@ export class GameProfile {
     this.inventory = Array.isArray(inventory)
       ? inventory.slice()
       : [];
-    this.meta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
+
+    const rawMeta = props.meta && typeof props.meta === 'object' && !Array.isArray(props.meta)
       ? { ...props.meta }
       : {};
+
+    const earnedBadges = Array.isArray(props.earnedBadges)
+      ? props.earnedBadges.slice()
+      : Array.isArray(rawMeta.earnedBadges)
+        ? rawMeta.earnedBadges.slice()
+        : [];
+
+    const badgeEarnedDates =
+      props.badgeEarnedDates &&
+      typeof props.badgeEarnedDates === 'object' &&
+      !Array.isArray(props.badgeEarnedDates)
+        ? { ...props.badgeEarnedDates }
+        : rawMeta.badgeEarnedDates &&
+          typeof rawMeta.badgeEarnedDates === 'object' &&
+          !Array.isArray(rawMeta.badgeEarnedDates)
+          ? { ...rawMeta.badgeEarnedDates }
+          : {};
+
+    this.meta = {
+      ...rawMeta,
+      earnedBadges,
+      badgeEarnedDates,
+    };
   }
 
   async setCoinCount(newCoins) {
@@ -476,12 +899,31 @@ export class GameProfile {
   }
 
   toJSON() {
-    console.log('Serializing GameProfile with id:', this.id, 'coins:', this.coins, 'inventory:', this.inventory);
+    const safeMeta =
+      this.meta && typeof this.meta === 'object' && !Array.isArray(this.meta)
+        ? { ...this.meta }
+        : {};
+
     return {
       id: this.id,
       coins: this.coins,
-      inventory: this.inventory.map((field) => ({ id: field.id, equipped: field.equipped, color: field.color ?? 1 })),
-      meta: { ...(this.meta || {}) },
+      inventory: this.inventory.map((field) => ({
+        id: field.id,
+        equipped: field.equipped,
+        color: field.color ?? 1,
+      })),
+      meta: {
+        ...safeMeta,
+        earnedBadges: Array.isArray(safeMeta.earnedBadges)
+          ? safeMeta.earnedBadges.slice()
+          : [],
+        badgeEarnedDates:
+          safeMeta.badgeEarnedDates &&
+          typeof safeMeta.badgeEarnedDates === 'object' &&
+          !Array.isArray(safeMeta.badgeEarnedDates)
+            ? { ...safeMeta.badgeEarnedDates }
+            : {},
+      },
     };
   }
 }
@@ -513,6 +955,13 @@ export class GameItem {
   }
 }
 
+function normalizeActionPlanTaskType(value) {
+  const raw = String(value || '').toLowerCase().replace(/[_\s]+/g, '-');
+  if (raw.includes('break')) return TASK_TYPE_BREAK_HABIT;
+  if (raw.includes('build')) return TASK_TYPE_BUILD_HABIT;
+  return value ?? null;
+}
+
 export class ActionPlan {
   constructor(props = {}) {
     const p = props || {};
@@ -524,6 +973,7 @@ export class ActionPlan {
     this.id = p.id ?? p.planId ?? p._id ?? null;
     this.goalId = p.goalId ?? p.goal_id ?? p.goal ?? null;
     this.title = p.title ?? p.name ?? '';
+    this.taskType = normalizeActionPlanTaskType(p.taskType ?? p.type ?? meta.taskType ?? meta.type ?? null);
     this.notes = p.notes ?? p.description ?? '';
     this.assigneeId = p.assigneeId ?? p.assignee ?? (p.assignedToId ?? null);
     if (this.assigneeId != null) this.assigneeId = String(this.assigneeId);
@@ -538,6 +988,11 @@ export class ActionPlan {
           ? this.schedule.label || null
           : String(this.schedule)
         : '');
+    this.cue = p.cue ?? meta.cue ?? '';
+    this.cuePreset = p.cuePreset ?? meta.cuePreset ?? '';
+    this.cueLabel = p.cueLabel ?? meta.cueLabel ?? '';
+    this.cueDetail = p.cueDetail ?? meta.cueDetail ?? '';
+    this.timeOfDay = p.timeOfDay ?? meta.timeOfDay ?? '';
 
     if (p.completedDates && typeof p.completedDates === 'object' && !Array.isArray(p.completedDates)) {
       this.completedDates = { ...p.completedDates };
@@ -593,6 +1048,7 @@ export class ActionPlan {
 
     this.meta = {
       ...meta,
+      taskType: this.taskType,
       currentStreak: this.currentStreak,
       bestStreak: this.bestStreak,
       totalCompletions: this.totalCompletions,
@@ -621,12 +1077,18 @@ export class ActionPlan {
       id: this.id,
       goalId: this.goalId,
       title: this.title,
+      taskType: this.taskType,
       notes: this.notes,
       assigneeId: this.assigneeId,
       assigneeName: this.assigneeName,
       schedule: this.schedule,
       frequency: this.frequency,
       frequencyLabel: this.frequencyLabel,
+      cue: this.cue,
+      cuePreset: this.cuePreset,
+      cueLabel: this.cueLabel,
+      cueDetail: this.cueDetail,
+      timeOfDay: this.timeOfDay,
       completedDates: { ...(this.completedDates || {}) },
       streak: this.streak,
       currentStreak: this.currentStreak,
@@ -642,6 +1104,12 @@ export class ActionPlan {
       createdByRole: this.createdByRole,
       meta: {
         ...(this.meta || {}),
+        cue: this.cue,
+        cuePreset: this.cuePreset,
+        cueLabel: this.cueLabel,
+        cueDetail: this.cueDetail,
+        taskType: this.taskType,
+        timeOfDay: this.timeOfDay,
         currentStreak: this.currentStreak,
         bestStreak: this.bestStreak,
         totalCompletions: this.totalCompletions,

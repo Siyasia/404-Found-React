@@ -1,0 +1,287 @@
+.missions-board {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.missions-board__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.missions-board {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.missions-board__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.missions-board__title {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: var(--app-heading);
+}
+
+.missions-board__header-btn {
+  border: 1px solid transparent;
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  border-radius: 999px;
+  padding: 10px 15px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-primary) 24%, transparent);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.missions-board__header-btn:hover:not(:disabled) {
+  background: var(--app-primary-hover);
+  transform: translateY(-1px);
+}
+
+.missions-board__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.missions-board__column {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  border: 1px solid var(--app-border);
+  background: var(--app-card-soft);
+  border-radius: 20px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.missions-board__column-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--app-text-muted);
+  line-height: 1.2;
+}
+
+.missions-board__list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.missions-board__task-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: var(--app-card);
+}
+
+.missions-board__task-card--active {
+  border-color: var(--app-highlight);
+  background: var(--app-highlight-soft);
+  border-left: 3px solid var(--app-primary);
+  padding-left: 10px;
+}
+
+.missions-board__task-card--completed {
+  background: var(--app-card-soft);
+}
+
+.missions-board__task-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--app-text);
+  line-height: 1.2;
+}
+
+.missions-board__task-note {
+  margin: 5px 0 0;
+  font-size: 0.89rem;
+  line-height: 1.4;
+  color: var(--app-text-muted);
+}
+
+.missions-board__meta {
+  margin-top: 6px;
+  font-size: 0.84rem;
+  color: var(--app-text-muted);
+}
+
+.missions-board__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.missions-board__btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 12px;
+  min-height: 40px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.missions-board__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.missions-board__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.missions-board__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.missions-board__btn--primary {
+  background: var(--app-primary);
+  color: var(--app-primary-text);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+
+.missions-board__btn--primary:hover:not(:disabled) {
+  background: var(--app-primary-hover);
+}
+
+.missions-board__btn--ghost {
+  background: var(--app-secondary-bg);
+  border-color: var(--app-secondary-border);
+  color: var(--app-secondary-text);
+}
+
+.missions-board__btn--ghost:hover:not(:disabled) {
+  background: var(--app-secondary-hover);
+}
+
+.missions-board__btn--danger {
+  background: var(--app-danger-bg);
+  border-color: var(--app-danger-border);
+  color: var(--app-danger-text);
+}
+
+.missions-board__btn--danger:hover:not(:disabled) {
+  background: var(--app-danger-hover);
+}
+
+.missions-board__empty {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 0.92rem;
+  padding: 16px 0;
+}
+
+@media (max-width: 900px) {
+  .missions-board__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* action sizing tweak: make primary flexible, ghosts compact */
+.missions-board__actions .missions-board__btn--primary {
+  flex: 1 1 160px;
+}
+
+.missions-board__actions .missions-board__btn--ghost,
+.missions-board__actions .missions-board__btn--danger {
+  flex: 0 0 auto;
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.missions-board__column,
+.missions-board__task-card,
+.missions-board__empty {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.missions-board__column {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.missions-board__column--finished {
+  border-color: var(--app-build-border);
+}
+
+.missions-board__task-card {
+  background: linear-gradient(180deg, var(--app-card) 0%, var(--app-card-soft) 100%);
+}
+
+.missions-board__task-card:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+  transform: translateY(-2px);
+}
+
+.missions-board__task-card--active {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+}
+
+.missions-board__task-card--completed {
+  background: var(--app-build-bg);
+  border-color: var(--app-build-border);
+}
+
+.missions-board__meta {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+  font-weight: 700;
+}
+
+.missions-board__empty {
+  border: 1px dashed var(--app-border-strong);
+  border-radius: 14px;
+  background: var(--app-highlight-soft);
+}

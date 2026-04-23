@@ -80,6 +80,32 @@ export async function actionPlanDeleteByGoal(goalId) {
   }
 }
 
+export async function actionPlanComplete(actionPlanId, dateISO) {
+  try {
+    const info = await postJSON('/action-plan/complete', { actionPlanId, dateISO })
+    return new Responses.UpdateActionPlanResponse(info.status, info.data)
+  } catch (err) {
+    return new Responses.UpdateActionPlanResponse(500, { error: err?.message || String(err) })
+  }
+}
+
+export async function actionPlanIncomplete(actionPlanId, dateISO) {
+  try {
+    const info = await postJSON('/action-plan/incomplete', { actionPlanId, dateISO })
+    return new Responses.UpdateActionPlanResponse(info.status, info.data)
+  } catch (err) {
+    return new Responses.UpdateActionPlanResponse(500, { error: err?.message || String(err) })
+  }
+}
+
+export async function completeActionPlan(actionPlanId, dateISO) {
+  return actionPlanComplete(actionPlanId, dateISO)
+}
+
+export async function incompleteActionPlan(actionPlanId, dateISO) {
+  return actionPlanIncomplete(actionPlanId, dateISO)
+}
+
 export default {
   actionPlanCreate,
   actionPlanGet,
@@ -87,4 +113,8 @@ export default {
   actionPlanUpdate,
   actionPlanDelete,
   actionPlanDeleteByGoal,
+  actionPlanComplete,
+  actionPlanIncomplete,
+  completeActionPlan,
+  incompleteActionPlan,
 }

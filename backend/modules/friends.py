@@ -136,7 +136,11 @@ def _get_account_by_identifier(identifier: str, db: Database) -> tuple[str | Non
 
 def _get_current_account(user: UserInfo | ChildInfo, db: Database) -> tuple[str | None, dict | None]:
     if isinstance(user, ChildInfo):
-        row = db.execute(*SQLHelper.child_get_by_code(user.code)).fetchone()
+        row = None
+        if getattr(user, "id", None) is not None:
+            row = db.execute(*SQLHelper.child_get_by_id(int(user.id))).fetchone()
+        if not row:
+            row = db.execute(*SQLHelper.child_get_by_code(user.code)).fetchone()
         return ("child", dict(row)) if row else (None, None)
 
     row = None

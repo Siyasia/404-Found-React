@@ -1,111 +1,29 @@
-import { actionPlanList, actionPlanUpdate } from './actionPlans.js'
-import { BADGE_DEFINITIONS, mergeEarnedBadges } from './badges.js'
-import { getGameProfile, updateGameProfile } from './game.js'
-
-import {
-  toLocalISODate,
-  isDueOnDate,
-  computeCurrentStreak,
-  computeBestStreak,
-} from '../schedule.js'
+import { actionPlanComplete, actionPlanIncomplete } from './actionPlans.js'
+import { getGameProfile } from './game.js'
+import { toLocalISODate } from '../schedule.js'
 
 export const COINS_PER_COMPLETION = 20
 
-async function readPlans() {
-  const resp = await actionPlanList()
-  return resp?.status_code === 200 && Array.isArray(resp?.plans) ? resp.plans : []
+function isOk(response) {
+  return Boolean(
+    response &&
+      (
+        response.status_code === 200 ||
+        response.status === 200 ||
+        response.status_code === '200' ||
+        response.status === '200'
+      )
+  )
 }
 
-function ensureObject(value) {
-  return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {}
+async function readCurrentProfile(userId = null) {
+  const response = await getGameProfile(userId)
+  if (!isOk(response)) return null
+  return response?.game_profile ?? response?.profile ?? null
 }
 
-function getSchedule(plan) {
-  if (plan?.schedule && typeof plan.schedule === 'object') return plan.schedule
-  if (plan?.frequency && typeof plan.frequency === 'object') return plan.frequency
-  return null
-}
-
-function normalizeTaskLike(plan) {
-  const schedule = getSchedule(plan)
-  const completionLog = ensureObject(plan?.completedDates)
-  return {
-    schedule,
-    completionLog,
-    stats: {
-      bestStreak: Number(plan?.bestStreak || 0) || 0,
-    },
-  }
-}
-
-// This is the main function for computing streaks, badges, and coins for a given plan on a given date.
-function computePlanStats(plan, todayISO = toLocalISODate()) {
-  const taskLike = normalizeTaskLike(plan)
-  const totalCompletions = Object.keys(taskLike.completionLog).filter((d) => taskLike.completionLog[d] === true).length
-
-  // If there's a schedule, we compute streaks based on due dates. If not, we compute based on consecutive completion days.
-  if (taskLike.schedule) {
-    const current = computeCurrentStreak(taskLike, todayISO)
-    const longest = computeBestStreak(taskLike)
-    return { current, longest, totalCompletions }
-  }
-
-  // For unscheduled plans, we treat any day with a completion as "streaky" and compute the longest run of consecutive completion days.
-  const completedDates = Object.keys(taskLike.completionLog).filter((d) => taskLike.completionLog[d] === true).sort()
-  let best = 0
-  let current = 0
-  let prev = null
-
-  // Iterate through the sorted completion dates and count consecutive runs.
-  completedDates.forEach((iso) => {
-    if (!prev) {
-      current = 1
-    } else {
-      const a = new Date(`${prev}T00:00:00`)
-      const b = new Date(`${iso}T00:00:00`)
-      const diff = Math.round((b - a) / (24 * 60 * 60 * 1000))
-      current = diff === 1 ? current + 1 : 1
-    }
-    if (current > best) best = current
-    prev = iso
-  })
-
-  const todayCurrent = taskLike.completionLog[todayISO] ? current : 0
-  return { current: todayCurrent, longest: best, totalCompletions }
-}
-
-// This function evaluates which badges should be awarded based on the current stats of the plan.
-function evaluateBadges({ current, longest, totalCompletions }) {
-  return BADGE_DEFINITIONS
-    .filter((badge) => {
-      try {
-        return badge.condition({ current, longest, totalCompletions }) === true
-      } catch {
-        return false
-      }
-    })
-    .map((badge) => badge.id)
-}
-
-// Main API functions for marking completions and incompletions, which handle all the logic around updating streaks, awarding badges, and adjusting coin totals.
-async function readCurrentProfile() {
-  const resp = await getGameProfile()
-
-  const ok =
-    resp &&
-    (resp.status_code === 200 ||
-      resp.status === 200 ||
-      resp.status_code === '200' ||
-      resp.status === '200')
-
-  if (!ok) return null
-
-  return resp?.game_profile ?? resp?.profile ?? null
-}
-
-// Retrieves the current coin total for the user. This is used to display the user's coins and to calculate new totals when marking completions.
-export async function getCoins(userId) {
-  const profile = await readCurrentProfile()
+export async function getCoins(userId = null) {
+  const profile = await readCurrentProfile(userId)
   const total = Number(profile?.coins || 0)
 
   return {
@@ -114,234 +32,82 @@ export async function getCoins(userId) {
   }
 }
 
-// This function updates the user's coin total by a specified amount. It ensures that the total never goes negative and persists the new total to the backend.
-async function setCoins(userId, total) {
-  const safeTotal = Math.max(0, Number(total) || 0)
-
-  const resp = await updateGameProfile({ coins: safeTotal })
-
-  const ok =
-    resp &&
-    (resp.status_code === 200 ||
-      resp.status === 200 ||
-      resp.status_code === '200' ||
-      resp.status === '200')
-
-  if (!ok) {
-    throw new Error(resp?.error || 'Failed to persist coins to backend')
-  }
-
-  return safeTotal
-}
-
-function normalizeMilestones(milestoneRewards = []) {
-  return (Array.isArray(milestoneRewards) ? milestoneRewards : [])
-    .map((m) => ({
-      days: Number(m?.days) || 0,
-      coins: Math.max(0, Number(m?.coins) || 0),
-      badge: m?.badge || '',
-    }))
-    .filter((m) => m.days > 0)
-    .sort((a, b) => a.days - b.days)
-}
-
-export async function markComplete(actionPlanId, dateISO = toLocalISODate(), milestoneRewards = []) {
+export async function markComplete(actionPlanId, dateISO = toLocalISODate()) {
   try {
-    const list = await readPlans()
-    const idx = list.findIndex((p) => String(p.id) === String(actionPlanId))
-    if (idx === -1) return { status_code: 500, error: 'Action plan not found' }
+    const response = await actionPlanComplete(actionPlanId, dateISO)
 
-    // Prevent marking future dates as complete.
-    const todayISO = toLocalISODate()
-    if (dateISO > todayISO) {
-      return { status_code: 400, error: 'Cannot mark future dates as complete' }
-    }
-
-    // First we check if the plan is due on the given date. If not, we return an error without modifying anything.
-    const plan = { ...list[idx] }
-    const schedule = getSchedule(plan)
-    if (schedule && !isDueOnDate(schedule, dateISO)) {
-      return { status_code: 400, error: 'This action plan is not due on that date' }
-    }
-
-    // If the plan is already marked complete for that date, we simply return the current stats without modifying anything.
-    const completedDates = ensureObject(plan.completedDates)
-    if (completedDates[dateISO] === true) {
-      const stats = computePlanStats(plan, dateISO)
-      const coinsResp = await getCoins(plan.assigneeId)
+    if (!response || !isOk(response)) {
       return {
-        status_code: 200,
-        data: {
-          ...stats,
-          earnedBadges: Array.isArray(plan.earnedBadges) ? plan.earnedBadges : [],
-          newBadges: [],
-          coinsEarned: 0,
-          milestoneCoinsEarned: 0,
-          badgeCoinsEarned: 0,
-          totalCoins: Number(coinsResp?.data?.total || 0),
-          awardedMilestones: Array.isArray(plan.awardedMilestones) ? plan.awardedMilestones : [],
-          badgeEarnedDates: ensureObject(plan.badgeEarnedDates),
-        },
+        status_code: response?.status_code || 500,
+        error: response?.error || 'Failed to complete action plan',
       }
     }
 
-    completedDates[dateISO] = true
-    plan.completedDates = completedDates
-
-    const stats = computePlanStats(plan, dateISO)
-    const existingBadges = Array.isArray(plan.earnedBadges) ? plan.earnedBadges : []
-    const computedBadges = evaluateBadges(stats)
-
-    const milestones = normalizeMilestones(milestoneRewards)
-    const existingAwardedMilestones = Array.isArray(plan.awardedMilestones) ? plan.awardedMilestones : []
-    const hitMilestones = milestones.filter((m) => stats.longest >= m.days)
-    const newMilestones = hitMilestones.filter((m) => !existingAwardedMilestones.includes(m.days))
-    const milestoneBadgeIds = newMilestones.map((m) => m.badge).filter(Boolean)
-
-    const allEarnedBadges = Array.from(new Set([...existingBadges, ...computedBadges, ...milestoneBadgeIds]))
-    const newBadges = [
-      ...computedBadges.filter((id) => !existingBadges.includes(id)),
-      ...milestoneBadgeIds.filter((id) => !existingBadges.includes(id) && !computedBadges.includes(id)),
-    ]
-
-    const rewardedCompletionDates = ensureObject(plan.rewardedCompletionDates)
-    let coinsEarned = 0
-    if (!rewardedCompletionDates[dateISO]) {
-      rewardedCompletionDates[dateISO] = true
-      coinsEarned = COINS_PER_COMPLETION
-    }
-    plan.rewardedCompletionDates = rewardedCompletionDates
-
-    let badgeCoinsEarned = 0
-    const badgeEarnedDates = ensureObject(plan.badgeEarnedDates)
-    newBadges.forEach((badgeId) => {
-      const def = BADGE_DEFINITIONS.find((b) => b.id === badgeId)
-      if (def?.coins) badgeCoinsEarned += Number(def.coins) || 0
-      if (!badgeEarnedDates[badgeId]) badgeEarnedDates[badgeId] = dateISO
-    })
-
-    const milestoneCoinsEarned = newMilestones.reduce((sum, milestone) => sum + (Number(milestone.coins) || 0), 0)
-    const totalDelta = coinsEarned + badgeCoinsEarned + milestoneCoinsEarned
-
-    // Finally, we persist all the updated data and return the new stats, badges, and coin totals.
-    let totalCoins = null
-    if (plan.assigneeId != null) {
-      const prevCoinsResp = await getCoins(plan.assigneeId)
-      const prevCoins = Number(prevCoinsResp?.data?.total || 0)
-      totalCoins = await setCoins(plan.assigneeId, prevCoins + totalDelta)
-      await mergeEarnedBadges(plan.assigneeId, newBadges, badgeEarnedDates)
-    }
-
-    plan.earnedBadges = allEarnedBadges
-    plan.badgeEarnedDates = badgeEarnedDates
-    plan.currentStreak = stats.current
-    plan.bestStreak = stats.longest
-    plan.totalCompletions = stats.totalCompletions
-    plan.awardedMilestones = Array.from(
-      new Set([...existingAwardedMilestones, ...hitMilestones.map((m) => m.days)])
-    )
-
-    const updateResp = await actionPlanUpdate(plan.id, {
-      completedDates: plan.completedDates,
-      streak: stats.current,
-      meta: {
-        ...(plan.meta || {}),
-        currentStreak: stats.current,
-        bestStreak: stats.longest,
-        totalCompletions: stats.totalCompletions,
-        earnedBadges: allEarnedBadges,
-        awardedMilestones: plan.awardedMilestones,
-        badgeEarnedDates,
-        rewardedCompletionDates: plan.rewardedCompletionDates || {},
-      },
-    })
-
-    if (!updateResp || updateResp.status_code !== 200) {
-      return {
-        status_code: 500,
-        error: updateResp?.error || 'Failed to persist action plan update',
-      }
-    }
+    const payload = response?.data ?? {}
 
     return {
       status_code: 200,
       data: {
-        current: stats.current,
-        longest: stats.longest,
-        totalCompletions: stats.totalCompletions,
-        earnedBadges: allEarnedBadges,
-        newBadges,
-        coinsEarned,
-        badgeCoinsEarned,
-        milestoneCoinsEarned,
-        totalCoins,
-        awardedMilestones: plan.awardedMilestones,
-        newMilestones,
-        badgeEarnedDates,
+        current: Number(payload.current ?? payload.currentStreak ?? 0),
+        longest: Number(payload.longest ?? payload.bestStreak ?? 0),
+        totalCompletions: Number(payload.totalCompletions ?? 0),
+        earnedBadges: Array.isArray(payload.earnedBadges) ? payload.earnedBadges : [],
+        newBadges: Array.isArray(payload.newBadges) ? payload.newBadges : [],
+        coinsEarned: Number(payload.coinsEarned || 0),
+        badgeCoinsEarned: Number(payload.badgeCoinsEarned || 0),
+        milestoneCoinsEarned: Number(payload.milestoneCoinsEarned || 0),
+        totalCoins: Number(payload.totalCoins || 0),
+        awardedMilestones: Array.isArray(payload.awardedMilestones) ? payload.awardedMilestones : [],
+        badgeEarnedDates: payload.badgeEarnedDates && typeof payload.badgeEarnedDates === 'object'
+          ? payload.badgeEarnedDates
+          : {},
+        assigneeId: payload.assigneeId ?? null,
+        assigneeName: payload.assigneeName ?? '',
+        plan: payload.plan ?? null,
+        profile: payload.profile ?? null,
       },
     }
-  } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+  } catch (error) {
+    return { status_code: 500, error: error?.message || String(error) }
   }
 }
 
 export async function markIncomplete(actionPlanId, dateISO = toLocalISODate()) {
   try {
-    const list = await readPlans()
-    const idx = list.findIndex((p) => String(p.id) === String(actionPlanId))
-    if (idx === -1) return { status_code: 500, error: 'Action plan not found' }
+    const response = await actionPlanIncomplete(actionPlanId, dateISO)
 
-    const plan = { ...list[idx] }
-    const completedDates = ensureObject(plan.completedDates)
-    delete completedDates[dateISO]
-    plan.completedDates = completedDates
-
-    const stats = computePlanStats(plan, dateISO)
-    plan.currentStreak = stats.current
-    plan.bestStreak = stats.longest
-    plan.totalCompletions = stats.totalCompletions
-
-    const updateResp = await actionPlanUpdate(plan.id, {
-      completedDates: plan.completedDates,
-      streak: stats.current,
-      meta: {
-        ...(plan.meta || {}),
-        currentStreak: stats.current,
-        bestStreak: stats.longest,
-        totalCompletions: stats.totalCompletions,
-        earnedBadges: Array.isArray(plan.earnedBadges) ? plan.earnedBadges : [],
-        awardedMilestones: Array.isArray(plan.awardedMilestones) ? plan.awardedMilestones : [],
-        badgeEarnedDates: ensureObject(plan.badgeEarnedDates),
-        rewardedCompletionDates: ensureObject(plan.rewardedCompletionDates),
-      },
-    })
-
-    if (!updateResp || updateResp.status_code !== 200) {
+    if (!response || !isOk(response)) {
       return {
-        status_code: 500,
-        error: updateResp?.error || 'Failed to persist action plan update',
+        status_code: response?.status_code || 500,
+        error: response?.error || 'Failed to uncomplete action plan',
       }
     }
 
-    const coinsResp = await getCoins(plan.assigneeId)
+    const payload = response?.data ?? {}
 
     return {
       status_code: 200,
       data: {
-        current: stats.current,
-        longest: stats.longest,
-        totalCompletions: stats.totalCompletions,
-        earnedBadges: Array.isArray(plan.earnedBadges) ? plan.earnedBadges : [],
-        newBadges: [],
-        coinsEarned: 0,
-        badgeCoinsEarned: 0,
-        milestoneCoinsEarned: 0,
-        totalCoins: Number(coinsResp?.data?.total || 0),
-        awardedMilestones: Array.isArray(plan.awardedMilestones) ? plan.awardedMilestones : [],
-        badgeEarnedDates: ensureObject(plan.badgeEarnedDates),
+        current: Number(payload.current ?? payload.currentStreak ?? 0),
+        longest: Number(payload.longest ?? payload.bestStreak ?? 0),
+        totalCompletions: Number(payload.totalCompletions ?? 0),
+        earnedBadges: Array.isArray(payload.earnedBadges) ? payload.earnedBadges : [],
+        newBadges: Array.isArray(payload.newBadges) ? payload.newBadges : [],
+        coinsEarned: Number(payload.coinsEarned || 0),
+        badgeCoinsEarned: Number(payload.badgeCoinsEarned || 0),
+        milestoneCoinsEarned: Number(payload.milestoneCoinsEarned || 0),
+        totalCoins: Number(payload.totalCoins || 0),
+        awardedMilestones: Array.isArray(payload.awardedMilestones) ? payload.awardedMilestones : [],
+        badgeEarnedDates: payload.badgeEarnedDates && typeof payload.badgeEarnedDates === 'object'
+          ? payload.badgeEarnedDates
+          : {},
+        assigneeId: payload.assigneeId ?? null,
+        assigneeName: payload.assigneeName ?? '',
+        plan: payload.plan ?? null,
+        profile: payload.profile ?? null,
       },
     }
-  } catch (err) {
-    return { status_code: 500, error: err?.message || String(err) }
+  } catch (error) {
+    return { status_code: 500, error: error?.message || String(error) }
   }
 }

@@ -1,6 +1,6 @@
 import json
 
-from modules.datatypes import UserInfo, BuildHabitInfo, BreakHabitInfo, TaskInfo, FormedHabitInfo, ChildInfo, \
+from modules.datatypes import ActionPlanInfo, GoalInfo, UserInfo, BuildHabitInfo, BreakHabitInfo, TaskInfo, FormedHabitInfo, ChildInfo, \
     GameProfile
 from state.database import Database
 
@@ -201,7 +201,7 @@ def user_set_incoming_friend_requests(user_id: int, requests_json: str):
 
 def task_create(info: TaskInfo):
     query = (
-        "INSERT INTO tasks (assigneeId, assigneeName, childCode, title, notes, taskType, steps, habitToBreak, replacements, frequency, streak, completedDates, status, createdAt, createdById, createdByName, createdByRole, needsApproval, targetType, targetName, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO tasks (assigneeId, assigneeName, title, notes, taskType, steps, habitToBreak, replacements, frequency, streak, completedDates, status, createdAt, createdById, createdByName, createdByRole, needsApproval, targetType, targetName, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     steps_json = json.dumps(info.steps) if info.steps else None
     replacements_json = json.dumps(info.replacements) if info.replacements else None
@@ -212,7 +212,6 @@ def task_create(info: TaskInfo):
     return query, (
         info.assigneeId,
         info.assigneeName,
-        info.childCode,
         info.title,
         info.notes,
         info.taskType,
@@ -274,9 +273,9 @@ def task_list(assignee_id: int):
     return query, (assignee_id,)
 
 
-def child_task_list(child_code: int):
-    query = "SELECT * FROM tasks WHERE assigneeId IN (SELECT children.id FROM children WHERE code = ?)"
-    return query, (child_code,)
+def child_task_list(child_id: int):
+    query = "SELECT * FROM tasks WHERE assigneeId = ?"
+    return query, (child_id,)
 
 #Sprint 5 Change: Including Username when creating child as well as a password:
 def child_create(child: ChildInfo, hashed_password: str):
@@ -294,6 +293,10 @@ def child_get_by_username_code(username: str, code: str):
 def child_get_by_code(code: str):
     query = "SELECT * FROM children WHERE code = ?"
     return query, (code,)
+
+def child_get_by_id(child_id: int):
+    query = "SELECT * FROM children WHERE id = ?"
+    return query, (child_id,)
 
 def child_delete(child_id: int):
     query = "DELETE FROM children WHERE id = ?"
@@ -368,10 +371,10 @@ def user_update_partial(fields: dict, user_id: int):
     sql = f"UPDATE users SET {set_clause} WHERE id = ?"
     return sql, tuple(params)
 
-def task_list_pending(childCode: int):
-    query = "SELECT * FROM tasks WHERE childCode IN (SELECT code FROM children WHERE code = ?) AND needsApproval = 1 AND createdByRole = 'provider'"
+def task_list_pending(child_id: int):
+    query = "SELECT * FROM tasks WHERE assigneeId = ? AND needsApproval = 1 AND createdByRole = 'provider'"
 
-    return query, (childCode,)
+    return query, (child_id,)
 
 def get_game_profile(userId: int):
     query = "SELECT * FROM game_profiles WHERE id = ?"
@@ -395,6 +398,27 @@ def profile_update_partial(fields: dict, profile_id: int):
     params = []
     for col, val in fields.items():
         # serialize complex types commonly stored as JSON
+        if isinstance(val, (list, dict)):
+            val = json.dumps(val)
+        set_clauses.append(f"{col} = ?")
+        params.append(val)
+
+    params.append(profile_id)
+    set_clause = ", ".join(set_clauses)
+    sql = f"UPDATE game_profiles SET {set_clause} WHERE id = ?"
+    return sql, tuple(params)
+
+def profile_update_partial_for_user(fields: dict, profile_id: int):
+    """
+    Internal trusted helper for updating any user's game profile.
+    Use this from backend-owned reward flows, not from public frontend calls.
+    """
+    if not fields:
+        raise ValueError("no fields to update")
+
+    set_clauses = []
+    params = []
+    for col, val in fields.items():
         if isinstance(val, (list, dict)):
             val = json.dumps(val)
         set_clauses.append(f"{col} = ?")
@@ -532,6 +556,34 @@ def action_plan_update_partial(fields: dict, plan_id: int):
     set_clause = ", ".join(set_clauses)
     sql = f"UPDATE action_plans SET {set_clause} WHERE id = ?"
     return sql, tuple(params)
+
+
+def action_plan_update_progress(
+    plan_id: int,
+    completed_dates: dict,
+    current_streak: int,
+    best_streak: int,
+    total_completions: int,
+    existing_meta=None,
+):
+    meta = existing_meta if isinstance(existing_meta, dict) else {}
+    meta = dict(meta)
+    meta["currentStreak"] = int(current_streak or 0)
+    meta["bestStreak"] = int(best_streak or 0)
+    meta["totalCompletions"] = int(total_completions or 0)
+
+    query = """
+        UPDATE action_plans
+        SET completedDates = ?, streak = ?, meta = ?
+        WHERE id = ?
+    """
+    params = (
+        json.dumps(completed_dates),
+        int(current_streak or 0),
+        json.dumps(meta),
+        plan_id,
+    )
+    return query, params
 
 
 def action_plan_list(owner_id: int):

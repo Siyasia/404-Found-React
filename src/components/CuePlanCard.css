@@ -1,0 +1,326 @@
+.cueCard {
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: clamp(14px, 0.9vw, 18px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.cueCard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.cueCard__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--app-heading);
+}
+
+.cueCard__readButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--app-secondary-border);
+  border-radius: 999px;
+  background: var(--app-secondary-bg);
+  color: var(--app-secondary-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.cueCard__readButton:hover:not(:disabled),
+.cueCard__readButton:focus-visible:not(:disabled) {
+  background: var(--app-secondary-hover);
+  border-color: var(--app-secondary-border);
+  transform: translateY(-1px);
+}
+
+.cueCard__readButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.cueCard__progress {
+  margin-top: 12px;
+  margin-bottom: 18px;
+  flex: 0 0 auto;
+}
+
+.cueCard__progressRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--app-text-muted);
+}
+
+.cueCard__progressRow strong {
+  color: var(--app-text);
+}
+
+.cueCard__progressTrack {
+  width: 100%;
+  height: 9px;
+  background: var(--app-progress-track);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cueCard__progressFill {
+  height: 100%;
+  background: var(--app-progress-fill);
+  border-radius: inherit;
+  transition: width 200ms ease;
+}
+
+.cueCard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+  flex: 1 1 auto;
+}
+
+.cueCard__muted {
+  margin: 0;
+  color: var(--app-text-soft);
+  font-size: 14px;
+}
+
+.cueCard__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cueCard__group.is-all-done .cueCard__groupTitle {
+  color: var(--app-success);
+}
+
+.cueCard__group.is-all-done .cueCard__groupLine {
+  background: var(--app-success);
+}
+
+.cueCard__groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cueCard__groupTitle {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  flex-shrink: 0;
+}
+
+.cueCard__groupCount {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--app-text-soft);
+  flex-shrink: 0;
+}
+
+.cueCard__groupLine {
+  height: 1px;
+  background: var(--app-border);
+  flex: 1 1 auto;
+}
+
+.cueCard__groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cueCard__item {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cueCard__item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-primary) 78%, transparent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.cueCard__itemCheck {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 3px;
+  background: var(--app-card-soft);
+  color: var(--app-primary-text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cueCard__item.is-complete .cueCard__itemCheck {
+  background: var(--app-primary);
+  border-color: var(--app-primary);
+}
+
+.cueCard__itemContent {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cueCard__itemTitle {
+  font-size: 16px;
+  color: var(--app-text);
+  line-height: 1.25;
+}
+
+.cueCard__item.is-complete .cueCard__itemTitle {
+  color: var(--app-text-soft);
+  text-decoration: line-through;
+}
+
+.cueCard__itemSubLabel {
+  font-size: 13px;
+  color: var(--app-text-muted);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.cueCard__itemDetail {
+  font-size: 12px;
+  color: var(--app-text-soft);
+  line-height: 1.35;
+}
+
+.cueCard__item.is-complete .cueCard__itemSubLabel,
+.cueCard__item.is-complete .cueCard__itemDetail {
+  color: var(--app-text-soft);
+}
+
+/* Build habit — green accent */
+.cueCard__item.is-build .cueCard__itemCheck {
+  border-color: var(--app-build-text);
+}
+.cueCard__item.is-build.is-complete .cueCard__itemCheck {
+  background: var(--app-build-text);
+  border-color: var(--app-build-text);
+}
+.cueCard__item.is-build .cueCard__itemTitle {
+  color: var(--app-build-text);
+}
+
+/* Break habit — amber accent */
+.cueCard__item.is-break .cueCard__itemCheck {
+  border-color: var(--app-break-text);
+}
+.cueCard__item.is-break.is-complete .cueCard__itemCheck {
+  background: var(--app-break-text);
+  border-color: var(--app-break-text);
+}
+.cueCard__item.is-break .cueCard__itemTitle {
+  color: var(--app-break-text);
+}
+
+/* Type pill */
+.cueCard__typePill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cueCard__typePill.is-build {
+  background: var(--app-build-bg);
+  color: var(--app-build-text);
+}
+.cueCard__typePill.is-break {
+  background: var(--app-break-bg);
+  color: var(--app-break-text);
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.cueCard,
+.cueCard__item,
+.cueCard__readButton {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.cueCard {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.cueCard__progressTrack {
+  border: 1px solid color-mix(in srgb, var(--app-border-strong) 58%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+
+.cueCard__progressFill {
+  background: linear-gradient(90deg, var(--app-progress-fill), var(--app-primary-hover));
+}
+
+.cueCard__item:hover {
+  transform: translateX(2px);
+}
+
+.cueCard__itemSubLabel,
+.cueCard__itemDetail,
+.cueCard__groupCount {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+}
+
+.cueCard__typePill.is-build {
+  border: 1px solid var(--app-build-border);
+}
+
+.cueCard__typePill.is-break {
+  border: 1px solid var(--app-break-border);
+}

@@ -1,0 +1,697 @@
+/* =========================================================
+   SHOP PAGE
+   Follows the same conventions as Home.css — CSS variables
+   for spacing, panel style matching .home-panel, and a
+   sidebar layout with the item grid on the left.
+========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --shop-max-width: 1920px;
+  --shop-padding-x: clamp(12px, 1vw, 18px);
+  --shop-padding-y: clamp(10px, 0.9vw, 14px);
+  --shop-gap: clamp(10px, 0.9vw, 16px);
+  --shop-radius: 14px;
+  --shop-panel-padding: clamp(14px, 0.9vw, 18px);
+
+  --shop-accent: var(--app-primary);
+  --shop-accent-hover: var(--app-primary-hover);
+  --shop-accent-text: var(--app-primary-text);
+  --shop-accent-light: var(--app-highlight-soft);
+
+  --shop-secondary-bg: var(--app-secondary-bg);
+  --shop-secondary-border: var(--app-secondary-border);
+  --shop-secondary-text: var(--app-secondary-text);
+  --shop-secondary-hover: var(--app-secondary-hover);
+
+  --shop-reward-bg: var(--app-highlight-soft);
+  --shop-reward-border: var(--app-highlight);
+  --shop-reward-text: var(--app-link);
+  --shop-reward-hover: color-mix(in srgb, var(--app-highlight) 24%, var(--app-highlight-soft));
+
+  --shop-success-bg: var(--app-success);
+  --shop-success-text: var(--app-success-text);
+  --shop-success-hover: var(--app-success-hover);
+
+  --shop-danger-bg: var(--app-danger-bg);
+  --shop-danger-border: var(--app-danger-border);
+  --shop-danger-text: var(--app-danger-text);
+  --shop-danger-hover: var(--app-danger-hover);
+
+  --shop-coin-bg: var(--app-chip-soft-bg);
+  --shop-coin-border: var(--app-chip-soft-border);
+  --shop-coin-text: var(--app-chip-soft-text);
+}
+
+/* =========================================================
+   PAGE SHELL
+========================================================= */
+.shop-page {
+  width: 100%;
+  padding: var(--shop-padding-y) var(--shop-padding-x);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--app-primary) 12%, transparent), transparent 30%),
+    linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-elevated) 100%);
+  min-height: 100vh;
+  color: var(--app-text);
+}
+
+.shop-canvas {
+  width: 100%;
+  max-width: var(--shop-max-width);
+  min-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--shop-gap);
+}
+
+/* =========================================================
+   SHARED PANEL — mirrors .home-panel exactly
+========================================================= */
+.shop-panel {
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  border-radius: var(--shop-radius);
+  padding: var(--shop-panel-padding);
+}
+
+.shop-panel__title {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--app-heading);
+}
+
+/* =========================================================
+   TOP BAR
+========================================================= */
+.shop-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--shop-gap);
+}
+
+.shop-topbar__left h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--app-heading);
+}
+
+.shop-topbar__left p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--app-text-muted);
+}
+
+/* Coin balance pill */
+.shop-coin-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--shop-coin-bg);
+  border: 1px solid var(--shop-coin-border);
+  border-radius: 999px;
+  padding: 8px 18px;
+}
+
+.shop-coin-badge__icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.shop-coin-badge__label {
+  font-size: 13px;
+  color: var(--shop-coin-text);
+}
+
+.shop-coin-badge__count {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--shop-coin-text);
+}
+
+/* =========================================================
+   MAIN LAYOUT — item grid + sidebar
+========================================================= */
+.shop-body {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--shop-gap);
+  align-items: start;
+}
+
+/* =========================================================
+   CATEGORY TABS
+========================================================= */
+.shop-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.shop-tab {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-card);
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.shop-tab:hover {
+  background: var(--app-card-soft);
+  color: var(--app-text);
+}
+
+.shop-tab.is-active {
+  background: var(--shop-accent);
+  border-color: transparent;
+  color: var(--shop-accent-text);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--app-primary) 22%, transparent);
+}
+
+/* =========================================================
+   ITEMS GRID
+========================================================= */
+.shop-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* =========================================================
+   ITEM CARD
+========================================================= */
+.shop-item-card {
+  position: relative;
+  background: var(--app-card);
+  border: 1px solid var(--app-border);
+  border-radius: var(--shop-radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.shop-item-card:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.shop-item-card.is-owned {
+  opacity: 0.55;
+}
+
+/* Floating badges */
+.shop-item-card__badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.shop-item-card__badge--reward {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: auto;
+  background: var(--shop-reward-bg);
+  color: var(--shop-reward-text);
+  border: 1px solid var(--shop-reward-border);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* Item image area */
+.shop-item-card__img-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  background: var(--app-card-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.shop-item-card__img-wrap img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.shop-item-card__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin-bottom: 4px;
+}
+
+.shop-item-card__price {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--app-text-muted);
+  margin-bottom: 14px;
+}
+
+.shop-item-card__price-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--app-primary);
+  border: 1.5px solid var(--app-primary-hover);
+  flex-shrink: 0;
+}
+
+/* Action buttons inside card */
+.shop-item-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.shop-btn {
+  width: 100%;
+  padding: 8px 0;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+.shop-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.shop-btn--primary {
+  background: var(--shop-accent);
+  border: 1px solid transparent;
+  color: var(--shop-accent-text);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-primary) 24%, transparent);
+}
+
+.shop-btn--primary:hover:not(:disabled) {
+  background: var(--shop-accent-hover);
+}
+
+.shop-btn--secondary {
+  background: var(--shop-secondary-bg);
+  border: 1px solid var(--shop-secondary-border);
+  color: var(--shop-secondary-text);
+}
+
+.shop-btn--secondary:hover:not(:disabled) {
+  background: var(--shop-secondary-hover);
+}
+
+.shop-btn--reward {
+  background: var(--shop-reward-bg);
+  border: 1px solid var(--shop-reward-border);
+  color: var(--shop-reward-text);
+}
+
+.shop-btn--reward:hover:not(:disabled) {
+  background: var(--shop-reward-hover);
+}
+
+.shop-btn--success {
+  background: var(--shop-success-bg);
+  border: 1px solid transparent;
+  color: var(--shop-success-text);
+}
+
+.shop-btn--success:hover:not(:disabled) {
+  background: var(--shop-success-hover);
+}
+
+.shop-btn--danger {
+  background: var(--shop-danger-bg);
+  border: 1px solid var(--shop-danger-border);
+  color: var(--shop-danger-text);
+}
+
+.shop-btn--danger:hover:not(:disabled) {
+  background: var(--shop-danger-hover);
+}
+
+.shop-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+.shop-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shop-gap);
+  position: sticky;
+  top: 16px;
+}
+
+/* Active reward card */
+.shop-reward-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shop-reward-card__img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--app-card-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.shop-reward-card__img img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.shop-reward-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin-bottom: 2px;
+}
+
+.shop-reward-card__meta {
+  font-size: 12px;
+  color: var(--app-text-muted);
+}
+
+.shop-reward-progress-track {
+  width: 100%;
+  height: 7px;
+  background: var(--app-progress-track);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.shop-reward-progress-fill {
+  height: 100%;
+  background: var(--shop-accent);
+  border-radius: inherit;
+  transition: width 300ms ease;
+}
+
+.shop-reward-progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--app-text-soft);
+}
+
+/* Inventory grid */
+.shop-inv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.shop-inv-item {
+  background: var(--app-card-soft);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.shop-inv-item__img {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--app-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.shop-inv-item__img img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.shop-inv-item__name {
+  font-size: 10px;
+  color: var(--app-text-muted);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.shop-inv-empty {
+  font-size: 13px;
+  color: var(--app-text-soft);
+  text-align: center;
+  padding: 1rem 0;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   MODAL — info / confirm
+========================================================= */
+.shop-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--app-text) 45%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.shop-modal {
+  background: var(--app-panel);
+  border-radius: var(--shop-radius);
+  border: 1px solid var(--app-border);
+  padding: 2rem;
+  width: 320px;
+  text-align: center;
+}
+
+.shop-modal__message {
+  font-size: 15px;
+  color: var(--app-text);
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.shop-modal__close {
+  width: auto;
+  padding: 9px 28px;
+}
+
+/* Preview modal */
+.shop-preview-modal {
+  background: var(--app-panel);
+  border-radius: var(--shop-radius);
+  border: 1px solid var(--app-border);
+  padding: 2rem;
+  width: 340px;
+  text-align: center;
+}
+
+.shop-preview-modal__title {
+  margin: 0 0 1rem;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-heading);
+}
+
+.shop-preview-modal__name {
+  margin: 1rem 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+
+.shop-preview-modal__price {
+  font-size: 13px;
+  color: var(--app-text-muted);
+  margin: 0 0 1.25rem;
+}
+
+.shop-preview-modal__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.shop-preview-modal__actions .shop-btn {
+  width: auto;
+  padding: 8px 24px;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+@media (max-width: 1100px) {
+  .shop-body {
+    grid-template-columns: 1fr 260px;
+  }
+}
+
+@media (max-width: 860px) {
+  .shop-canvas {
+    min-width: 0;
+  }
+
+  .shop-body {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 580px) {
+  .shop-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .shop-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-items-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}
+
+/* =========================================================
+   THEME PERSONALITY POLISH
+========================================================= */
+.shop-panel,
+.shop-item-card,
+.shop-inv-item,
+.shop-reward-card,
+.shop-modal,
+.shop-preview-modal,
+.shop-tab {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.shop-panel,
+.shop-modal,
+.shop-preview-modal {
+  background: linear-gradient(180deg, var(--app-panel) 0%, var(--app-card-soft) 100%);
+  border-color: var(--app-border);
+  box-shadow: var(--app-shadow-soft);
+}
+
+.shop-topbar {
+  border-color: var(--app-border-strong);
+}
+
+.shop-coin-badge,
+.shop-item-card__badge,
+.shop-item-card__badge--reward,
+.shop-item-card__price,
+.shop-reward-card__meta {
+  background: var(--app-chip-soft-bg);
+  border: 1px solid var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+  border-radius: 999px;
+}
+
+.shop-item-card__price,
+.shop-reward-card__meta {
+  width: fit-content;
+  padding: 3px 8px;
+}
+
+.shop-tab {
+  background: var(--app-chip-soft-bg);
+  border-color: var(--app-chip-soft-border);
+  color: var(--app-chip-soft-text);
+}
+
+.shop-tab.is-active {
+  background: var(--app-highlight-soft);
+  border-color: var(--app-border-strong);
+  color: var(--app-link);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-primary) 16%, transparent);
+}
+
+.shop-item-card {
+  background: linear-gradient(180deg, var(--app-card) 0%, var(--app-card-soft) 100%);
+}
+
+.shop-item-card:hover,
+.shop-inv-item:hover {
+  border-color: var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+  transform: translateY(-2px);
+}
+
+.shop-item-card.is-owned {
+  background: var(--app-build-bg);
+  border-color: var(--app-build-border);
+  opacity: 0.78;
+}
+
+.shop-reward-progress-track {
+  border: 1px solid color-mix(in srgb, var(--app-border-strong) 58%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+
+.shop-reward-progress-fill {
+  background: linear-gradient(90deg, var(--app-progress-fill), var(--app-primary-hover));
+}

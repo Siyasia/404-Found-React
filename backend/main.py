@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import load_dotenv
 import os
 from state import database
-from modules.habits import build_habits, formed_habits, break_habits
+from modules.habits import build_habits, break_habits
 from modules import tasks, user, login, child, game, friends, action_plans, goals
 
 load_dotenv.load_dotenv()
@@ -15,7 +15,6 @@ database.Database.init(db_filename)
 app = fastapi.FastAPI()
 app.include_router(build_habits.router)
 app.include_router(break_habits.router)
-app.include_router(formed_habits.router)
 app.include_router(tasks.router)
 app.include_router(user.router)
 app.include_router(login.router)

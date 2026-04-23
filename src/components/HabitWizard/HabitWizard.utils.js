@@ -1,4 +1,5 @@
 import { REPEAT, formatScheduleLabel } from '../../lib/schedule.js'
+import { getCueLabel } from '../../lib/cuePresets.js'
 
 // ===================== CONFIG =====================
 // All configuration constants are centralized here for easy modification.
@@ -95,14 +96,24 @@ export function normalizeSchedule(schedule, fallbackStart, fallbackEnd) {
 export function normalizeTask(task, fallbackStart, fallbackEnd) {
   const startDate = task?.startDate || task?.schedule?.startDate || fallbackStart;
   const endDate = task?.endDate || task?.schedule?.endDate || fallbackEnd || '';
+
+  const cuePreset = task?.cuePreset || task?.meta?.cuePreset || '';
+  const cueLabel = task?.cueLabel || task?.meta?.cueLabel || getCueLabel(cuePreset);
+  const cueDetail = task?.cueDetail || task?.meta?.cueDetail || task?.cue || '';
+  const displayCue = cueDetail || cueLabel || '';
+
   return {
     title: task?.title || '',
-    cue: task?.cue || '',
-    timeOfDay: task?.timeOfDay || '',
+    cue: displayCue,
+    cuePreset,
+    cueLabel,
+    cueDetail,
+    timeOfDay: task?.timeOfDay || task?.meta?.timeOfDay || '',
     startDate,
     endDate,
     schedule: normalizeSchedule(task?.schedule || defaultSchedule(startDate, endDate), startDate, endDate),
     completionLog: task?.completionLog || {},
+    meta: task?.meta && typeof task.meta === 'object' ? { ...task.meta } : {},
   };
 }
 
@@ -113,6 +124,16 @@ export function normalizeReplacementList(value) {
   return (value || []).map((item) =>
     typeof item === 'string' ? { title: item, cue: '' } : item
   );
+}
+
+export function normalizeAssigneeIds(value) {
+  const input = Array.isArray(value)
+    ? value
+    : value == null || value === ''
+      ? []
+      : [value];
+
+  return [...new Set(input.map((item) => String(item)).filter(Boolean))];
 }
 
 /**
@@ -129,13 +150,25 @@ export function generateId(prefix) {
  * Validate the goal step.
  * Returns an object with error messages (empty if valid).
  */
-export function validateGoalStep(title, typeConfirmed, habitType, goalStartDate, hasGoalEndDate, goalEndDate) {
+export function validateGoalStep(
+  title,
+  typeConfirmed,
+  habitType,
+  goalStartDate,
+  hasGoalEndDate,
+  goalEndDate,
+  assignees = [],
+  context = 'self'
+) {
   const errors = {};
   if (!title.trim()) errors.title = 'Give your goal a clear name.';
   if (!typeConfirmed || !habitType) errors.title = 'Confirm whether this is a build goal or a break goal.';
   if (!goalStartDate) errors.goalWindow = 'Choose when this goal starts.';
   if (hasGoalEndDate && goalStartDate && goalEndDate && goalEndDate < goalStartDate) {
     errors.goalWindow = 'Goal end date cannot be before the start date.';
+  }
+  if (context === 'parent' && normalizeAssigneeIds(assignees).length === 0) {
+    errors.assignees = 'Please select at least one person.';
   }
   return errors;
 }
@@ -262,7 +295,12 @@ export function loadDraft(initialValues, today, config) {
     rewardGoalTitle: initialValues?.rewardGoalTitle || '',
     milestoneRewards: initialValues?.milestoneRewards || config.DEFAULT_MILESTONES,
     rewardGoalCostCoins: initialValues?.rewardGoalCostCoins || '',
-    assignee: initialValues?.assignee || '',
+    rewardType: initialValues?.rewardType || initialValues?.meta?.rewardType || 'custom',
+    rewardShopItemId: initialValues?.rewardShopItemId || initialValues?.meta?.rewardShopItemId || '',
+    assignees: normalizeAssigneeIds(
+      initialValues?.assignees ||
+      (initialValues?.assignee != null ? [initialValues.assignee] : [])
+    ),
     tasks: Array.isArray(initialValues?.tasks)
       ? initialValues.tasks.map((task) =>
           normalizeTask(task, initialValues?.startDate || today, initialValues?.endDate || '')
@@ -311,7 +349,10 @@ export function loadDraft(initialValues, today, config) {
     if ('rewardGoalTitle' in data) next.rewardGoalTitle = data.rewardGoalTitle || '';
     if (Array.isArray(data.milestoneRewards)) next.milestoneRewards = data.milestoneRewards;
     if ('rewardGoalCostCoins' in data) next.rewardGoalCostCoins = data.rewardGoalCostCoins || '';
-    if ('assignee' in data) next.assignee = data.assignee || '';
+    if ('rewardType' in data) next.rewardType = data.rewardType || 'custom';
+    if ('rewardShopItemId' in data) next.rewardShopItemId = data.rewardShopItemId || '';
+    if (Array.isArray(data.assignees)) next.assignees = normalizeAssigneeIds(data.assignees);
+    else if ('assignee' in data) next.assignees = normalizeAssigneeIds(data.assignee);
     if (Array.isArray(data.tasks)) {
       next.tasks = data.tasks.map((task) =>
         normalizeTask(task, next.goalStartDate || base.goalStartDate, next.goalEndDate || '')
@@ -320,7 +361,7 @@ export function loadDraft(initialValues, today, config) {
     // Re‑infer type from title if not already confirmed
     next.inferredType = next.typeConfirmed ? next.habitType : inferGoalType(next.title);
     return next;
-  } catch (error) {
+  } catch {
     return base; // On any error, fall back to base
   }
 }
@@ -329,6 +370,7 @@ export function loadDraft(initialValues, today, config) {
  * Save draft data to localStorage, and optionally to an API or custom handler.
  */
 export function saveDraft(data, config, draftApiUrl, authToken, onDraftSave) {
+  const draftAssignees = normalizeAssigneeIds(data.assignees);
   const draftData = {
     version: config.DRAFT_VERSION,
     data: {
@@ -346,8 +388,11 @@ export function saveDraft(data, config, draftApiUrl, authToken, onDraftSave) {
       savingFor: data.savingFor,
       rewardGoalTitle: data.rewardGoalTitle,
       rewardGoalCostCoins: data.rewardGoalCostCoins,
+      rewardType: data.rewardType,
+      rewardShopItemId: data.rewardShopItemId,
       milestoneRewards: data.milestoneRewards,
-      assignee: data.assignee,
+      assignees: draftAssignees,
+      assignee: draftAssignees[0] || null,
       tasks: data.tasks,
     },
   };
@@ -355,7 +400,7 @@ export function saveDraft(data, config, draftApiUrl, authToken, onDraftSave) {
   // Local storage
   try {
     localStorage.setItem(config.DRAFT_STORAGE_KEY, JSON.stringify(draftData));
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -363,7 +408,7 @@ export function saveDraft(data, config, draftApiUrl, authToken, onDraftSave) {
   if (typeof onDraftSave === 'function') {
     try {
       onDraftSave(draftData);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -393,29 +438,49 @@ export function buildFinalPayload(
   savingFor,
   rewardGoalTitle,
   rewardGoalCostCoins,
+  rewardType,
+  rewardShopItemId,
   triggers,
   location,
   makeItEasier,
   replacements,
-  assignee,
+  assignees,
   milestoneRewards,
   config
 ) {
   const habitId = generateId('habit'); // Client-generated ID (backend may replace)
-  const normalizedTasks = tasks.map((task) => ({
-    taskId: generateId('task'),
-    habitId,
-    title: task.title,
-    cue: task.cue || null,
-    timeOfDay: task.timeOfDay || null,
-    startDate: task.startDate,
-    endDate: task.endDate || '',
-    schedule: task.schedule,
-    // keep a backward-compatible alias so other code that still reads `frequency` continues to work
-    frequency: task.schedule || null,
-    frequencyLabel: formatScheduleLabel(task.schedule),
-    completionLog: task.completionLog || {},
-  }));
+  const normalizedAssignees = normalizeAssigneeIds(assignees);
+  const primaryAssignee = normalizedAssignees[0] || null;
+  const normalizedTasks = tasks.map((task) => {
+    const cuePreset = task?.cuePreset || task?.meta?.cuePreset || '';
+    const cueLabel = task?.cueLabel || task?.meta?.cueLabel || getCueLabel(cuePreset);
+    const cueDetail = (task?.cueDetail || task?.cue || '').trim();
+    const displayCue = cueDetail || cueLabel || '';
+
+    return {
+      taskId: generateId('task'),
+      habitId,
+      title: task.title,
+      cue: displayCue || null,
+      cuePreset: cuePreset || null,
+      cueLabel: cueLabel || null,
+      cueDetail: cueDetail || null,
+      timeOfDay: task.timeOfDay || null,
+      startDate: task.startDate,
+      endDate: task.endDate || '',
+      schedule: task.schedule,
+      frequency: task.schedule || null,
+      frequencyLabel: formatScheduleLabel(task.schedule),
+      completionLog: task.completionLog || {},
+      meta: {
+        ...(task?.meta && typeof task.meta === 'object' ? task.meta : {}),
+        cuePreset: cuePreset || null,
+        cueLabel: cueLabel || null,
+        cueDetail: cueDetail || null,
+        timeOfDay: task.timeOfDay || null,
+      },
+    };
+  });
 
   return {
     // Provide stable top-level fields expected by UI mapping and other components
@@ -434,13 +499,16 @@ export function buildFinalPayload(
     savingFor: savingFor || '',
     rewardGoalTitle: rewardGoalTitle || '',
     rewardGoalCostCoins: rewardGoalCostCoins || '',
+    rewardType: rewardType || 'custom',
+    rewardShopItemId: rewardShopItemId || '',
     triggers,
     location,
     makeItEasier,
     replacements,
+    assignees: normalizedAssignees,
     // Keep both `assignee` (used by mapper) and canonical `assigneeId`
-    assignee: assignee || null,
-    assigneeId: assignee || null,
+    assignee: primaryAssignee,
+    assigneeId: primaryAssignee,
     tasks: normalizedTasks,
     milestoneRewards,
     // UI-friendly defaults

@@ -6,8 +6,8 @@ export default function EmptyState({ icon, title, description, buttonLabel, butt
     <div style={{
       height: '72px',
       padding: '16px',
-      background: '#f9fafb',
-      border: '1px solid #e5e7eb',
+      background: 'var(--app-card-soft)',
+      border: '1px solid var(--app-border)',
       borderRadius: '8px',
       display: 'flex',
       alignItems: 'center',
@@ -18,7 +18,7 @@ export default function EmptyState({ icon, title, description, buttonLabel, butt
         <span style={{ fontSize: '1.5rem' }}>{icon}</span>
         <div>
           <div style={{ fontWeight: 600, fontSize: '.95rem' }}>{title}</div>
-          <div style={{ fontSize: '.85rem', color: '#6b7280' }}>{description}</div>
+          <div style={{ fontSize: '.85rem', color: 'var(--app-text-muted)' }}>{description}</div>
         </div>
       </div>
       {buttonLink ? (

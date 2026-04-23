@@ -2,12 +2,16 @@ import React from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../UserContext.jsx';
 import { ROLE, ROLE_LABEL, canCreateOwnTasks } from '../Roles/roles.js';
+import { useFriendRequests } from '../lib/hooks/useFriendRequests.js';
 
 export default function Layout({ children }) {
   const { user, setUser } = useUser();
   const canCreate = user && canCreateOwnTasks(user);
   const isParent = user?.role === ROLE.PARENT;
   const useGame = user?.role === ROLE.USER || user?.role === ROLE.CHILD;
+  const showFriendBadge =
+    Boolean(user) && user?.role !== ROLE.PROVIDER;
+  const { pendingCount } = useFriendRequests(30000, showFriendBadge);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -50,7 +54,6 @@ export default function Layout({ children }) {
               <>
                 <NavLink to="/parent/dashboard?tab=children" className="nav-link">Children</NavLink>
                 <NavLink to="/parent/dashboard?tab=assign" className="nav-link">Assign tasks</NavLink>
-                <NavLink to="/parent/dashboard?tab=my-tasks" className="nav-link">My tasks</NavLink>
                 <NavLink to="/parent/dashboard?tab=goals" className="nav-link">Goals</NavLink>
                 <NavLink to="/calendar" className="nav-link">Calendar</NavLink>
                 <NavLink to="/parent/dashboard?tab=approvals" className="nav-link">Approvals</NavLink>
@@ -61,6 +64,9 @@ export default function Layout({ children }) {
                 {canCreate && (
                   <>
                     <NavLink to="/habit" className="nav-link">Habit Wizard</NavLink>
+                    {user?.role === ROLE.USER && (
+                      <NavLink to="/goals" className="nav-link">Goals</NavLink>
+                    )}
                   </>
                 )}
                 {useGame && (
@@ -83,11 +89,16 @@ export default function Layout({ children }) {
               </span>
               <button
                 type="button"
-                className ="btn btn-ghost"
+                className ="btn btn-ghost layout-profile-trigger"
                 onClick={handleProfile}
                 style={{ padding: '0.35rem 0.9rem', fontSize: '0.85rem' }}
                 >
                 Profile
+                {pendingCount > 0 && (
+                  <span className="layout-request-badge" aria-label={`${pendingCount} pending friend requests`}>
+                    {pendingCount}
+                  </span>
+                )}
               </button>
               <button
                 type="button"

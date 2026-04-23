@@ -1,39 +1,38 @@
 import { useEffect, useState } from "react";
-import { getItemList } from "../lib/api/game";
+import { getItemList } from "../lib/api/game.js";
 
-//used to load items from database
 export function useItems() {
+  const [items, setItems] = useState([]);
+  const [itemloading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-    //initialize items and error message
-    const [items, setItems] = useState([]);
-    const [itemloading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+  useEffect(() => {
+    async function loadItems() {
+      try {
+        const itemList = await getItemList();
 
-    //attempt to load the items from the database
-    useEffect(() => {
-
-        async function loadItems() {
-            //safely try to get the items list
-            try {
-                const itemList = await getItemList();
-
-                if (itemList.error) {
-                    setError(itemList.error);
-                } 
-                else {
-                    setItems(itemList.items); 
-                }   
-            }
-            catch (error) {
-                console.error(error);
-                setError("Server error")
-            } finally {
-                setLoading(false);
-            }
+        if (itemList?.error) {
+          setError(itemList.error);
+          setItems([]);
+        } else {
+          setItems(Array.isArray(itemList?.items) ? itemList.items : []);
         }
+      } catch (error) {
+        console.error(error);
+        setError("Server error");
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-        loadItems();
-    }, []);
+    loadItems();
+  }, []);
 
-    return { items, itemloading, error };
+  return {
+    items,
+    itemloading,
+    loading: itemloading,
+    error,
+  };
 }

@@ -1,1076 +1,1455 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUser } from '../UserContext.jsx';
-import { ROLE } from '../Roles/roles.js';
-import { childList } from '../lib/api/children.js';
-import { taskList, taskUpdate, taskListPending, taskCreate } from '../lib/api/tasks.js';
-import { goalList } from '../lib/api/goals.js';
-import { actionPlanList } from '../lib/api/actionPlans.js';
-import { Task, Goal, ActionPlan } from '../models';
-import Toast from '../components/Toast.jsx';
-import togglePlanCompletion from '../lib/actionPlanCompletion.js';
-import { isDueOnDate, toLocalISODate, formatScheduleLabel } from '../lib/schedule.js';
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useUser } from '../UserContext.jsx'
+import { ROLE } from '../Roles/roles.js'
+import Toast from '../components/Toast.jsx'
+import WeekStrip from '../components/WeekStrip.jsx'
+import CuePlanCard from '../components/CuePlanCard.jsx'
+import MissionsBoard from '../components/MissionsBoard.jsx'
+import TaskAssignmentPanel from '../components/TaskAssignmentPanel.jsx'
+import FocusMissionPanel from '../components/FocusMissionPanel.jsx'
+import './ParentHomepage.css'
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { childList } from '../lib/api/children.js'
+import {
+  taskList,
+  taskStart,
+  taskComplete,
+  taskToggleChecklistItem,
+  taskDelete,
+  taskListPending,
+} from '../lib/api/tasks.js'
+import { goalList } from '../lib/api/goals.js'
+import { actionPlanList } from '../lib/api/actionPlans.js'
+import { getCoins, markComplete, markIncomplete } from '../lib/api/streaks.js'
+import {
+  clearActiveReward,
+  getActiveReward,
+  getAvailableRewards,
+  redeemActiveReward,
+  setActiveReward as persistActiveReward,
+} from '../lib/api/reward.js'
+import { isDueOnDate, toLocalISODate } from '../lib/schedule.js'
+import { getCueLabel } from '../lib/cuePresets.js'
+import {
+  buildActionPlanSpeech,
+  speakText,
+  supportsSpeechSynthesis,
+} from '../lib/speech.js'
+import { Task, Goal, ActionPlan } from '../models'
 
-function formatDate() {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'long',
+function formatShortDate(date = new Date()) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
-    year: 'numeric',
-  }).format(new Date());
+  })
 }
 
-function normalizeId(val) {
-  return val === undefined || val === null ? null : String(val);
+function formatClock(date = new Date()) {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function sanitizeTitle(title) {
+  if (!title || String(title).trim() === '') return 'Untitled'
+  const trimmed = String(title).trim()
+  if (/^[a-z0-9]{4,}$/i.test(trimmed)) return 'Untitled item'
+  return trimmed
+}
+
+function extractGoals(response) {
+  if (Array.isArray(response?.goals)) return response.goals
+  if (Array.isArray(response?.data?.goals)) return response.data.goals
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+function extractPlans(response) {
+  if (Array.isArray(response?.plans)) return response.plans
+  if (Array.isArray(response?.data?.plans)) return response.data.plans
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+function extractTasks(response) {
+  if (Array.isArray(response?.tasks)) return response.tasks
+  if (Array.isArray(response?.data?.tasks)) return response.data.tasks
+  if (Array.isArray(response?.data)) return response.data
+  return []
+}
+
+function extractCoins(response) {
+  return Number(response?.data?.total ?? response?.total ?? 0) || 0
+}
+
+function normalizeId(value) {
+  return value === undefined || value === null ? '' : String(value)
+}
+
+function getGoalTitle(goal) {
+  return sanitizeTitle(goal?.title || goal?.goal || goal?.name || 'Untitled goal')
 }
 
 function getTaskType(task) {
-  return task?.taskType || task?.type || 'simple';
+  return task?.taskType || task?.type || 'simple'
 }
 
-function getAssigneeId(task) {
-  return task?.assigneeId || task?.childId || null;
-}
-
-function getFrequency(task) {
-  return task?.frequency || task?.repeat || '';
-}
-
-function isDueToday(task, now = new Date()) {
-  const freq = getFrequency(task) || 'daily';
-  const day = now.getDay();
-  if (freq === 'daily') return true;
-  if (freq === 'weekdays') return day >= 1 && day <= 5;
-  if (freq === 'weekends') return day === 0 || day === 6;
-  if (freq === 'weekly') return true;
-  if (freq === 'monthly') return true;
-  return false;
-}
-
-function completedToday(task, todayIso) {
-  const dates = Array.isArray(task?.completedDates) ? task.completedDates : [];
-  return dates.some((d) => {
-    const parsed = new Date(d);
-    if (Number.isNaN(parsed.getTime())) return false;
-    return parsed.toISOString().slice(0, 10) === todayIso;
-  });
-}
-
-function isMalformed(task) {
-  const hasName = Boolean(task?.title || task?.name);
-  const type = getTaskType(task);
-  const repeat = getFrequency(task);
-  const hasAssignee = Boolean(getAssigneeId(task));
-  const typeValid = !type || ['simple', 'build-habit', 'break-habit'].includes(type);
-  const repeatValid = !repeat || ['daily', 'weekdays', 'weekends', 'weekly', 'monthly'].includes(repeat);
-  return !hasName || !type || !hasAssignee || !typeValid || !repeatValid;
+function isTaskComplete(task) {
+  const status = String(task?.status || '').toLowerCase()
+  return status === 'completed' || status === 'done'
 }
 
 function getPlanSchedule(plan) {
-  if (plan?.schedule && typeof plan.schedule === 'object') return plan.schedule;
-  if (plan?.frequency && typeof plan.frequency === 'object') return plan.frequency;
-  return null;
+  if (plan?.schedule && typeof plan.schedule === 'object') return plan.schedule
+  if (plan?.frequency && typeof plan.frequency === 'object') return plan.frequency
+  return null
 }
 
-function isPlanCompletedToday(plan, todayIso) {
-  if (!plan?.completedDates || typeof plan.completedDates !== 'object') return false;
-  return plan.completedDates[todayIso] === true;
+function getPlanCueKey(plan) {
+  return plan?.cuePreset || plan?.meta?.cuePreset || ''
 }
 
-function getPlanFrequencyLabel(plan) {
-  if (plan?.frequencyLabel) return plan.frequencyLabel;
-  const schedule = getPlanSchedule(plan);
-  return schedule ? formatScheduleLabel(schedule) : 'Scheduled';
+function getPlanCueLabel(plan) {
+  const cueKey = getPlanCueKey(plan)
+  return plan?.cueLabel || plan?.meta?.cueLabel || getCueLabel(cueKey) || ''
 }
 
-function Chip({ active, onClick, children, title }) {
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      style={{
-        borderRadius: '999px',
-        padding: '6px 12px',
-        border: active ? '2px solid rgba(79,70,229,.65)' : '1px solid rgba(148,163,184,.8)',
-        background: active ? 'rgba(79,70,229,.08)' : 'rgba(255,255,255,.55)',
-        color: '#0f172a',
-        fontWeight: 700,
-        fontSize: '0.9rem',
-        lineHeight: '1.1rem',
-        cursor: 'pointer',
-        transition: 'all 120ms ease',
-      }}
-    >
-      {children}
-    </button>
-  );
+function getPlanCueDetail(plan) {
+  const cueLabel = getPlanCueLabel(plan)
+  const cueDetail = plan?.cueDetail || plan?.meta?.cueDetail || ''
+  const rawCue = typeof plan?.cue === 'string' ? plan.cue.trim() : ''
+
+  if (cueDetail) return cueDetail
+  if (rawCue && rawCue !== cueLabel) return rawCue
+  return ''
 }
 
-function MiniStat({ label, number, detail, onClick }) {
-  return (
-    <button
-      type="button"
-      className="card"
-      onClick={onClick}
-      style={{
-        padding: '12px 14px',
-        textAlign: 'left',
-        cursor: onClick ? 'pointer' : 'default',
-        border: '1px solid rgba(226,232,240,.9)',
-        background: 'rgba(255,255,255,.65)',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ fontSize: '0.75rem', letterSpacing: '0.04em', fontWeight: 800, color: '#64748b' }}>
-        {label.toUpperCase()}
-      </div>
-      <div style={{ fontSize: '2rem', lineHeight: '2.25rem', fontWeight: 800, marginTop: '4px' }}>
-        {number}
-      </div>
-      <div style={{ fontSize: '0.9rem', color: '#64748b', marginTop: '2px' }}>{detail}</div>
-    </button>
-  );
+function mergeParentUpdatedPlan(plan, resultData, todayISO, completedNow) {
+  const backendPlan = resultData?.plan
+  if (backendPlan && typeof backendPlan === 'object') return backendPlan
+
+  const nextCompletedDates = {
+    ...(plan?.completedDates || {}),
+  }
+
+  if (completedNow) nextCompletedDates[todayISO] = true
+  else delete nextCompletedDates[todayISO]
+
+  return {
+    ...plan,
+    completedDates: nextCompletedDates,
+    currentStreak: Number(resultData?.current ?? resultData?.currentStreak ?? plan?.currentStreak ?? 0) || 0,
+    bestStreak: Number(resultData?.longest ?? resultData?.bestStreak ?? plan?.bestStreak ?? 0) || 0,
+    totalCompletions: Number(resultData?.totalCompletions ?? plan?.totalCompletions ?? 0) || 0,
+    streak: Number(resultData?.current ?? resultData?.currentStreak ?? plan?.streak ?? 0) || 0,
+    earnedBadges: Array.isArray(resultData?.earnedBadges) ? resultData.earnedBadges : plan?.earnedBadges || [],
+    awardedMilestones: Array.isArray(resultData?.awardedMilestones) ? resultData.awardedMilestones : plan?.awardedMilestones || [],
+    badgeEarnedDates:
+      resultData?.badgeEarnedDates && typeof resultData.badgeEarnedDates === 'object'
+        ? resultData.badgeEarnedDates
+        : plan?.badgeEarnedDates || {},
+  }
 }
 
 function EmptyState({ title, description }) {
   return (
-    <div style={{ padding: '10px 0', color: '#64748b' }}>
-      <div style={{ fontWeight: 700, color: '#334155', marginBottom: '2px' }}>{title}</div>
-      <div style={{ fontSize: '0.95rem' }}>{description}</div>
+    <div className="parent-empty-state">
+      <div className="parent-empty-state__title app-card-title">{title}</div>
+      <div className="parent-empty-state__description app-helper-text">{description}</div>
     </div>
-  );
+  )
+}
+
+function FilterChip({ label, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`parent-filter-chip app-button-label ${active ? 'is-active' : ''}`}
+    >
+      {label}
+    </button>
+  )
 }
 
 export default function ParentHomepage() {
-  const navigate = useNavigate();
-  const { user } = useUser();
+  const navigate = useNavigate()
+  const { user } = useUser()
 
-  const [children, setChildren] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [pendingTasks, setPendingTasks] = useState([]);
-  const [goals, setGoals] = useState([]);
-  const [actionPlans, setActionPlans] = useState([]);
+  const [children, setChildren] = useState([])
+  const [tasks, setTasks] = useState([])
+  const [pendingTasks, setPendingTasks] = useState([])
+  const [taskView, setTaskView] = useState('board')
+  const [focusedTaskId, setFocusedTaskId] = useState(null)
+  const [goals, setGoals] = useState([])
+  const [actionPlans, setActionPlans] = useState([])
+  const [coins, setCoins] = useState(0)
+  const [activeReward, setActiveReward] = useState(null)
 
-  const [todayTab, setTodayTab] = useState('tasks');
-  const [familyTab, setFamilyTab] = useState('kids');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
-  const [assigning, setAssigning] = useState(false);
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState('')
+  const [error, setError] = useState('')
+  const [redeemingReward, setRedeemingReward] = useState(false)
+  const [showRewardPicker, setShowRewardPicker] = useState(false)
+  const [availableRewards, setAvailableRewards] = useState([])
+  const [rewardPickerLoading, setRewardPickerLoading] = useState(false)
+  const [clockTime, setClockTime] = useState(formatClock())
+  const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState('all')
 
-  const [draftTitle, setDraftTitle] = useState('');
-  const [draftNotes, setDraftNotes] = useState('');
-  const [draftChildId, setDraftChildId] = useState('');
+  const supportsTTS = supportsSpeechSynthesis()
+
+  const today = useMemo(() => new Date(), [])
+  const todayISO = useMemo(() => toLocalISODate(new Date()), [])
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError('');
-      try {
-        const [childResp, taskResp, pendingResp, goalResp, planResp] = await Promise.all([
-          childList(),
-          taskList(),
-          taskListPending(),
-          goalList(),
-          actionPlanList(),
-        ]);
+    const timer = setInterval(() => {
+      setClockTime(formatClock(new Date()))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
-        if (childResp.status_code === 200 && Array.isArray(childResp.children)) {
-          setChildren(childResp.children);
-        }
-
-        if (taskResp.status_code === 200 && Array.isArray(taskResp.tasks)) {
-          setTasks(taskResp.tasks.map(Task.from));
-        } else {
-          setError('Failed to load tasks.');
-        }
-
-        if (pendingResp.status_code === 200 && Array.isArray(pendingResp.tasks)) {
-          setPendingTasks(pendingResp.tasks.map(Task.from));
-        }
-
-        if (goalResp.status_code === 200 && Array.isArray(goalResp.goals)) {
-          setGoals(goalResp.goals.map(Goal.from));
-        }
-
-        if (planResp.status_code === 200 && Array.isArray(planResp.plans)) {
-          setActionPlans(planResp.plans.map(ActionPlan.from));
-        }
-      } catch (err) {
-        console.error('[ParentHomepage] load error', err);
-        setError('Failed to load data from server.');
-      } finally {
-        setLoading(false);
-      }
+  const loadParentHome = useCallback(async () => {
+    if (!user?.id) {
+      setChildren([])
+      setTasks([])
+      setPendingTasks([])
+      setGoals([])
+      setActionPlans([])
+      setCoins(0)
+      setActiveReward(null)
+      setLoading(false)
+      return
     }
 
-    load();
-  }, []);
+    setLoading(true)
+    setError('')
+
+    try {
+      const [childResp, taskResp, pendingResp, goalResp, planResp, coinsResp] = await Promise.all([
+        childList(),
+        taskList(),
+        taskListPending(),
+        goalList(),
+        actionPlanList(),
+        getCoins(user.id),
+      ])
+
+      const rawChildren =
+        childResp?.status_code === 200 && Array.isArray(childResp.children)
+          ? childResp.children
+          : []
+
+      const rawTasks =
+        taskResp?.status_code === 200
+          ? extractTasks(taskResp).map(Task.from)
+          : []
+
+      const rawPending =
+        pendingResp?.status_code === 200
+          ? extractTasks(pendingResp).map(Task.from)
+          : []
+
+      const rawGoals = extractGoals(goalResp).map(Goal.from)
+      const rawPlans = extractPlans(planResp).map(ActionPlan.from)
+
+      setChildren(rawChildren)
+      setTasks(rawTasks)
+      setPendingTasks(rawPending)
+      setGoals(rawGoals)
+      setActionPlans(rawPlans)
+      setCoins(extractCoins(coinsResp))
+
+      const ownGoalList = rawGoals.filter((goal) => {
+        const id = normalizeId(user.id)
+        return [goal?.assigneeId, goal?.createdById, goal?.userId].some((v) => normalizeId(v) === id)
+      })
+
+      const activeRewardResponse = await getActiveReward({
+        userId: user.id,
+        goals: ownGoalList,
+      })
+
+      setActiveReward(activeRewardResponse)
+    } catch (err) {
+      console.error('[ParentHomepage] load error', err)
+      setError('Failed to load homepage data.')
+      setChildren([])
+      setTasks([])
+      setPendingTasks([])
+      setGoals([])
+      setActionPlans([])
+      setCoins(0)
+      setActiveReward(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    loadParentHome()
+  }, [loadParentHome])
 
   const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
+    const hour = new Date().getHours()
+    if (hour < 5) return 'Good early morning'
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }, [])
 
-  const userId = useMemo(() => normalizeId(user?.id), [user]);
-  const childIds = useMemo(() => new Set(children.map((c) => normalizeId(c.id))), [children]);
-  const todayIso = toLocalISODate();
+  const userId = normalizeId(user?.id)
+
+  const familyViewOptions = useMemo(() => {
+    const options = [{ value: 'all', label: 'All' }]
+    if (userId) options.push({ value: userId, label: 'Me' })
+    children.forEach((child) => {
+      options.push({
+        value: normalizeId(child.id),
+        label: child.name || 'Child',
+      })
+    })
+    return options
+  }, [children, userId])
+
+  const activeFamilyMemberId = selectedFamilyMemberId !== 'all' ? selectedFamilyMemberId : ''
+
+  const activeFamilyMemberLabel = useMemo(() => {
+    if (!activeFamilyMemberId) return 'Family'
+    if (activeFamilyMemberId === userId) return user?.name || 'Me'
+    return children.find((child) => normalizeId(child.id) === activeFamilyMemberId)?.name || 'Child'
+  }, [activeFamilyMemberId, children, user?.name, userId])
+
+  const childIds = useMemo(
+    () => new Set(children.map((child) => normalizeId(child.id)).filter(Boolean)),
+    [children]
+  )
 
   const visibleAssigneeIds = useMemo(() => {
-    const ids = new Set();
-    if (userId) ids.add(String(userId));
+    const ids = new Set()
+    if (userId) ids.add(userId)
     children.forEach((child) => {
-      if (child?.id != null) ids.add(String(child.id));
-    });
-    return ids;
-  }, [children, userId]);
+      const id = normalizeId(child.id)
+      if (id) ids.add(id)
+    })
+    return ids
+  }, [children, userId])
 
-  const visibleGoals = useMemo(
-    () =>
-      goals.filter(
-        (goal) =>
-          visibleAssigneeIds.has(String(goal.assigneeId)) ||
-          String(goal.createdById) === String(user?.id)
-      ),
-    [goals, visibleAssigneeIds, user?.id]
-  );
+  const ownGoals = useMemo(() => {
+    return goals.filter((goal) => {
+      const assignedToUser = normalizeId(goal?.assigneeId) === userId
+      const createdByUser = normalizeId(goal?.createdById) === userId
+      const ownedByUser = normalizeId(goal?.userId) === userId
+      return assignedToUser || createdByUser || ownedByUser
+    })
+  }, [goals, userId])
+
+  const visibleGoals = useMemo(() => {
+    return goals.filter((goal) => {
+      const assigneeId = normalizeId(goal.assigneeId)
+      const createdById = normalizeId(goal.createdById)
+      return visibleAssigneeIds.has(assigneeId) || createdById === userId
+    })
+  }, [goals, visibleAssigneeIds, userId])
 
   const visibleGoalIds = useMemo(
-    () => new Set(visibleGoals.map((goal) => String(goal.id))),
+    () => new Set(visibleGoals.map((goal) => normalizeId(goal.id)).filter(Boolean)),
     [visibleGoals]
-  );
+  )
 
-  const visibleActionPlans = useMemo(
-    () =>
-      actionPlans.filter(
-        (plan) =>
-          visibleGoalIds.has(String(plan.goalId)) ||
-          visibleAssigneeIds.has(String(plan.assigneeId))
-      ),
-    [actionPlans, visibleGoalIds, visibleAssigneeIds]
-  );
+  const visiblePlans = useMemo(() => {
+    return actionPlans.filter((plan) => {
+      const goalId = normalizeId(plan.goalId)
+      const assigneeId = normalizeId(plan.assigneeId)
+      return visibleGoalIds.has(goalId) || visibleAssigneeIds.has(assigneeId)
+    })
+  }, [actionPlans, visibleGoalIds, visibleAssigneeIds])
+
+  const goalsById = useMemo(() => {
+    const map = {}
+    visibleGoals.forEach((goal) => {
+      map[normalizeId(goal.id)] = goal
+    })
+    return map
+  }, [visibleGoals])
+
+  const todaysPlans = useMemo(() => {
+    return visiblePlans.filter((plan) => {
+      const schedule = getPlanSchedule(plan)
+      if (!schedule || !isDueOnDate(schedule, todayISO)) return false
+      if (!activeFamilyMemberId) return true
+      return normalizeId(plan.assigneeId) === activeFamilyMemberId
+    })
+  }, [visiblePlans, todayISO, activeFamilyMemberId])
+
+  const completedTodayCount = useMemo(() => {
+    return todaysPlans.filter((plan) => plan?.completedDates?.[todayISO] === true).length
+  }, [todaysPlans, todayISO])
+
+  const dailyProgress = useMemo(() => {
+    if (!todaysPlans.length) return 0
+    return Math.round((completedTodayCount / todaysPlans.length) * 100)
+  }, [completedTodayCount, todaysPlans.length])
+
+  const actionCueSections = useMemo(() => {
+    const sectionMap = new Map()
+
+    todaysPlans.forEach((plan) => {
+      const cueKey = getPlanCueKey(plan) || 'uncategorized'
+      const cueLabel = getPlanCueLabel(plan) || 'No cue'
+      const cueDetail = getPlanCueDetail(plan)
+      const goal = goalsById[normalizeId(plan.goalId)]
+      const isComplete = plan?.completedDates?.[todayISO] === true
+      const assigneeLabel =
+        normalizeId(plan.assigneeId) === userId
+          ? `${plan.assigneeName || user?.name || 'You'}`
+          : plan.assigneeName || 'Child'
+
+      if (!sectionMap.has(cueKey)) {
+        sectionMap.set(cueKey, {
+          key: cueKey,
+          label: cueLabel,
+          items: [],
+        })
+      }
+
+      sectionMap.get(cueKey).items.push({
+        id: plan.id,
+        title: sanitizeTitle(plan?.title || 'Untitled plan'),
+        subLabel: `${assigneeLabel} • ${getGoalTitle(goal)}`,
+        detail: cueDetail || 'No extra cue detail',
+        isComplete,
+        habitType: plan?.taskType || plan?.type || goal?.taskType || goal?.type || goal?.goalType || 'build-habit',
+        raw: plan,
+      })
+    })
+
+    return Array.from(sectionMap.values())
+  }, [todaysPlans, goalsById, todayISO, userId, user?.name])
+
+  const speakActionPlans = useCallback(() => {
+    if (!supportsTTS) return
+
+    const ownerLabel =
+      activeFamilyMemberId === userId
+        ? 'You'
+        : activeFamilyMemberId
+          ? activeFamilyMemberLabel
+          : 'Your family'
+
+    speakText(buildActionPlanSpeech({
+      name: user?.name?.split(' ').filter(Boolean)[0] || 'there',
+      ownerLabel,
+      sections: actionCueSections,
+    }))
+  }, [
+    actionCueSections,
+    activeFamilyMemberId,
+    activeFamilyMemberLabel,
+    supportsTTS,
+    user?.name,
+    userId,
+  ])
+
+  const taskActionPlanOptions = useMemo(() => {
+    return visiblePlans
+      .filter((plan) => plan?.completedDates?.[todayISO] !== true)
+      .map((plan) => {
+        const goal = goalsById[normalizeId(plan.goalId)]
+        const goalLabel = goal ? getGoalTitle(goal) : ''
+        const cueLabel =
+          plan?.cueDetail ||
+          plan?.cueLabel ||
+          plan?.meta?.cueDetail ||
+          plan?.meta?.cueLabel ||
+          plan?.cue ||
+          ''
+        const title = sanitizeTitle(plan.title || 'Untitled plan')
+
+        return {
+          id: normalizeId(plan.id),
+          title,
+          cueLabel,
+          label: `${title}${cueLabel ? ` • ${cueLabel}` : ''}${goalLabel ? ` — ${goalLabel}` : ''}`,
+          goalId: normalizeId(plan.goalId),
+          notes: plan.notes || '',
+        }
+      })
+  }, [visiblePlans, goalsById, todayISO])
 
   const assigneeOptions = useMemo(() => {
-    const options = [];
+    const options = []
     if (userId) {
-      options.push({ value: userId, name: user?.name || 'Me (parent)', type: 'parent' });
+      options.push({
+        value: userId,
+        name: user?.name || 'Me (parent)',
+        type: 'parent',
+      })
     }
+
     children.forEach((child) => {
-      options.push({ value: normalizeId(child.id), name: child.name, type: 'child' });
-    });
-    return options;
-  }, [children, user?.name, userId]);
+      options.push({
+        value: normalizeId(child.id),
+        name: child.name,
+        type: 'child',
+      })
+    })
 
-  useEffect(() => {
-    if (!draftChildId) {
-      if (userId) return setDraftChildId(userId);
-      if (children.length > 0) return setDraftChildId(normalizeId(children[0]?.id));
-    }
-    return undefined;
-  }, [draftChildId, userId, children]);
+    return options
+  }, [children, user?.name, userId])
 
-  const tasksForKids = useMemo(
-    () => tasks.filter((t) => childIds.has(normalizeId(getAssigneeId(t)))),
-    [tasks, childIds]
-  );
+  const visibleTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const assigneeId = normalizeId(task.assigneeId || task.childId)
+      const createdById = normalizeId(task.createdById)
+      const status = String(task.status || '').toLowerCase()
+      if (status === 'rejected') return false
+      return visibleAssigneeIds.has(assigneeId) || createdById === userId
+    })
+  }, [tasks, visibleAssigneeIds, userId])
 
-  const tasksForToday = useMemo(
-    () =>
-      tasks.filter((t) => {
-        const assigneeKey = normalizeId(getAssigneeId(t));
-        if (!assigneeKey) return false;
-        return childIds.has(assigneeKey) || (userId && assigneeKey === userId);
-      }),
-    [tasks, childIds, userId]
-  );
+  const displayTasks = useMemo(() => {
+    return visibleTasks.map((task) => ({
+      ...task,
+      title: sanitizeTitle(task?.title || task?.name || task?.label || 'Untitled task'),
+    }))
+  }, [visibleTasks])
+
+  const boardTasks = useMemo(() => {
+    return displayTasks.filter((task) => !task?.needsApproval)
+  }, [displayTasks])
+
+  const boardActiveTasks = useMemo(
+    () => boardTasks.filter((task) => String(task?.status || '').toLowerCase() === 'active'),
+    [boardTasks]
+  )
+
+  const boardPendingTasks = useMemo(
+    () => boardTasks.filter((task) => String(task?.status || '').toLowerCase() === 'pending'),
+    [boardTasks]
+  )
+
+  const boardCompletedTasks = useMemo(
+    () => boardTasks.filter((task) => isTaskComplete(task)).slice(0, 4),
+    [boardTasks]
+  )
+
+  const focusedTask = useMemo(
+    () => displayTasks.find((task) => normalizeId(task.id) === normalizeId(focusedTaskId)) || null,
+    [displayTasks, focusedTaskId]
+  )
+
+  const openTaskBuilder = useCallback(() => {
+    setFocusedTaskId(null)
+    setTaskView('builder')
+  }, [])
+
+  const openTaskFocus = useCallback((taskId) => {
+    setFocusedTaskId(taskId)
+    setTaskView('focus')
+  }, [])
+
+  const goBackToTaskBoard = useCallback(() => {
+    setFocusedTaskId(null)
+    setTaskView('board')
+  }, [])
+
+  const handleTogglePlan = useCallback(
+    async (plan) => {
+      if (!plan) return null
+
+      const alreadyDone = plan?.completedDates?.[todayISO] === true
+
+      try {
+        const response = alreadyDone
+          ? await markIncomplete(plan.id, todayISO)
+          : await markComplete(plan.id, todayISO)
+
+        if (!response || response.status_code !== 200) {
+          throw new Error(response?.error || 'Failed to update action plan.')
+        }
+
+        const data = response.data || {}
+        const updatedPlan = mergeParentUpdatedPlan(plan, data, todayISO, !alreadyDone)
+
+        setActionPlans((prev) =>
+          (Array.isArray(prev) ? prev : []).map((item) =>
+            normalizeId(item?.id) === normalizeId(plan?.id) ? { ...item, ...updatedPlan } : item
+          )
+        )
+
+        if (normalizeId(data?.assigneeId) === normalizeId(user?.id)) {
+          if (typeof data?.totalCoins === 'number' && !Number.isNaN(data.totalCoins)) {
+            setCoins(data.totalCoins)
+          }
+        }
+
+        if (Array.isArray(data?.newBadges) && data.newBadges.length) {
+          const ownerLabel =
+            normalizeId(data?.assigneeId) === normalizeId(user?.id)
+              ? 'You'
+              : data?.assigneeName || 'Child'
+
+          setToast(
+            `${ownerLabel} earned ${data.newBadges.length === 1 ? 'a new badge' : 'new badges'}: ${data.newBadges.join(', ')}`
+          )
+        }
+
+        const coinDelta =
+          Number(data?.coinsEarned || 0) +
+          Number(data?.badgeCoinsEarned || 0)
+
+        if (!alreadyDone) {
+          const ownerLabel =
+            normalizeId(data?.assigneeId) === normalizeId(user?.id)
+              ? 'You'
+              : data?.assigneeName || 'Child'
+
+          if (coinDelta > 0) {
+            setToast(`${ownerLabel} completed ${plan?.title || 'habit plan'} • earned ${coinDelta} coins`)
+          } else {
+            setToast(`${ownerLabel} completed ${plan?.title || 'habit plan'}`)
+          }
+        } else {
+          setToast(`Updated ${plan?.title || 'habit plan'} for today`)
+        }
+
+        return response
+      } catch (err) {
+        console.error('[ParentHomepage] Failed to toggle action plan completion:', err)
+        setError(err?.message || 'Failed to update action plan.')
+        return null
+      }
+    },
+    [todayISO, user?.id]
+  )
+
+  const syncLinkedPlanFromTask = useCallback(
+    async (task) => {
+      if (!task?.linkedActionPlanId) return
+
+      const linkedPlan = visiblePlans.find(
+        (plan) => normalizeId(plan?.id) === normalizeId(task.linkedActionPlanId)
+      )
+
+      if (!linkedPlan) return
+      if (linkedPlan?.completedDates?.[todayISO] === true) return
+
+      try {
+        await handleTogglePlan(linkedPlan)
+      } catch (err) {
+        console.error('[ParentHomepage] sync linked plan from task error', err)
+      }
+    },
+    [visiblePlans, todayISO, handleTogglePlan]
+  )
+
+  const handleStartTask = useCallback(
+    async (taskId) => {
+      try {
+        const response = await taskStart(taskId)
+
+        if (response?.status_code >= 400) {
+          throw new Error(response?.error || 'Could not start task.')
+        }
+
+        setToast('Timed task started.')
+        await loadParentHome()
+      } catch (err) {
+        console.error('Failed to start task:', err)
+        setError('Failed to start task.')
+      }
+    },
+    [loadParentHome]
+  )
+
+  const handleCompleteTask = useCallback(
+    async (taskId, title = 'task', source = 'manual') => {
+      try {
+        const currentTask =
+          displayTasks.find((task) => normalizeId(task.id) === normalizeId(taskId)) || null
+
+        const response = await taskComplete(taskId, source)
+
+        if (response?.status_code >= 400) {
+          throw new Error(response?.error || 'Could not complete task.')
+        }
+
+        const updatedTask = response?.data?.task || currentTask
+        await syncLinkedPlanFromTask(updatedTask)
+
+        setToast(
+          source === 'timer'
+            ? `${title} finished automatically.`
+            : `Completed ${title}`
+        )
+        await loadParentHome()
+      } catch (err) {
+        console.error('Failed to complete task:', err)
+        setError('Failed to complete task.')
+      }
+    },
+    [displayTasks, syncLinkedPlanFromTask, loadParentHome]
+  )
+
+  const handleToggleTaskChecklistItem = useCallback(
+    async (taskId, itemId) => {
+      try {
+        const previousTask =
+          displayTasks.find((task) => normalizeId(task.id) === normalizeId(taskId)) || null
+
+        const response = await taskToggleChecklistItem(taskId, itemId)
+
+        if (response?.status_code >= 400) {
+          throw new Error(response?.error || 'Could not update checklist.')
+        }
+
+        const updatedTask = response?.data?.task || null
+
+        if (updatedTask?.status === 'completed' && previousTask?.status !== 'completed') {
+          await syncLinkedPlanFromTask(updatedTask)
+        }
+
+        await loadParentHome()
+      } catch (err) {
+        console.error('Failed to toggle checklist item:', err)
+        setError('Failed to update checklist.')
+      }
+    },
+    [displayTasks, syncLinkedPlanFromTask, loadParentHome]
+  )
+
+  const handleDeleteTask = useCallback(
+    async (taskId) => {
+      try {
+        const response = await taskDelete(taskId)
+
+        if (response?.status_code >= 400) {
+          throw new Error(response?.error || 'Could not delete task.')
+        }
+
+        setToast('Task deleted.')
+        await loadParentHome()
+      } catch (err) {
+        console.error('Failed to delete task:', err)
+        setError('Failed to delete task.')
+      }
+    },
+    [loadParentHome]
+  )
+
+  const simpleTasks = useMemo(() => {
+    return displayTasks.filter(
+      (task) => getTaskType(task) === 'simple' && !task.needsApproval
+    )
+  }, [displayTasks])
+
+  const mySimpleTasks = useMemo(
+    () => simpleTasks.filter((task) => normalizeId(task.assigneeId) === userId),
+    [simpleTasks, userId]
+  )
+
+  const childSimpleTasks = useMemo(
+    () => simpleTasks.filter((task) => childIds.has(normalizeId(task.assigneeId))),
+    [simpleTasks, childIds]
+  )
+
+  const pendingMyTasks = useMemo(
+    () => mySimpleTasks.filter((task) => !isTaskComplete(task)),
+    [mySimpleTasks]
+  )
+
+  const pendingChildTasks = useMemo(
+    () => childSimpleTasks.filter((task) => !isTaskComplete(task)),
+    [childSimpleTasks]
+  )
 
   const providerPendingApprovals = useMemo(
-    () => pendingTasks.filter((t) => t.needsApproval && t.createdByRole === 'provider'),
+    () => pendingTasks.filter((task) => task.needsApproval && task.createdByRole === 'provider'),
     [pendingTasks]
-  );
+  )
 
-  const pendingSimpleTasks = useMemo(
-    () =>
-      tasksForToday.filter(
-        (t) => !t.needsApproval && getTaskType(t) === 'simple' && t.status !== 'done'
-      ),
-    [tasksForToday]
-  );
+  const myDuePlans = useMemo(() => {
+    return visiblePlans.filter((plan) => {
+      if (normalizeId(plan.assigneeId) !== userId) return false
+      const schedule = getPlanSchedule(plan)
+      if (!schedule) return false
+      return isDueOnDate(schedule, todayISO) && plan?.completedDates?.[todayISO] !== true
+    })
+  }, [visiblePlans, userId, todayISO])
 
-  const habitsDueToday = useMemo(
-    () =>
-      visibleActionPlans.filter((plan) => {
-        const schedule = getPlanSchedule(plan);
-        if (!schedule) return false;
-        return isDueOnDate(schedule, todayIso) && !isPlanCompletedToday(plan, todayIso);
-      }),
-    [visibleActionPlans, todayIso]
-  );
-
-  const malformedTasks = useMemo(() => tasks.filter(isMalformed), [tasks]);
+  const childDuePlans = useMemo(() => {
+    return visiblePlans.filter((plan) => {
+      if (!childIds.has(normalizeId(plan.assigneeId))) return false
+      const schedule = getPlanSchedule(plan)
+      if (!schedule) return false
+      return isDueOnDate(schedule, todayISO) && plan?.completedDates?.[todayISO] !== true
+    })
+  }, [visiblePlans, childIds, todayISO])
 
   const kidsNeedingAttention = useMemo(() => {
-    const list = children
+    return children
       .map((child) => {
-        const childId = normalizeId(child.id);
+        const childId = normalizeId(child.id)
 
-        const kidTasks = tasksForKids.filter(
-          (t) => normalizeId(getAssigneeId(t)) === childId
-        );
+        const taskCount = pendingChildTasks.filter(
+          (task) => normalizeId(task.assigneeId) === childId
+        ).length
 
-        const kidPending = kidTasks.filter(
-          (t) => !t.needsApproval && getTaskType(t) === 'simple' && t.status !== 'done'
-        ).length;
-
-        const kidHabitsDue = visibleActionPlans.filter((plan) => {
-          if (normalizeId(plan.assigneeId) !== childId) return false;
-          const schedule = getPlanSchedule(plan);
-          if (!schedule) return false;
-          return isDueOnDate(schedule, todayIso) && !isPlanCompletedToday(plan, todayIso);
-        }).length;
+        const planCount = childDuePlans.filter(
+          (plan) => normalizeId(plan.assigneeId) === childId
+        ).length
 
         return {
           child,
-          pending: kidPending,
-          habitsDue: kidHabitsDue,
-          total: kidPending + kidHabitsDue,
-        };
+          taskCount,
+          planCount,
+          total: taskCount + planCount,
+        }
       })
-      .filter((item) => item.total > 0)
-      .sort((a, b) => b.total - a.total);
+      .filter((entry) => entry.total > 0)
+      .sort((a, b) => b.total - a.total)
+  }, [children, pendingChildTasks, childDuePlans])
 
-    return list.slice(0, 4);
-  }, [children, tasksForKids, visibleActionPlans, todayIso]);
+  const childOverviewRows = useMemo(() => {
+    return children.map((child) => {
+      const childId = normalizeId(child.id)
 
-  const handleToggleTaskStatus = async (taskId) => {
-    const target = tasks.find((t) => t.id === taskId);
-    if (!target) return;
+      const goalCount = visibleGoals.filter(
+        (goal) => normalizeId(goal.assigneeId) === childId
+      ).length
 
-    const nextStatus = target.status === 'done' ? 'pending' : 'done';
-    const payload = { id: taskId, status: nextStatus };
-    const resp = await taskUpdate(payload);
+      const duePlanCount = childDuePlans.filter(
+        (plan) => normalizeId(plan.assigneeId) === childId
+      ).length
 
-    if (resp.status_code === 200) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? Task.from({ ...t, status: nextStatus }) : t))
-      );
-      setToast(`Marked ${(target.title || target.name || 'task')} ${nextStatus === 'done' ? 'done' : 'not done'}.`);
-      setTimeout(() => setToast(''), 2500);
-    } else {
-      setError('Failed to update task status.');
-    }
-  };
+      const pendingTaskCount = pendingChildTasks.filter(
+        (task) => normalizeId(task.assigneeId) === childId
+      ).length
 
-  const handleToggleHabitCompleted = async (plan) => {
-    const result = await togglePlanCompletion({
-      plan,
-      todayISO: todayIso,
-      setActionPlans,
-    });
+      const approvalCount = providerPendingApprovals.filter(
+        (task) => normalizeId(task.assigneeId || task.childId) === childId
+      ).length
 
-    if (result) {
-      setToast('Marked habit done for today.');
-      setTimeout(() => setToast(''), 2500);
-    } else {
-      setError('Failed to update habit.');
-    }
-  };
+      return {
+        child,
+        goalCount,
+        duePlanCount,
+        pendingTaskCount,
+        approvalCount,
+        total: goalCount + duePlanCount + pendingTaskCount + approvalCount,
+      }
+    })
+  }, [children, visibleGoals, childDuePlans, pendingChildTasks, providerPendingApprovals])
 
-  const quickReview = () => {
-    if (todayTab === 'approvals') return navigate('/parent/dashboard?tab=approvals');
-    if (todayTab === 'habits') return navigate('/parent/dashboard?tab=goals');
-    return navigate('/parent/dashboard?tab=my-tasks');
-  };
+  const rewardProgress = useMemo(() => {
+    if (!activeReward?.costCoins || activeReward.costCoins <= 0) return 0
+    return Math.min(100, Math.round((coins / activeReward.costCoins) * 100))
+  }, [activeReward, coins])
 
-  const handleQuickAssign = async (e) => {
-    e.preventDefault();
-    setError('');
+  const plansById = useMemo(() => {
+    return (actionPlans || []).reduce((acc, plan) => {
+      acc[String(plan.id)] = plan
+      return acc
+    }, {})
+  }, [actionPlans])
 
-    if (!draftChildId) {
-      setError('Please choose who to assign the task to.');
-      return;
-    }
+  const familyWeekSummary = useMemo(() => {
+    return [
+      {
+        key: 'mine',
+        icon: '🧠',
+        value: myDuePlans.length,
+        label: 'My due',
+        tone: 'is-blue',
+      },
+      {
+        key: 'kids',
+        icon: '👨‍👩‍👧',
+        value: childDuePlans.length,
+        label: 'Child due',
+        tone: 'is-gold',
+      },
+      {
+        key: 'tasks',
+        icon: '📝',
+        value: pendingChildTasks.length,
+        label: 'Pending tasks',
+        tone: 'is-orange',
+      },
+      {
+        key: 'approvals',
+        icon: '✅',
+        value: providerPendingApprovals.length,
+        label: 'Approvals',
+        tone: 'is-green',
+      },
+      {
+        key: 'attention',
+        icon: '👀',
+        value: kidsNeedingAttention.length,
+        label: 'Need help',
+        tone: 'is-purple',
+      },
+    ]
+  }, [
+    myDuePlans.length,
+    childDuePlans.length,
+    pendingChildTasks.length,
+    providerPendingApprovals.length,
+    kidsNeedingAttention.length,
+  ])
 
-    const title = draftTitle.trim();
-    if (!title) {
-      setError('Please enter a task name.');
-      return;
-    }
+  const handleTaskCreated = async () => {
+    await loadParentHome()
+    setToast('Assignment sent.')
+    setTimeout(() => setToast(''), 2500)
+  }
 
-    const assigneeId = normalizeId(draftChildId);
-    const isParentTarget = userId && assigneeId === userId;
-    const targetChild = children.find((c) => normalizeId(c.id) === assigneeId);
-    const assigneeName = isParentTarget ? (user?.name || 'You') : targetChild?.name || 'Unknown';
-
-    const newTask = new Task({
-      assigneeId,
-      assigneeName,
-      title,
-      notes: draftNotes.trim(),
-      taskType: 'simple',
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      createdById: user?.id || null,
-      createdByName: user?.name || 'Parent',
-      createdByRole: 'parent',
-    });
+  const handleRedeemReward = useCallback(async () => {
+    if (!activeReward || redeemingReward) return
 
     try {
-      setAssigning(true);
-      const resp = await taskCreate(newTask);
-      if (resp.status_code === 200) {
-        const withId = resp.id ? Task.from({ ...newTask.toJSON(), id: resp.id }) : newTask;
-        setTasks((prev) => [...prev, withId]);
-        setToast(`Assigned to ${assigneeName}.`);
-        setTimeout(() => setToast(''), 2500);
-        setDraftTitle('');
-        setDraftNotes('');
-      } else {
-        setError('Failed to assign task. Please try again.');
-      }
+      setRedeemingReward(true)
+
+      const result = await redeemActiveReward({
+        reward: activeReward,
+        userId: user?.id,
+        goals: ownGoals,
+      })
+
+      setCoins(Number(result?.remainingCoins || 0))
+      setActiveReward(result?.activeReward ?? null)
+
+      setToast(
+        result?.purchasedItem?.name
+          ? `Redeemed reward and bought ${result.purchasedItem.name}!`
+          : `Redeemed ${sanitizeTitle(result?.reward?.title || 'your reward')}!`
+      )
+      setTimeout(() => setToast(''), 2500)
     } catch (err) {
-      console.error('[ParentHomepage] quick assign error', err);
-      setError('Failed to assign task. Please try again.');
+      console.error('[ParentHomepage] redeem reward error', err)
+      setError(err?.message || 'Could not redeem reward.')
     } finally {
-      setAssigning(false);
+      setRedeemingReward(false)
     }
-  };
+  }, [activeReward, redeemingReward, user?.id, ownGoals])
+
+  const openRewardPicker = useCallback(async () => {
+    try {
+      setRewardPickerLoading(true)
+      const rewards = await getAvailableRewards({
+        userId: user?.id,
+        goals: ownGoals,
+      })
+      setAvailableRewards(Array.isArray(rewards) ? rewards : [])
+      setShowRewardPicker(true)
+    } catch (err) {
+      console.error('[ParentHomepage] Failed to load rewards:', err)
+      setError('Could not load available rewards.')
+    } finally {
+      setRewardPickerLoading(false)
+    }
+  }, [ownGoals, user?.id])
+
+  const handleSelectReward = useCallback(async (reward) => {
+    try {
+      const nextReward = await persistActiveReward(reward, {
+        userId: user?.id,
+        goals: ownGoals,
+      })
+
+      setActiveReward(nextReward || null)
+      setShowRewardPicker(false)
+      setToast(`Active reward set to ${sanitizeTitle(reward?.title || 'your reward')}.`)
+      setTimeout(() => setToast(''), 2500)
+    } catch (err) {
+      console.error('[ParentHomepage] Failed to set active reward:', err)
+      setError('Could not set that reward.')
+    }
+  }, [ownGoals, user?.id])
+
+  const handleClearReward = useCallback(async () => {
+    if (!activeReward) return
+
+    try {
+      await clearActiveReward({
+        reward: activeReward,
+        userId: user?.id,
+        goals: ownGoals,
+      })
+      setActiveReward(null)
+      setToast('Reward hidden for now.')
+      setTimeout(() => setToast(''), 2500)
+    } catch (err) {
+      console.error('[ParentHomepage] Failed to clear reward:', err)
+      setError('Could not hide reward.')
+    }
+  }, [activeReward, ownGoals, user?.id])
 
   if (!user) {
     return (
-      <section className="container" style={{ padding: '1.5rem 1rem' }}>
-        <h1>Parent home</h1>
-        <p className="sub hero">You need to log in first.</p>
+      <section className="container" style={{ paddingTop: '2rem' }}>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          You need to log in first.
+        </div>
       </section>
-    );
+    )
   }
 
   if (user?.role !== ROLE.PARENT) {
     return (
-      <section className="container" style={{ padding: '1.5rem 1rem' }}>
-        <h1>Parent home</h1>
-        <p className="sub hero">Only parents can view this page.</p>
+      <section className="container" style={{ paddingTop: '2rem' }}>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          Only parents can view this page.
+        </div>
       </section>
-    );
+    )
   }
 
-  const pageMaxWidth = { maxWidth: '1200px', margin: '0 auto', padding: '0 0 1.25rem' };
-  const sectionGap = '16px';
-
-  const cardBase = {
-    padding: '0.9rem 1.0rem',
-    border: '1px solid rgba(226,232,240,.9)',
-    background: 'rgba(255,255,255,.65)',
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: 0,
-  };
-
-  const cardHeights = {
-    top: 'clamp(240px, 34vh, 280px)',
-    mid: 'clamp(240px, 40vh, 320px)',
-  };
-
-  const cardHeader = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    flex: '0 0 auto',
-  };
-
-  const cardBody = {
-    marginTop: '12px',
-    overflowY: 'auto',
-    flex: '1 1 auto',
-    minHeight: 0,
-    maxHeight: '100%',
-    paddingRight: '6px',
-    scrollbarGutter: 'stable',
-  };
-
   return (
-    <div className="parent-shell">
-      <Toast message={toast} type="success" onClose={() => setToast('')} />
+    <div className="dashboard-shell">
+      <section className="home-page">
+        <Toast message={toast} type="success" onClose={() => setToast('')} />
+        <Toast message={error} type="error" onClose={() => setError('')} />
 
-      <div
-        className="parent-home"
-        style={{
-          ...pageMaxWidth,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: sectionGap,
-        }}
-      >
-        <div className="hero-row" style={{ padding: '0.35rem 0' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'end' }}>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: 700, marginBottom: '8px' }}>
-                {formatDate()}
-              </div>
-              <h1 style={{ marginBottom: '6px', fontSize: '30px', lineHeight: '36px' }}>
+        <div className="home-canvas">
+          <div className="home-topbar-grid">
+            <div className="home-panel home-panel--greeting">
+              <p className="home-quote parent-home-greeting app-page-title">
                 {greeting}, {user?.name || 'Parent'}
-              </h1>
-              <p className="sub" style={{ fontSize: '15px', lineHeight: '22px', margin: 0 }}>
-                Here&apos;s what needs your attention today.
               </p>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <button
-                type="button"
-                className="btn btn-parent-secondary"
-                onClick={() => navigate('/parent/dashboard?tab=approvals')}
-                style={{ height: '38px' }}
-              >
-                Approvals
-              </button>
-              <button
-                type="button"
-                className="btn btn-parent-primary"
-                onClick={() => navigate('/parent/dashboard')}
-                style={{ width: '180px', height: '38px' }}
-              >
-                Open dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {malformedTasks.length > 0 && (
-          <div
-            className="card"
-            style={{
-              border: '1px solid rgba(122, 155, 184, 0.35)',
-              background: 'rgba(122, 155, 184, 0.08)',
-              padding: '1rem 1.1rem',
-            }}
-          >
-            <h2 style={{ marginBottom: '0.35rem' }}>Malformed habit data</h2>
-            <p className="sub" style={{ marginBottom: '0.75rem' }}>
-              We found legacy task data we cannot parse. Please manage these in the dashboard.
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-parent-primary"
-                onClick={() => navigate('/parent/dashboard?tab=my-tasks')}
-              >
-                Fix in dashboard
-              </button>
-              <button
-                type="button"
-                className="btn btn-parent-secondary"
-                onClick={() => setTasks((prev) => prev.filter((t) => !isMalformed(t)))}
-              >
-                Hide malformed items
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
-            gap: '16px',
-            alignItems: 'start',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              ...cardBase,
-              height: cardHeights.top,
-              maxHeight: cardHeights.top,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={cardHeader}>
-              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Today</h2>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={quickReview}
-                style={{ height: '34px' }}
-              >
-                Review
-              </button>
+            <div className="home-panel home-panel--datetime">
+              <div className="home-mini-line app-micro-text">🗓 {formatShortDate(today)}</div>
+              <div className="home-mini-line app-micro-text">🕒 {clockTime}</div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px', flex: '0 0 auto' }}>
-              <Chip active={todayTab === 'tasks'} onClick={() => setTodayTab('tasks')}>
-                Tasks ({pendingSimpleTasks.length})
-              </Chip>
-              <Chip active={todayTab === 'habits'} onClick={() => setTodayTab('habits')}>
-                Habits ({habitsDueToday.length})
-              </Chip>
-              <Chip active={todayTab === 'approvals'} onClick={() => setTodayTab('approvals')}>
-                Approvals ({providerPendingApprovals.length})
-              </Chip>
-            </div>
+            <div className="home-panel home-panel--reward">
+              {activeReward ? (
+                <>
+                  <div className="home-reward-header">
+                    <div className="home-panel__title app-panel-title">
+                      {sanitizeTitle(activeReward.title)}
+                    </div>
+                    <div className="home-reward-meta app-micro-text">
+                      {coins < activeReward.costCoins
+                        ? `${(activeReward.costCoins - coins).toLocaleString()} left`
+                        : activeReward?.sourceType === 'goal'
+                          ? 'Goal reward'
+                          : 'Ready to claim'}
+                    </div>
+                  </div>
 
-            <div style={cardBody}>
-              {todayTab === 'tasks' && (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {pendingSimpleTasks.slice(0, 6).map((t) => (
-                    <li
-                      key={t.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '10px 0',
-                        borderBottom: '1px solid rgba(226,232,240,.8)',
-                      }}
-                    >
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <input
-                          type="checkbox"
-                          aria-label={`Mark ${t.title || t.name} done`}
-                          checked={false}
-                          onChange={() => handleToggleTaskStatus(t.id)}
-                        />
-                        <span style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 800,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {t.title || t.name}
-                          </div>
-                          <div style={{ fontSize: '.85rem', color: '#64748b' }}>
-                            For {t.assigneeName || 'child'}
-                          </div>
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => navigate('/parent/dashboard?tab=my-tasks')}
-                        style={{ height: '34px' }}
-                      >
-                        View
-                      </button>
-                    </li>
-                  ))}
-                  {pendingSimpleTasks.length === 0 && (
-                    <li>
-                      <EmptyState
-                        title="No tasks to review"
-                        description="Your kids are all caught up on simple tasks."
-                      />
-                    </li>
-                  )}
-                </ul>
-              )}
-
-              {todayTab === 'habits' && (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {habitsDueToday.slice(0, 6).map((plan) => (
-                    <li
-                      key={plan.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '10px 0',
-                        borderBottom: '1px solid rgba(226,232,240,.8)',
-                      }}
-                    >
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                        <input
-                          type="checkbox"
-                          aria-label={`Mark ${plan.title} done for today`}
-                          checked={false}
-                          onChange={() => handleToggleHabitCompleted(plan)}
-                        />
-                        <span style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 800,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {plan.title || 'Habit'}
-                          </div>
-                          <div style={{ fontSize: '.85rem', color: '#64748b' }}>
-                            For {plan.assigneeName || 'child'} · {getPlanFrequencyLabel(plan)}
-                          </div>
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => navigate('/parent/dashboard?tab=goals')}
-                        style={{ height: '34px' }}
-                      >
-                        Manage
-                      </button>
-                    </li>
-                  ))}
-                  {habitsDueToday.length === 0 && (
-                    <li>
-                      <EmptyState
-                        title="No habits due"
-                        description="No scheduled habits are due today."
-                      />
-                    </li>
-                  )}
-                </ul>
-              )}
-
-              {todayTab === 'approvals' && (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {providerPendingApprovals.slice(0, 6).map((t) => (
-                    <li
-                      key={t.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '10px 0',
-                        borderBottom: '1px solid rgba(226,232,240,.8)',
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="home-reward-row">
+                    <div className="home-reward-track-wrap">
+                      <div className="home-progress-track">
                         <div
-                          style={{
-                            fontWeight: 800,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {t.title || t.name}
-                        </div>
-                        <div style={{ fontSize: '.85rem', color: '#64748b' }}>
-                          For {t.assigneeName || 'child'}
-                        </div>
+                          className="home-progress-fill"
+                          style={{ width: `${rewardProgress}%` }}
+                        />
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => navigate('/parent/dashboard?tab=approvals')}
-                        style={{ height: '34px' }}
-                      >
-                        Review
-                      </button>
-                    </li>
-                  ))}
-                  {providerPendingApprovals.length === 0 && (
-                    <li>
-                      <EmptyState
-                        title="No approvals"
-                        description="Nothing is waiting for your approval right now."
-                      />
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
-          </div>
+                    </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              height: cardHeights.top,
-              gridAutoRows: '1fr',
-              minHeight: 0,
-            }}
-          >
-            <MiniStat
-              label="Approvals"
-              number={providerPendingApprovals.length}
-              detail={providerPendingApprovals.length === 1 ? 'pending request' : 'pending requests'}
-              onClick={() => navigate('/parent/dashboard?tab=approvals')}
-            />
-            <MiniStat
-              label="Kids"
-              number={children.length}
-              detail={children.length === 1 ? 'connected child' : 'connected children'}
-              onClick={() => navigate('/parent/dashboard?tab=children')}
-            />
-            <MiniStat
-              label="Tasks"
-              number={pendingSimpleTasks.length}
-              detail="to review"
-              onClick={() => navigate('/parent/dashboard?tab=my-tasks')}
-            />
-            <MiniStat
-              label="Habits"
-              number={habitsDueToday.length}
-              detail="due today"
-              onClick={() => navigate('/parent/dashboard?tab=goals')}
-            />
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
-            gap: '16px',
-            alignItems: 'start',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              ...cardBase,
-              height: cardHeights.mid,
-            }}
-          >
-            <div style={cardHeader}>
-              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Assign a task</h2>
-              <div style={{ fontSize: '.85rem', color: '#64748b' }}>Quick draft (opens full screen)</div>
-            </div>
-
-            <form onSubmit={handleQuickAssign} style={cardBody}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '12px' }}>
-                <div>
-                  <label htmlFor="quick-title" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
-                    Task name
-                  </label>
-                  <input
-                    id="quick-title"
-                    value={draftTitle}
-                    onChange={(e) => setDraftTitle(e.target.value)}
-                    placeholder="Example: Read for 20 minutes"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(226,232,240,.9)' }}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="quick-child" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
-                    Assign to
-                  </label>
-                  <select
-                    id="quick-child"
-                    value={draftChildId}
-                    onChange={(e) => setDraftChildId(e.target.value)}
-                    disabled={assigneeOptions.length === 0}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(226,232,240,.9)', background: 'rgba(255,255,255,.85)' }}
+                    <button
+                      type="button"
+                      className="home-redeem-btn btn-success app-button-label"
+                      onClick={handleRedeemReward}
+                      disabled={redeemingReward || coins < (activeReward?.costCoins || 0)}
+                      aria-label="Redeem reward"
+                      title="Redeem reward"
+                    >
+                      <span className="home-redeem-btn__check" aria-hidden="true">✓</span>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost app-button-label home-reward-clear"
+                    onClick={handleClearReward}
                   >
-                    {assigneeOptions.length === 0 && <option value="">No available assignees</option>}
-                    {assigneeOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.name} {opt.type === 'child' ? '(child)' : '(me)'}
-                      </option>
-                    ))}
-                  </select>
+                    Hide reward
+                  </button>
+                </>
+              ) : (
+                <div className="home-reward-empty">
+                  <div className="home-panel__title app-panel-title">No active reward</div>
+                  <div className="app-helper-text">Pick something fun to save your coins for.</div>
+                  <button
+                    type="button"
+                    className="btn btn-primary app-button-label"
+                    onClick={openRewardPicker}
+                    disabled={rewardPickerLoading}
+                  >
+                    {rewardPickerLoading ? 'Loading...' : 'Choose reward'}
+                  </button>
+                </div>
+              )}
+
+              {showRewardPicker ? (
+                <div className="home-reward-picker">
+                  {availableRewards.length === 0 ? (
+                    <div className="app-helper-text">No saved rewards available yet.</div>
+                  ) : (
+                    availableRewards.map((reward, index) => (
+                      <button
+                        key={`reward-${reward.id || index}`}
+                        type="button"
+                        className="home-reward-picker__item"
+                        onClick={() => handleSelectReward(reward)}
+                      >
+                        <span className="home-reward-picker__copy">
+                          <span className="app-card-title">{sanitizeTitle(reward.title)}</span>
+                          <span className="app-micro-text">
+                            {reward.sourceGoalTitle ? `From ${sanitizeTitle(reward.sourceGoalTitle)}` : 'Saved reward'}
+                          </span>
+                        </span>
+                        <span className="app-helper-text">{reward.costCoins} coins</span>
+                      </button>
+                    ))
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost app-button-label"
+                    onClick={() => setShowRewardPicker(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="home-panel home-panel--coins">
+              <span className="home-coin-icon">🪙</span>
+              <span className="home-coin-number app-section-title">{coins.toLocaleString()}</span>
+            </div>
+
+            <button
+              type="button"
+              className="home-primary-btn parent-dashboard-cta app-button-label"
+              onClick={() => navigate('/parent/dashboard?tab=children')}
+            >
+              Open children
+            </button>
+          </div>
+
+          <div className="home-main-grid">
+            <section className="home-panel home-panel--action parent-action-shell">
+              <div className="parent-action-shell__header">
+                <div className="home-panel__title app-panel-title" style={{ marginBottom: 0 }}>
+                  {activeFamilyMemberId
+                    ? `${activeFamilyMemberLabel.toLowerCase()} action plan`
+                    : 'family action plan'}
+                </div>
+
+                <p className="parent-action-shell__subtitle app-helper-text">
+                  Flip between your own view and each child.
+                </p>
+
+                <div className="parent-filter-chip-row">
+                  {familyViewOptions.map((option) => (
+                    <FilterChip
+                      key={option.value}
+                      label={option.label}
+                      active={selectedFamilyMemberId === option.value}
+                      onClick={() => setSelectedFamilyMemberId(option.value)}
+                    />
+                  ))}
                 </div>
               </div>
 
-              <div style={{ marginTop: '12px' }}>
-                <label htmlFor="quick-notes" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
-                  Notes (optional)
-                </label>
-                <textarea
-                  id="quick-notes"
-                  value={draftNotes}
-                  onChange={(e) => setDraftNotes(e.target.value)}
-                  placeholder="Add details or reminders"
-                  rows={3}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid rgba(226,232,240,.9)', resize: 'vertical' }}
+              <CuePlanCard
+                title=""
+                headerAction={(
+                  <button
+                    type="button"
+                    className="cueCard__readButton app-button-label"
+                    onClick={speakActionPlans}
+                    disabled={!supportsTTS}
+                    aria-label="Read action plans aloud"
+                    title={supportsTTS ? 'Read action plans aloud' : 'Text-to-speech not supported'}
+                  >
+                    <span aria-hidden="true">🔊</span>
+                    <span>Read</span>
+                  </button>
+                )}
+                progressLabel={activeFamilyMemberId ? `${activeFamilyMemberLabel} progress` : 'Family progress'}
+                progressValue={dailyProgress}
+                progressValueText={`${dailyProgress}%`}
+                sections={actionCueSections}
+                loading={loading}
+                loadingText="Loading family plans…"
+                emptyTitle={
+                  activeFamilyMemberId
+                    ? `Nothing due today for ${activeFamilyMemberLabel}`
+                    : 'Nothing due today'
+                }
+                emptyDescription={
+                  activeFamilyMemberId
+                    ? `${activeFamilyMemberLabel}'s due plans will show here.`
+                    : 'Your due plans and your family’s due plans will show here.'
+                }
+                onItemClick={handleTogglePlan}
+              />
+            </section>
+
+            <section className="home-panel home-panel--workspace">
+              {taskView === 'board' && (
+                <MissionsBoard
+                  title="Family missions"
+                  primaryActionLabel="Assign task"
+                  onPrimaryAction={openTaskBuilder}
+                  activeTasks={boardActiveTasks}
+                  pendingTasks={boardPendingTasks}
+                  completedTasks={boardCompletedTasks}
+                  onOpenTask={openTaskFocus}
+                  onStartTask={async (taskId) => {
+                    await handleStartTask(taskId)
+                    openTaskFocus(taskId)
+                  }}
+                  onCompleteTask={handleCompleteTask}
+                  onDeleteTask={handleDeleteTask}
+                  showAssignee
+                  emptyReadyText={loading ? 'Loading family missions…' : 'No family missions are waiting right now.'}
+                  emptyFinishedText={loading ? 'Loading family missions…' : 'No finished family missions yet.'}
                 />
+              )}
+
+              {taskView === 'builder' && (
+                <TaskAssignmentPanel
+                  mode="parent"
+                  currentUser={user}
+                  actionPlanOptions={taskActionPlanOptions}
+                  assigneeOptions={assigneeOptions}
+                  onCreated={async () => {
+                    await handleTaskCreated()
+                    goBackToTaskBoard()
+                  }}
+                  onCancel={goBackToTaskBoard}
+                />
+              )}
+
+              {taskView === 'focus' && (
+                <FocusMissionPanel
+                  task={focusedTask}
+                  plansById={plansById}
+                  goalsById={goalsById}
+                  onBack={goBackToTaskBoard}
+                  onStartTask={handleStartTask}
+                  onCompleteTask={handleCompleteTask}
+                  onToggleChecklistItem={handleToggleTaskChecklistItem}
+                  onDeleteTask={async (taskId) => {
+                    await handleDeleteTask(taskId)
+                    goBackToTaskBoard()
+                  }}
+                />
+              )}
+            </section>
+
+            <section className="home-panel home-panel--goals">
+              <div className="parent-panel-header">
+                <div className="home-panel__title app-panel-title">Family attention</div>
+                <button
+                  type="button"
+                  className="home-secondary-btn app-button-label"
+                  onClick={() => navigate('/parent/dashboard?tab=children')}
+                >
+                  Open children
+                </button>
               </div>
 
-              <button
-                type="submit"
-                className="btn btn-parent-primary"
-                style={{ width: '100%', height: '44px', marginTop: '12px' }}
-                disabled={assigneeOptions.length === 0 || assigning}
-              >
-                {assigning ? 'Assigning…' : 'Assign task'}
-              </button>
-            </form>
-          </div>
+              <div className="parent-section-stack">
+                <div>
+                  <div className="parent-section-label app-meta-label">Needs attention</div>
 
-          <div
-            className="card"
-            style={{
-              ...cardBase,
-              height: cardHeights.mid,
-            }}
-          >
-            <div style={cardHeader}>
-              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Your family</h2>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => navigate('/parent/dashboard?tab=children')}
-                style={{ height: '34px' }}
-              >
-                Manage
-              </button>
-            </div>
+                  {kidsNeedingAttention.length === 0 ? (
+                    <EmptyState
+                      title="No one needs attention right now"
+                      description="Due plans and pending child tasks will show here."
+                    />
+                  ) : (
+                    <div className="parent-compact-list">
+                      {kidsNeedingAttention.slice(0, 3).map((entry) => {
+                        const approvalCount = providerPendingApprovals.filter(
+                          (task) => normalizeId(task.assigneeId || task.childId) === normalizeId(entry.child.id)
+                        ).length
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px', flex: '0 0 auto' }}>
-              <Chip active={familyTab === 'kids'} onClick={() => setFamilyTab('kids')}>
-                Kids
-              </Chip>
-              <Chip active={familyTab === 'pending'} onClick={() => setFamilyTab('pending')}>
-                Pending
-              </Chip>
-              <Chip active={familyTab === 'habits'} onClick={() => setFamilyTab('habits')}>
-                Habits
-              </Chip>
-            </div>
+                        return (
+                          <button
+                            key={`attention-child-${entry.child.id}`}
+                            type="button"
+                            className="parent-compact-row"
+                            onClick={() => setSelectedFamilyMemberId(normalizeId(entry.child.id))}
+                          >
+                            <div className="parent-compact-row__avatar">
+                              {entry.child.name?.[0]?.toUpperCase() ?? '?'}
+                            </div>
 
-            <div style={cardBody}>
-              {familyTab === 'kids' && (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {kidsNeedingAttention.map(({ child, pending, habitsDue }) => (
-                    <li
-                      key={child.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '10px 0',
-                        borderBottom: '1px solid rgba(226,232,240,.8)',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 800 }}>{child.name}</div>
-                        <div style={{ fontSize: '.85rem', color: '#64748b' }}>
-                          {pending} tasks · {habitsDue} habits
+                            <div className="parent-compact-row__body">
+                              <div className="parent-compact-row__name app-card-title">{entry.child.name}</div>
+                              <div className="parent-compact-row__meta app-helper-text">
+                                {entry.taskCount} tasks pending • {entry.planCount} due plans • {approvalCount} approvals
+                              </div>
+                            </div>
+
+                            <div className="parent-compact-row__badge app-micro-text">{entry.total}</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="parent-section-label app-meta-label">Children overview</div>
+
+                  {childOverviewRows.length === 0 ? (
+                    <EmptyState
+                      title="No children connected yet"
+                      description="Child summaries will appear here."
+                    />
+                  ) : (
+                    <div className="parent-compact-list">
+                      {childOverviewRows.map((entry) => (
+                        <button
+                          key={`overview-child-${entry.child.id}`}
+                          type="button"
+                          className="parent-compact-row parent-compact-row--stacked"
+                          onClick={() => setSelectedFamilyMemberId(normalizeId(entry.child.id))}
+                        >
+                          <div className="parent-compact-row__avatar">
+                            {entry.child.name?.[0]?.toUpperCase() ?? '?'}
+                          </div>
+
+                          <div className="parent-compact-row__body">
+                            <div className="parent-compact-row__name app-card-title">{entry.child.name}</div>
+                            <div className="parent-compact-row__meta app-helper-text">
+                              Tap to switch the page to this child.
+                            </div>
+
+                            <div className="parent-pill-row">
+                              <span className="parent-pill app-micro-text">{entry.goalCount} goals</span>
+                              <span className="parent-pill app-micro-text">{entry.duePlanCount} due today</span>
+                              <span className="parent-pill app-micro-text">{entry.pendingTaskCount} pending tasks</span>
+                              <span className="parent-pill app-micro-text">{entry.approvalCount} approvals</span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="home-panel home-panel--calendar">
+              <div className="parent-panel-header parent-panel-header--calendar">
+                <div>
+                  <div className="home-panel__title app-panel-title">Weekly calendar</div>
+                  <p className="parent-calendar-subtitle app-helper-text">
+                    {activeFamilyMemberId
+                      ? `Showing ${activeFamilyMemberLabel}'s week.`
+                      : ''}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="home-secondary-btn home-calendar-open-btn app-button-label"
+                  onClick={() => navigate('/calendar')}
+                >
+                  Open calendar
+                </button>
+              </div>
+
+              <WeekStrip
+                assigneeId={activeFamilyMemberId || user?.id}
+                hideDefaultHeader
+                variant="home"
+                showDetails={false}
+                weekStartsOn="monday"
+                refreshKey={`${todayISO}-${completedTodayCount}-${coins}-${selectedFamilyMemberId}`}
+              />
+
+              <div className="home-week-summary">
+                {familyWeekSummary.map((stat) => (
+                  <article
+                    key={`summary-${stat.key}`}
+                    className={`home-week-summary__card ${stat.tone}`}
+                  >
+                    <div className="home-week-summary__icon" aria-hidden="true">
+                      {stat.icon}
+                    </div>
+                    <div className="home-week-summary__value app-section-title">
+                      {Number(stat.value || 0).toLocaleString()}
+                    </div>
+                    <div className="home-week-summary__label app-meta-label">
+                      {stat.label}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="home-panel home-panel--avatar parent-snapshot-panel">
+              <div className="home-panel__title app-panel-title">Parent snapshot</div>
+
+              <div className="parent-snapshot-stack">
+                <div className="parent-snapshot-lead">
+                  <div className="parent-snapshot-lead__kicker app-meta-label">Parent account</div>
+                  <div className="parent-snapshot-lead__name app-card-title">{user?.name || 'Parent user'}</div>
+                </div>
+
+                <div className="parent-stat-pill app-micro-text"><strong>{ownGoals.length}</strong> of your own goals</div>
+                <div className="parent-stat-pill app-micro-text"><strong>{children.length}</strong> connected child{children.length === 1 ? '' : 'ren'}</div>
+                <div className="parent-stat-pill app-micro-text"><strong>{myDuePlans.length}</strong> of your plans due today</div>
+                <div className="parent-stat-pill app-micro-text"><strong>{pendingMyTasks.length}</strong> of your simple tasks still open</div>
+                <div className="parent-stat-pill app-micro-text"><strong>{providerPendingApprovals.length}</strong> approvals waiting</div>
+              </div>
+            </section>
+
+            <section className="home-panel home-panel--badges parent-approvals-panel">
+              <div className="parent-panel-header">
+                <div className="home-panel__title app-panel-title">Approval list</div>
+                <button
+                  type="button"
+                  className="home-secondary-btn app-button-label"
+                  onClick={() => navigate('/parent/dashboard?tab=approvals')}
+                >
+                  Review
+                </button>
+              </div>
+
+              {providerPendingApprovals.length === 0 ? (
+                <div className="home-badges-empty app-helper-text">
+                  No approvals are waiting right now.
+                </div>
+              ) : (
+                <div className="home-badges-list">
+                  {providerPendingApprovals.slice(0, 6).map((task, index) => (
+                    <div key={`provider-approval-${task.id || task.tempId || index}`} className="home-friend-row">
+                      <div className="home-friend-avatar">
+                        {(task.assigneeName || 'P')?.[0]?.toUpperCase() ?? 'P'}
+                      </div>
+                      <div className="home-friend-info">
+                        <div className="home-friend-name app-card-title">
+                          {sanitizeTitle(task.title || task.name || 'Untitled task')}
+                        </div>
+                        <div className="home-friend-meta app-helper-text">
+                          {(task.assigneeName || 'Child')} • {task.createdByRole || 'provider'} submitted
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => navigate('/parent/dashboard?tab=children')}
-                        style={{ height: '34px' }}
-                      >
-                        View
-                      </button>
-                    </li>
+                    </div>
                   ))}
-                  {kidsNeedingAttention.length === 0 && (
-                    <li>
-                      <EmptyState title="All caught up" description="No kids need attention right now." />
-                    </li>
-                  )}
-                </ul>
+                </div>
               )}
-
-              {familyTab === 'pending' && (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {pendingSimpleTasks.slice(0, 5).map((t) => (
-                    <li
-                      key={t.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '10px 0',
-                        borderBottom: '1px solid rgba(226,232,240,.8)',
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.title || t.name}
-                        </div>
-                        <div style={{ fontSize: '.85rem', color: '#64748b' }}>For {t.assigneeName || 'child'}</div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => handleToggleTaskStatus(t.id)}
-                        style={{ height: '34px' }}
-                      >
-                        Mark done
-                      </button>
-                    </li>
-                  ))}
-                  {pendingSimpleTasks.length === 0 && (
-                    <li>
-                      <EmptyState title="No pending tasks" description="Nothing is waiting right now." />
-                    </li>
-                  )}
-                </ul>
-              )}
-
-              {familyTab === 'habits' && (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {habitsDueToday.slice(0, 5).map((plan) => (
-                    <li
-                      key={plan.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        padding: '10px 0',
-                        borderBottom: '1px solid rgba(226,232,240,.8)',
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {plan.title || 'Habit'}
-                        </div>
-                        <div style={{ fontSize: '.85rem', color: '#64748b' }}>
-                          For {plan.assigneeName || 'child'} · {getPlanFrequencyLabel(plan)}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => handleToggleHabitCompleted(plan)}
-                        style={{ height: '34px' }}
-                      >
-                        Done today
-                      </button>
-                    </li>
-                  ))}
-                  {habitsDueToday.length === 0 && (
-                    <li>
-                      <EmptyState title="No habits" description="No habits are due today." />
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
+            </section>
           </div>
         </div>
-
-        {error && <p style={{ color: '#b91c1c', marginTop: '0.75rem' }}>{error}</p>}
-        {loading && (
-          <p className="sub" style={{ marginTop: '0.5rem' }}>
-            Loading…
-          </p>
-        )}
-      </div>
+      </section>
     </div>
-  );
+  )
 }

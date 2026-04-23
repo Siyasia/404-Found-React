@@ -131,8 +131,8 @@ export default function Login() {
             </div>
 
             <div className="ns-auth-highlight">
-              <strong>Same real flow</strong>
-              <span>This matches your current app instead of inventing extra steps.</span>
+              <strong>Grow with flow </strong>
+              <span>Continue building routines and tracking progress seamlessly.</span>
             </div>
           </div>
 
@@ -148,7 +148,7 @@ export default function Login() {
         <div className="ns-auth-card">
           <h2>Log in</h2>
           <p className="ns-auth-card-sub">
-            Use the same credentials and flows your app already supports.
+            Enter your credentials to access your account and continue growing with NextSteps.
           </p>
 
           <div className="ns-auth-tabs" role="tablist" aria-label="Login type">

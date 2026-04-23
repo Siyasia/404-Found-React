@@ -2,6 +2,7 @@
 // This file is intentionally pure and side-effect free.
 
 import { formatScheduleLabel, REPEAT } from '../schedule.js'
+import { getCueLabel } from '../cuePresets.js'
 
 // The main export takes the raw form data from the Habit Wizard and maps it into the normalized shape expected by our local models and API.
 function normalizeSchedule(schedule) {
@@ -48,7 +49,10 @@ export function mapWizardPayload(raw) {
     whyItMatters: raw.whyItMatters || raw.reason || '',
     startDate: raw.startDate || null,
     endDate: raw.endDate || null,
-    assigneeId: raw.assignee || raw.assigneeId || null,
+    assigneeId:
+      raw.assignee ||
+      raw.assigneeId ||
+      (Array.isArray(raw.assignees) && raw.assignees.length > 0 ? raw.assignees[0] : null),
     assigneeName: raw.assigneeName ?? null,
     createdAt: now,
     createdById: raw.createdById ?? null,
@@ -63,6 +67,12 @@ export function mapWizardPayload(raw) {
     milestoneRewards: Array.isArray(raw.milestoneRewards) ? raw.milestoneRewards.slice() : [],
     rewardGoalTitle: raw.rewardGoalTitle || '',
     rewardGoalCostCoins: Number(raw.rewardGoalCostCoins || 0),
+    rewardType: raw.rewardType || 'custom',
+    rewardShopItemId: raw.rewardShopItemId || '',
+    meta: {
+      rewardType: raw.rewardType || 'custom',
+      rewardShopItemId: raw.rewardShopItemId || '',
+    },
   }
 
   const tasks = Array.isArray(raw.tasks) ? raw.tasks.slice() : []
@@ -80,10 +90,18 @@ export function mapWizardPayload(raw) {
     const schedule = t?.schedule ? normalizeSchedule(t.schedule) : null
     const frequencyLabel = schedule ? formatScheduleLabel(schedule) : ''
 
-    // Base shape for all task types
+    const incomingMeta =
+      t.meta && typeof t.meta === 'object' && !Array.isArray(t.meta) ? { ...t.meta } : {}
+
+    const cuePreset = t.cuePreset || incomingMeta.cuePreset || ''
+    const cueLabel = t.cueLabel || incomingMeta.cueLabel || getCueLabel(cuePreset)
+    const cueDetail = (t.cueDetail || incomingMeta.cueDetail || t.cue || '').trim()
+    const displayCue = cueDetail || cueLabel || ''
+    const timeOfDay = t.timeOfDay || incomingMeta.timeOfDay || ''
+
     const base = {
-      id: null,
-      goalId: null,
+      id: t.id ?? t.planId ?? null,
+      goalId: t.goalId ?? null,
       title: t.title || t.name || '',
       taskType,
       assigneeId: t.assigneeId ?? t.assignee ?? goal.assigneeId ?? null,
@@ -93,6 +111,11 @@ export function mapWizardPayload(raw) {
       frequencyLabel,
       startDate: schedule?.startDate || null,
       endDate: schedule?.endDate || null,
+      cue: displayCue,
+      cuePreset,
+      cueLabel,
+      cueDetail,
+      timeOfDay,
       completedDates:
         t.completedDates && typeof t.completedDates === 'object' && !Array.isArray(t.completedDates)
           ? { ...t.completedDates }
@@ -110,7 +133,13 @@ export function mapWizardPayload(raw) {
       needsApproval: !!t.needsApproval,
       approvedByParentId: t.approvedByParentId ?? null,
       approvedAt: t.approvedAt ?? null,
-      meta: t.meta && typeof t.meta === 'object' && !Array.isArray(t.meta) ? { ...t.meta } : {},
+      meta: {
+        ...incomingMeta,
+        cuePreset: cuePreset || null,
+        cueLabel: cueLabel || null,
+        cueDetail: cueDetail || null,
+        timeOfDay: timeOfDay || null,
+      },
     }
 
     if (taskType === 'build-habit') {
