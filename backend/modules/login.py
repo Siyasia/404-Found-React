@@ -80,6 +80,11 @@ def logout(response: fastapi.Response, session_token: str = fastapi.Cookie(None)
 @router.post("/signup")
 def signup(user: UserInfo, response: fastapi.Response):
     with Database() as db:
+        new_id = db.create_new_id()
+        if new_id is None:
+            response.status_code = 500
+            return {"error": "Failed to create user id"}
+        user.id = new_id
         if not db.execute(*SQLHelper.user_check(user)).fetchone():
             password = util.hash_password(user.password)
             if db.try_execute(*SQLHelper.user_create(user, password)):

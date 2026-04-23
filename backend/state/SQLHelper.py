@@ -114,12 +114,13 @@ def user_create(info: UserInfo, password):
     are complex objects (stats, meta) are JSON-encoded into TEXT columns.
     """
     query = (
-        "INSERT INTO users (username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO users (id, username, email, password, name, age, role, createdAt, type, theme, profilePic, stats, code, meta) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     stats_json = json.dumps(info.stats) if info.stats else None
     meta_json = json.dumps(info.meta) if info.meta else None
     return query, (
+        info.id,
         info.username,
         info.email,
         password,
@@ -278,9 +279,9 @@ def child_task_list(child_id: int):
     return query, (child_id,)
 
 #Sprint 5 Change: Including Username when creating child as well as a password:
-def child_create(child: ChildInfo, hashed_password: str):
+def child_create(id_: int, child: ChildInfo, hashed_password: str):
     query = "INSERT INTO children (parentId, id, name, username, age, code, password, createdAt, theme) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    return query, (child.parentId, child.id, child.name, child.username, child.age, child.code, hashed_password, child.createdAt, child.theme)
+    return query, (child.parentId, id_, child.name, child.username, child.age, child.code, hashed_password, child.createdAt, child.theme)
 
 def child_update(child, child_id):
     query = "UPDATE children SET parentId = ?, name = ?, username = ?, age = ?, code = ?, createdAt = ?, theme = ? WHERE id = ?"
