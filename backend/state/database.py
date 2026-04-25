@@ -30,7 +30,7 @@ class Database:
 
     def write(self):
         self.__connection.commit()
-
+        
     def try_execute(self, sql: str, params: tuple) -> bool:
         try:
             self.__cursor.execute(sql, params)
@@ -51,6 +51,13 @@ class Database:
     def created_id(self) -> int:
         return self.__cursor.lastrowid
 
+    def create_new_id(self) -> int | None:
+        if self.try_execute("INSERT INTO ids DEFAULT VALUES", ()):
+            self.write()
+            return self.created_id()
+        else:
+            return None
+
     def __enter__(self):
         self.mutex.acquire()
         self.__connection = sqlite3.connect(self.filename)
@@ -66,9 +73,13 @@ class Database:
 
     def create_tables(self):
 
+        self.__connection.execute("CREATE TABLE IF NOT EXISTS ids (id INTEGER PRIMARY KEY AUTOINCREMENT);")
+
+
+
         #Sprint 5 Additions: Adding usernames to children.
         self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, username TEXT, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
+            "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY AUTOINCREMENT, parentId INTEGER, name TEXT, username TEXT, friends TEXT, incomingFriendRequests TEXT, password TEXT, childCode INTEGER, age INTEGER, code TEXT, createdAt TEXT, theme TEXT)"
         )
 
         def ensure_column(table: str, column: str, col_def: str):
@@ -87,7 +98,7 @@ class Database:
 
         # Users table (matches backend `UserInfo` model)
         self.__connection.execute(
-            "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, password TEXT, name TEXT, age INTEGER, role TEXT, createdAt TEXT, type TEXT, theme TEXT, profilePic TEXT, stats TEXT, code TEXT, meta TEXT)"
+            "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, email TEXT, password TEXT, name TEXT, age INTEGER, role TEXT, createdAt TEXT, type TEXT, theme TEXT, profilePic TEXT, stats TEXT, code TEXT, meta TEXT, friends TEXT, incomdingFriendRequests, TEXT)"
         )
         ensure_column("users", "friends", "TEXT")
         ensure_column("users", "incomingFriendRequests", "TEXT")
@@ -165,6 +176,7 @@ class Database:
             "meta TEXT"
             ")"
         )
+
 
     @staticmethod
     def populate_items(db):

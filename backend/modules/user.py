@@ -15,14 +15,18 @@ router = fastapi.APIRouter()
 @router.post("/user/create")
 def user_create(info: UserInfo, response: fastapi.Response):
     with Database() as db:
+        new_id = db.create_new_id()
+        if new_id is None:
+            response.status_code = 500
+            return {"error": "Failed to create user id"}
+        info.id = new_id
         if db.try_execute(*SQLHelper.user_create(info)):
             response.status_code = 200
             db.write()
         else:
             response.status_code = 500
             return response
-        user_id = db.created_id()
-    return {"user_id": user_id}
+    return {"user_id": info.id}
 
 
 @router.get("/user/delete/{user_id}")

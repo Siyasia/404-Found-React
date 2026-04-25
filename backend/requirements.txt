@@ -1,4 +1,4 @@
-load-dotenv
+python-dotenv
 fastapi
 pydantic
 uvicorn

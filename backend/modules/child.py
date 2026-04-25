@@ -30,11 +30,14 @@ def child_create(child: ChildInfo, response: fastapi.Response, user: UserInfo = 
     child.parentId = user.id
 
     with Database() as db:
+        new_id = db.create_new_id()
+        if new_id is None:
+            response.status_code = 500
+            return {"error": "Failed to create child id"}
         # NOTE: SQLHelper.child_create must accept (child, hashed)
-        if db.try_execute(*SQLHelper.child_create(child, hashed)):
-            child_id = db.created_id()
+        if db.try_execute(*SQLHelper.child_create(new_id, child, hashed)):
             db.write()
-            return {"id": child_id}
+            return {"id": new_id}
         else:
             response.status_code = 500
             return {"error": "Failed to create child"}

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "dotenv vite --port $PORT",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -17,6 +17,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "canvas-confetti": "^1.9.4",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0",
     "lucide-react": "^0.555.0",
     "prop-types": "^15.8.1",
     "react": "^19.2.0",

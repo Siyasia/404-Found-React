@@ -7,7 +7,7 @@
 import { nullifyLogin } from "../../UserContext.jsx";
 
 const DEFAULT_TIMEOUT = 10000 // ms
-const BASE_URL = "http://localhost:8080"
+const BASE_URL = import.meta.env.VITE_API_URL
 
 function buildHeaders(customHeaders) {
 	return Object.assign({
@@ -44,6 +44,7 @@ function timeoutSignal(timeout) {
 }
 
 export async function getJSON(url, { headers, timeout } = {}) {
+        console.log(`${BASE_URL}${url}`);
 	const to = timeout || DEFAULT_TIMEOUT
 	const t = timeoutSignal(to)
 	try {
